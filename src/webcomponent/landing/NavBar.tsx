@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import Image from "next/image";
@@ -14,21 +12,10 @@ export const Navbar = () => {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
-  const handleScrollToContact = () => {
-  if (typeof window !== "undefined") {
-    const section = document.getElementById("footer-contact");
-    if (section) {
-      section.scrollIntoView({ behavior: "smooth" });
-    } else {
-      // If footer not yet rendered (maybe lazy or below viewport)
-      setTimeout(() => {
-        const retrySection = document.getElementById("footer-contact");
-        if (retrySection) retrySection.scrollIntoView({ behavior: "smooth" });
-      }, 300);
-    }
-  }
-  setOpen(false);
-};
+  const handleContactClick = () => {
+    router.push("/contact-us");
+    setOpen(false);
+  };
 
   return (
     <nav className="fixed top-0 left-0 w-full z-40 h-20 backdrop-blur-[30px] bg-white/10 border-b border-white/10 font-montserrat">
@@ -47,7 +34,7 @@ export const Navbar = () => {
         {/* Desktop Menu */}
         <div className="hidden md:flex items-center gap-6">
           <button
-            onClick={handleScrollToContact}
+            onClick={handleContactClick}
             className="text-white bg-transparent hover:text-yellow-300 transition-colors"
           >
             Contact Us
@@ -81,7 +68,7 @@ export const Navbar = () => {
 
               <div className="flex flex-col gap-4 text-lg">
                 <button
-                  onClick={handleScrollToContact}
+                  onClick={handleContactClick}
                   className="text-white hover:text-yellow-300 transition-colors text-left"
                 >
                   Contact Us

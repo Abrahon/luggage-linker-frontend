@@ -20,6 +20,7 @@ export const InfoLayout = ({ children }: InfoLayoutProps) => {
     "/privacy": { lines: ["Privacy", "Policy"] },
     "/tsa-regulation": { lines: ["TSA", "Regulation"] },
     "/about-us": { lines: ["About Us"], singleLine: true },
+    "/contact-us": { lines: ["Contact Us"], singleLine: true },
   };
 
   const breadcrumb = breadcrumbTitles[pathname] || { lines: ["Info", "Page"] };
