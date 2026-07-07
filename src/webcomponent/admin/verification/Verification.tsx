@@ -26,8 +26,10 @@ export interface VerificationProps {
   name: string;
   email: string;
   role: "carrier" | "sender";
+  documentType: "Passport" | "National ID" | "Driver License";
+  country: string;
   submittedAt: string;
-  status: "pending" | "approved";
+  status: "pending" | "approved" | "rejected" | "expired";
   phoneNumber: string;
   nationalId: string;
   nationality: string;
@@ -39,16 +41,26 @@ export interface VerificationProps {
   city: string;
   state: string;
   zip: string;
-  country: string;
   selfieImageUrl: string[];
+  reviewedBy?: string;
+  reviewedAt?: string;
 }
 
 const demoData: VerificationProps[] = Array.from({ length: 8 }, (_, i) => ({
   name: `User ${i + 1}`,
   email: `user${i + 1}@gmail.com`,
   role: "carrier",
+  documentType: "Passport",
+  country: "Bangladesh",
   submittedAt: "12-09-2025",
-  status: i % 2 === 0 ? "pending" : "approved",
+  status:
+    i % 4 === 0
+      ? "pending"
+      : i % 4 === 1
+      ? "approved"
+      : i % 4 === 2
+      ? "rejected"
+      : "expired",
   phoneNumber: "+8801XXXXXXXXX",
   nationalId: "1234567890",
   nationality: "Bangladeshi",
@@ -60,7 +72,6 @@ const demoData: VerificationProps[] = Array.from({ length: 8 }, (_, i) => ({
   city: "Dhaka",
   state: "Dhaka",
   zip: "1212",
-  country: "Bangladesh",
   selfieImageUrl: [
     "/admin/selfie1.png",
     "/admin/selfie2.png",
@@ -94,9 +105,10 @@ export const Verification = () => {
           <TableHeader>
             <TableRow className="border-none">
               {[
-                "Name",
-                "Email",
+                "User Details",
                 "Role",
+                "Doc Type",
+                "Country",
                 "Submitted Date",
                 "Status",
                 "Action",
@@ -110,23 +122,34 @@ export const Verification = () => {
           <TableBody>
             {paginatedData.map((user, idx) => (
               <TableRow key={idx} className="border-none">
-                <TableCell>{user.name}</TableCell>
-                <TableCell>{user.email}</TableCell>
-                <TableCell className="">
-                  <span className="capitalize p-2 border rounded-full">
+                <TableCell>
+                  <div>
+                    <p className="font-medium text-gray-900">{user.name}</p>
+                    <p className="text-xs text-gray-500">{user.email}</p>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <span className="capitalize rounded-full border px-3 py-1 text-sm">
                     {user.role}
                   </span>
                 </TableCell>
+                <TableCell>{user.documentType}</TableCell>
+                <TableCell>{user.country}</TableCell>
                 <TableCell>{user.submittedAt}</TableCell>
                 <TableCell>
                   <span
-                    className={`px-3 py-1 text-xs rounded-full font-medium ${
+                    className={`px-3 py-1 rounded-full text-xs font-medium
+                    ${
                       user.status === "pending"
-                        ? "bg-[#FFF4D2] text-[#F5C824]"
-                        : "bg-green-100 text-green-700"
+                        ? "bg-yellow-100 text-yellow-700"
+                        : user.status === "approved"
+                        ? "bg-green-100 text-green-700"
+                        : user.status === "rejected"
+                        ? "bg-red-100 text-red-700"
+                        : "bg-gray-100 text-gray-700"
                     }`}
                   >
-                    {user.status}
+                    {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
                   </span>
                 </TableCell>
                 <TableCell>
@@ -176,33 +199,6 @@ export const Verification = () => {
 
           {selectedUser && (
             <Tabs defaultValue="personal" className="mt-4">
-              {/* Tab Navigation */}
-              {/* <TabsList className="grid grid-cols-4 gap-2 bg-[#D9D9D9] rounded-full">
-          <TabsTrigger
-            value="personal"
-            className="rounded-full data-[state=active]:bg-white transition-all duration-300"
-          >
-            Personal Details
-          </TabsTrigger>
-          <TabsTrigger
-            value="id"
-            className="rounded-full data-[state=active]:bg-white transition-all duration-300"
-          >
-            ID Verification
-          </TabsTrigger>
-          <TabsTrigger
-            value="address"
-            className="rounded-full data-[state=active]:bg-white transition-all duration-300"
-          >
-            Address
-          </TabsTrigger>
-          <TabsTrigger
-            value="selfie"
-            className="rounded-full data-[state=active]:bg-white transition-all duration-300"
-          >
-            Selfie
-          </TabsTrigger>
-        </TabsList> */}
               <TabsList className="flex w-full overflow-x-auto bg-[#D9D9D9] rounded-full p-1 scrollbar-none">
                 <TabsTrigger
                   value="personal"
@@ -230,7 +226,7 @@ export const Verification = () => {
                 </TabsTrigger>
               </TabsList>
 
-              {/* Each tab now has the same height */}
+              {/* Each tab container layout */}
               <div className="relative mt-3 bg-[#FAFAFA] rounded-lg p-4 h-[420px] overflow-y-auto">
                 {/* Personal Details */}
                 <TabsContent value="personal" className="h-full">
@@ -239,7 +235,8 @@ export const Verification = () => {
                       <strong>Name:</strong> {selectedUser.name}
                     </p>
                     <p className="flex flex-col gap-2 place-self-end">
-                      <strong>Status:</strong> {selectedUser.status}
+                      <strong>Status:</strong>{" "}
+                      <span className="capitalize">{selectedUser.status}</span>
                     </p>
                     <p className="flex flex-col gap-2">
                       <strong>Email:</strong> {selectedUser.email}
@@ -254,14 +251,21 @@ export const Verification = () => {
                       <strong>Date of Birth:</strong> {selectedUser.dateOfBirth}
                     </p>
                     <p className="flex flex-col gap-2">
-                      <strong>National ID:</strong> {selectedUser.nationalId}
+                      <strong>National ID / Doc Number:</strong>{" "}
+                      {selectedUser.nationalId}
+                    </p>
+                    <p className="flex flex-col gap-2 place-self-end">
+                      <strong>Document Type:</strong>{" "}
+                      {selectedUser.documentType}
                     </p>
                   </div>
                 </TabsContent>
 
                 {/* ID Verification */}
                 <TabsContent value="id" className="h-full">
-                  <h4 className="font-semibold mb-3">Identify Documents</h4>
+                  <h4 className="font-semibold mb-3">
+                    Identity Documents ({selectedUser.documentType})
+                  </h4>
                   <div className="flex flex-col gap-4">
                     <div>
                       <strong>Front Image</strong>
@@ -299,7 +303,7 @@ export const Verification = () => {
                     </p>
                     <p className="flex flex-col gap-2 place-self-end">
                       <strong>Address Line 2:</strong>{" "}
-                      {selectedUser.addressLine2}
+                      {selectedUser.addressLine2 || "N/A"}
                     </p>
                     <p className="flex flex-col gap-2">
                       <strong>City:</strong> {selectedUser.city}
@@ -348,7 +352,9 @@ export const Verification = () => {
               </div>
             ) : (
               <div className="flex justify-center w-full">
-                <Button variant="outline">Reject</Button>
+                <Button variant="outline" onClick={() => setSelectedUser(null)}>
+                  Close
+                </Button>
               </div>
             )}
           </DialogFooter>

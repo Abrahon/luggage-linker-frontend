@@ -32,6 +32,11 @@ export const carrierLink = [
     icon: DollarSign, // 💰 earnings
   },
   {
+    label: "Wallet",
+    href: "/wallet",
+    icon: DollarSign, // 💰 earnings
+  },
+  {
     label:'Verification',
     href:'/verification',
     icon: UserCog
@@ -81,6 +86,11 @@ export const adminLink = [
     label: "Payments",
     href: "/admin/payments",
     icon: DollarSign, // 💰 payment management
+  },
+  {
+    label: "Wallet",
+    href: "/admin/wallet",
+    icon: DollarSign, // 💰 wallet management
   },
   {
     label: "TSA Records",
