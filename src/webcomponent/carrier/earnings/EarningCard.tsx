@@ -1,6 +1,7 @@
+
+
 // "use client";
 
-// import { Clock, DollarSign, Wallet } from "lucide-react";
 // import { Button } from "@/components/ui/button";
 // import {
 //   Dialog,
@@ -12,83 +13,70 @@
 //   DialogTrigger,
 //   DialogClose,
 // } from "@/components/ui/dialog";
-// import { toast } from "sonner";
 // import { useState } from "react";
 
+// export interface CardItem {
+//   icon: React.ReactNode;
+//   title: string;
+//   money: string;
+//   text: string;
+//   actionText?: string; // e.g. "Withdraw Now" or "Transfer"
+//   onAction?: () => void; // callback when clicked
+// }
 
-// export const EarningCard = () => {
-//   const [open, setOpen] = useState(false);
+// interface EarningCardProps {
+//   data: CardItem[];
+// }
 
-//   const cardData = [
-//     {
-//       icon: <Wallet className="w-5 h-5 text-blue-600" />,
-//       title: "Total Earnings",
-//       money: "$140.40",
-//       text: "All-time income from trips",
-//     },
-//     {
-//       icon: <Clock className="w-5 h-5 text-yellow-500" />,
-//       title: "Pending Earnings",
-//       money: "$20.40",
-//       text: "Earnings yet to be processed",
-//     },
-//     {
-//       icon: <DollarSign className="w-5 h-5 text-green-600" />,
-//       title: "Available Balance",
-//       money: "$120.00",
-//       text: "Ready for withdrawal",
-//       withdraw: true,
-//     },
-//   ];
+// export const EarningCard: React.FC<EarningCardProps> = ({ data }) => {
+//   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
-//   const handleWithdraw = () => {
-//     setOpen(false);
-//     toast.success("Withdrawn the amount successfully!");
+//   const handleAction = (item: CardItem, index: number) => {
+//     if (item.onAction) item.onAction();
+//     setOpenIndex(null);
 //   };
 
 //   return (
 //     <div className="flex flex-col md:flex-row gap-4 w-full">
-//       {cardData.map((card, index) => (
+//       {data.map((item, index) => (
 //         <div
 //           key={index}
 //           className="flex flex-col justify-between border rounded-2xl p-4 shadow-sm w-full md:w-1/3 hover:shadow-md transition-all"
 //         >
 //           {/* Top Section */}
 //           <div className="flex items-center gap-2">
-//             <div className="p-2 bg-gray-100 rounded-full">{card.icon}</div>
-//             <h3 className="font-semibold text-gray-800">{card.title}</h3>
+//             <div className="p-2 bg-gray-100 rounded-full">{item.icon}</div>
+//             <h3 className="font-semibold text-gray-800">{item.title}</h3>
 //           </div>
 
 //           {/* Money */}
 //           <div className="mt-3 text-2xl font-bold text-gray-900">
-//             {card.money}
+//             {item.money}
 //           </div>
 
 //           {/* Description */}
-//           <p className="text-sm text-gray-600 mt-1">{card.text}</p>
+//           <p className="text-sm text-gray-600 mt-1">{item.text}</p>
 
-//           {/* Withdraw Button (only for the last one) */}
-//           {card.withdraw && (
-//             <Dialog open={open} onOpenChange={setOpen}>
+//           {/* Optional Action Button */}
+//           {item.actionText && (
+//             <Dialog open={openIndex === index} onOpenChange={(open) => setOpenIndex(open ? index : null)}>
 //               <DialogTrigger asChild>
-//                 <Button className="mt-4 mx-auto">Withdraw Now</Button>
+//                 <Button className="mt-4 mx-auto">{item.actionText}</Button>
 //               </DialogTrigger>
+
 //               <DialogContent className="sm:max-w-[380px] font-montserrat">
 //                 <DialogHeader>
-//                   <DialogTitle>Confirm Withdrawal</DialogTitle>
+//                   <DialogTitle>Confirm Action</DialogTitle>
 //                   <DialogDescription>
-//                     You are about to withdraw{" "}
-//                     <span className="font-semibold text-gray-900">
-//                       {card.money}
-//                     </span>
-//                     . Are you sure you want to continue?
+//                     Are you sure you want to perform this action for{" "}
+//                     <span className="font-semibold text-gray-900">{item.money}</span>?
 //                   </DialogDescription>
 //                 </DialogHeader>
 //                 <DialogFooter className="flex justify-end gap-2">
 //                   <DialogClose asChild>
 //                     <Button variant="outline">No</Button>
 //                   </DialogClose>
-//                   <Button onClick={handleWithdraw}>Yes</Button>
+//                   <Button onClick={() => handleAction(item, index)}>Yes</Button>
 //                 </DialogFooter>
 //               </DialogContent>
 //             </Dialog>
@@ -98,6 +86,7 @@
 //     </div>
 //   );
 // };
+
 
 "use client";
 
@@ -119,8 +108,8 @@ export interface CardItem {
   title: string;
   money: string;
   text: string;
-  actionText?: string; // e.g. "Withdraw Now" or "Transfer"
-  onAction?: () => void; // callback when clicked
+  actionText?: string;
+  onAction?: () => void;
 }
 
 interface EarningCardProps {
@@ -130,55 +119,77 @@ interface EarningCardProps {
 export const EarningCard: React.FC<EarningCardProps> = ({ data }) => {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
-  const handleAction = (item: CardItem, index: number) => {
+  const handleAction = (item: CardItem) => {
     if (item.onAction) item.onAction();
     setOpenIndex(null);
   };
 
   return (
-    <div className="flex flex-col md:flex-row gap-4 w-full">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
       {data.map((item, index) => (
         <div
           key={index}
-          className="flex flex-col justify-between border rounded-2xl p-4 shadow-sm w-full md:w-1/3 hover:shadow-md transition-all"
+          className="flex flex-col justify-between border border-gray-100 bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-all relative overflow-hidden"
         >
-          {/* Top Section */}
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-gray-100 rounded-full">{item.icon}</div>
-            <h3 className="font-semibold text-gray-800">{item.title}</h3>
+          <div>
+            {/* Top Section */}
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100/60 text-gray-600">
+                {item.icon}
+              </div>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                {item.title}
+              </h3>
+            </div>
+
+            {/* Money Value Display */}
+            <div className="mt-4 text-3xl font-extrabold text-gray-900 tracking-tight">
+              {item.money}
+            </div>
+
+            {/* Description Paragraph */}
+            <p className="text-xs text-gray-500 font-medium mt-1.5">{item.text}</p>
           </div>
 
-          {/* Money */}
-          <div className="mt-3 text-2xl font-bold text-gray-900">
-            {item.money}
-          </div>
-
-          {/* Description */}
-          <p className="text-sm text-gray-600 mt-1">{item.text}</p>
-
-          {/* Optional Action Button */}
+          {/* Optional Direct Context Action Button */}
           {item.actionText && (
-            <Dialog open={openIndex === index} onOpenChange={(open) => setOpenIndex(open ? index : null)}>
-              <DialogTrigger asChild>
-                <Button className="mt-4 mx-auto">{item.actionText}</Button>
-              </DialogTrigger>
+            <div className="mt-5 pt-4 border-t border-gray-50">
+              <Dialog 
+                open={openIndex === index} 
+                onOpenChange={(open) => setOpenIndex(open ? index : null)}
+              >
+                <DialogTrigger asChild>
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs py-2 h-9 rounded-lg transition-colors shadow-sm">
+                    {item.actionText}
+                  </Button>
+                </DialogTrigger>
 
-              <DialogContent className="sm:max-w-[380px] font-montserrat">
-                <DialogHeader>
-                  <DialogTitle>Confirm Action</DialogTitle>
-                  <DialogDescription>
-                    Are you sure you want to perform this action for{" "}
-                    <span className="font-semibold text-gray-900">{item.money}</span>?
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter className="flex justify-end gap-2">
-                  <DialogClose asChild>
-                    <Button variant="outline">No</Button>
-                  </DialogClose>
-                  <Button onClick={() => handleAction(item, index)}>Yes</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+                <DialogContent className="sm:max-w-[400px] bg-white rounded-2xl p-6">
+                  <DialogHeader>
+                    <DialogTitle className="text-lg font-bold text-gray-900">
+                      Confirm Withdrawal Request
+                    </DialogTitle>
+                    <DialogDescription className="text-sm text-gray-500 mt-1">
+                      Are you sure you want to transfer your available balance of{" "}
+                      <span className="font-bold text-blue-600">{item.money}</span> securely into your linked payout method?
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter className="flex justify-end gap-2 mt-4">
+                    <DialogClose asChild>
+                      <Button variant="outline" className="border-gray-200 text-xs font-semibold h-9 rounded-lg">
+                        Cancel
+                      </Button>
+                    </DialogClose>
+                    <Button 
+                      onClick={() => handleAction(item)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold h-9 rounded-lg"
+                    >
+                      Confirm Payout
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
           )}
         </div>
       ))}

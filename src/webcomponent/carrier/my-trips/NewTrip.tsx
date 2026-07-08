@@ -34,8 +34,10 @@ import {
   CommandList,
 } from "@/components/ui/command";
 
-interface NewTripProps {
-  setOpenDilog: (open: boolean) => void;
+// Look for this type/interface inside your NewTrip.tsx file
+export interface NewTripProps {
+  setOpenDilog: React.Dispatch<React.SetStateAction<boolean>>;
+  initialData?: any; // Add this line right here (change 'any' to 'TripDetails | null' if preferred)
 }
 
 const cities = [
