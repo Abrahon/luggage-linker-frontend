@@ -50,6 +50,11 @@ export const senderLink = [
     icon: Search, // 💬 similar message/search connection
   },
   {
+    label: "My Package",
+    href: "/package-list",
+    icon: Search, // 💬 similar message/search connection
+  },
+  {
     label: "Delivery History",
     href: "/delivery-history",
     icon: History, // 🕓 history icon
