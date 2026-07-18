@@ -7,7 +7,7 @@ export const demoUsers = [
   },
   {
     email: "carrier@demo.com",
-    password: "carrier1", // 6+ chars ✅
+    password: "carrier12", // 6+ chars ✅
     role: "carrier",
   },
   {

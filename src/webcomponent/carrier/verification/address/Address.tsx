@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,6 +28,13 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 const countryList = [
@@ -36,133 +43,153 @@ const countryList = [
   "United Kingdom",
   "Bangladesh",
   "India",
-]; // replace with your countries
+];
 
-const addressSchema = z.object({
-  address1: z.string().min(3, "Address Line 1 is required"),
-  address2: z.string().optional(),
-  city: z.string().min(1, "City is required"),
-  state: z.string().min(1, "State is required"),
-  zip: z.string().min(1, "Zip is required"),
+const GENDER_VALUES = ["male", "female", "other", ""] as const;
+
+const personalInfoSchema = z.object({
+  firstName: z.string().min(2, "First name must be at least 2 characters"),
+  lastName: z.string().min(2, "Last name must be at least 2 characters"),
+  phoneNumber: z.string().min(6, "Please enter a valid phone number"),
+  dateOfBirth: z.string().min(1, "Date of birth is required"),
+  gender: z.enum(GENDER_VALUES).refine((val) => val !== "", {
+    message: "Please select your gender",
+  }),
   country: z.string().min(1, "Country is required"),
 });
 
-type AddressFormValues = z.infer<typeof addressSchema>;
+type PersonalInfoFormValues = z.infer<typeof personalInfoSchema>;
 
-export const Address = () => {
+export const PersonalInfo = () => {
   const { setStepComplete } = useVerification();
+  const [openCountry, setOpenCountry] = useState(false);
 
-  const form = useForm<AddressFormValues>({
-    resolver: zodResolver(addressSchema),
+  const form = useForm<PersonalInfoFormValues>({
+    resolver: zodResolver(personalInfoSchema),
+    mode: "onChange", // FIX 1: Forces the form to validate dynamically on every keystroke/change
     defaultValues: {
-      address1: "",
-      address2: "",
-      city: "",
-      state: "",
-      zip: "",
+      firstName: "",
+      lastName: "",
+      phoneNumber: "",
+      dateOfBirth: "",
+      gender: "", 
       country: "",
     },
   });
 
-  // Watch form changes to enable step when valid
+  // Accessing isValid directly from formState guarantees accurate step completion mapping
+  const { isValid } = form.formState;
+
+  // FIX 2: Instead of running a manual safeParse, let React Hook Form's native state handle the step completion
   useEffect(() => {
-    const subscription = form.watch((values) => {
-      const isValid = addressSchema.safeParse(values).success;
-      setStepComplete(isValid);
-    });
-    return () => subscription.unsubscribe();
-  }, [form, setStepComplete]);
+    setStepComplete(isValid);
+  }, [isValid, setStepComplete]);
 
   return (
     <Form {...form}>
-      <form className="flex flex-col gap-4 w-full">
-        {/* Address Line 1 */}
+      <form className="flex flex-col gap-5 w-full max-w-2xl mx-auto py-2">
+        {/* Grid: First Name & Last Name */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <FormField
+            control={form.control}
+            name="firstName"
+            render={({ field }) => (
+              <FormItem className="flex flex-col gap-1.5">
+                <FormLabel className="font-bold text-sm tracking-wide">First Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="John" {...field} className="h-11" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="lastName"
+            render={({ field }) => (
+              <FormItem className="flex flex-col gap-1.5">
+                <FormLabel className="font-bold text-sm tracking-wide">Last Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="Doe" {...field} className="h-11" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* Phone Number */}
         <FormField
           control={form.control}
-          name="address1"
+          name="phoneNumber"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-bold">Address Line 1</FormLabel>
+            <FormItem className="flex flex-col gap-1.5">
+              <FormLabel className="font-bold text-sm tracking-wide">Phone Number</FormLabel>
               <FormControl>
-                <Input placeholder="123 Main Street" {...field} />
+                <Input type="tel" placeholder="+1 (555) 000-0000" {...field} className="h-11" />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        {/* Address Line 2 */}
-        <FormField
-          control={form.control}
-          name="address2"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-bold">
-                Address Line 2 (Optional)
-              </FormLabel>
-              <FormControl>
-                <Input placeholder="Apartment, suite, etc." {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {/* Grid: Date of Birth & Gender */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <FormField
+            control={form.control}
+            name="dateOfBirth"
+            render={({ field }) => (
+              <FormItem className="flex flex-col gap-1.5">
+                <FormLabel className="font-bold text-sm tracking-wide">Date of Birth</FormLabel>
+                <FormControl>
+                  <Input type="date" {...field} className="h-11 block w-full" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="gender"
+            render={({ field }) => (
+              <FormItem className="flex flex-col gap-1.5">
+                <FormLabel className="font-bold text-sm tracking-wide">Gender</FormLabel>
+                <Select 
+                  onValueChange={(value) => field.onChange(value)} // Explicitly pass the value out
+                  value={field.value || ""}
+                >
+                  <FormControl>
+                    <SelectTrigger className="h-11 capitalize">
+                      <SelectValue placeholder="Select gender" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="male" className="cursor-pointer">Male</SelectItem>
+                    <SelectItem value="female" className="cursor-pointer">Female</SelectItem>
+                    <SelectItem value="other" className="cursor-pointer">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
-        {/* Grid: City, State, Zip */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="city"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="font-bold">City</FormLabel>
-                <FormControl>
-                  <Input placeholder="City" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="state"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="font-bold">State</FormLabel>
-                <FormControl>
-                  <Input placeholder="State" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="zip"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="font-bold">Zip</FormLabel>
-                <FormControl>
-                  <Input placeholder="Zip" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-              <FormField
+        {/* Country Picker Popover */}
+        <FormField
           control={form.control}
           name="country"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-bold">Country</FormLabel>
-              <Popover>
+            <FormItem className="flex flex-col gap-1.5">
+              <FormLabel className="font-bold text-sm tracking-wide">Country</FormLabel>
+              <Popover open={openCountry} onOpenChange={setOpenCountry}>
                 <PopoverTrigger asChild>
                   <FormControl>
                     <Button
                       type="button"
                       variant="outline"
                       className={cn(
-                        "w-full justify-between text-left font-normal",
+                        "w-full justify-between text-left font-normal h-11 px-3",
                         !field.value && "text-muted-foreground"
                       )}
                     >
@@ -170,16 +197,22 @@ export const Address = () => {
                     </Button>
                   </FormControl>
                 </PopoverTrigger>
-                <PopoverContent align="start" className="p-0 w-[250px]">
-                  <Command>
-                    <CommandInput placeholder="Search country..." />
+                <PopoverContent align="start" className="p-0 w-[var(--radix-popover-trigger-width)]">
+                  <Command className="w-full">
+                    <CommandInput placeholder="Search country..." className="h-10" />
                     <CommandList>
                       <CommandEmpty>No country found.</CommandEmpty>
                       <CommandGroup>
                         {countryList.map((country) => (
                           <CommandItem
                             key={country}
-                            onSelect={() => form.setValue("country", country)}
+                            value={country}
+                            onSelect={() => {
+                              // FIX 3: Trigger full form updates cleanly by routing it through field.onChange
+                              field.onChange(country);
+                              setOpenCountry(false);
+                            }}
+                            className="cursor-pointer"
                           >
                             {country}
                           </CommandItem>
@@ -193,10 +226,6 @@ export const Address = () => {
             </FormItem>
           )}
         />
-        </div>
-
-        {/* Country Command */}
-    
       </form>
     </Form>
   );
