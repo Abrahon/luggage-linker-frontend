@@ -47,6 +47,29 @@ export const ForgotPassword = () => {
   const [showConfirm, setShowConfirm] = useState(false);
 
   // ---------------------------- Forms ----------------------------
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+  e.preventDefault();
+
+  const pasted = e.clipboardData
+    .getData("text")
+    .replace(/\D/g, "")
+    .slice(0, 6);
+
+  if (!pasted) return;
+
+  const newOtp = [...otp];
+
+  pasted.split("").forEach((digit, index) => {
+    newOtp[index] = digit;
+  });
+
+  setOtp(newOtp);
+
+  // Focus the last filled input
+  const lastIndex = Math.min(pasted.length - 1, 5);
+  otpRefs.current[lastIndex]?.focus();
+};
+
   const {
     register: registerEmail,
     handleSubmit: handleSubmitEmail,
@@ -125,6 +148,8 @@ export const ForgotPassword = () => {
     }
   };
 
+  
+
   const onSubmitReset = async (data: ResetForm) => {
     try {
       await resetPassword(data.password, data.confirmPassword, resetToken || undefined);
@@ -197,29 +222,66 @@ export const ForgotPassword = () => {
             <span className="font-semibold">{email}</span>
           </p>
 
-          <div className="flex justify-between mt-4">
-            {otp.map((value, i) => (
-              <input
-                key={i}
-                type="text"
-                maxLength={1}
-                value={otp[i]}
-                onChange={(e) => {
-                  const val = e.target.value.replace(/\D/, "");
-                  const newOtp = [...otp];
-                  newOtp[i] = val;
-                  setOtp(newOtp);
-                  if (val && otpRefs.current[i + 1])
-                    otpRefs.current[i + 1]?.focus();
-                }}
-                ref={(el: HTMLInputElement | null) => {
-                  otpRefs.current[i] = el;
-                }}
-                className="w-12 h-12 text-center rounded border border-gray-500 focus:border-primary focus:outline-none text-black"
-              />
-            ))}
-          </div>
+            <div className="flex justify-between mt-4">
+              {otp.map((value, i) => (
+                <input
+                  key={i}
+                  ref={(el) => {
+                    otpRefs.current[i] = el;
+                  }}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={1}
+                  value={value}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, "");
 
+                    const newOtp = [...otp];
+                    newOtp[i] = val;
+                    setOtp(newOtp);
+
+                    if (val && i < otp.length - 1) {
+                      otpRefs.current[i + 1]?.focus();
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Backspace" && !otp[i] && i > 0) {
+                      otpRefs.current[i - 1]?.focus();
+                    }
+
+                    if (e.key === "ArrowLeft" && i > 0) {
+                      otpRefs.current[i - 1]?.focus();
+                    }
+
+                    if (e.key === "ArrowRight" && i < otp.length - 1) {
+                      otpRefs.current[i + 1]?.focus();
+                    }
+                  }}
+                  onPaste={(e) => {
+                    e.preventDefault();
+
+                    const pasted = e.clipboardData
+                      .getData("text")
+                      .replace(/\D/g, "")
+                      .slice(0, otp.length);
+
+                    if (!pasted) return;
+
+                    const newOtp = [...otp];
+
+                    pasted.split("").forEach((digit, index) => {
+                      newOtp[index] = digit;
+                    });
+
+                    setOtp(newOtp);
+
+                    const lastIndex = Math.min(pasted.length - 1, otp.length - 1);
+                    otpRefs.current[lastIndex]?.focus();
+                  }}
+                  className="w-12 h-12 rounded-lg border border-gray-500 text-center text-xl font-bold text-white bg-transparent focus:border-primary focus:outline-none"
+                />
+              ))}
+            </div>
           <button
             onClick={onSubmitOTP}
             disabled={otp.some((d) => d === "")}
