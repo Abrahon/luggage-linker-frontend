@@ -35,6 +35,31 @@ export function verifyEmail<T = unknown>(email: string, otp: string): Promise<T>
   return postJson<T>("/api/verify-email/", { email, otp });
 }
 
+export function forgotPassword<T = unknown>(email: string): Promise<T> {
+  return postJson<T>("/api/forgot-password/", { email });
+}
+
+export function resendOtp<T = unknown>(email: string): Promise<T> {
+  return postJson<T>("/api/resend-otp/", { email });
+}
+
+export function verifyForgotOtp<T = unknown>(email: string, otp: string): Promise<T> {
+  return postJson<T>("/api/verify-forgot-otp/", { email, otp });
+}
+
+export function resetPassword<T = unknown>(newPassword: string, confirmPassword: string, resetToken?: string): Promise<T> {
+  const body: Record<string, unknown> = {
+    new_password: newPassword,
+    confirm_password: confirmPassword,
+  };
+
+  if (resetToken) {
+    body.reset_token = resetToken;
+  }
+
+  return postJson<T>("/api/reset-password/", body);
+}
+
 export function login<T = unknown>(email: string, password: string): Promise<T> {
   return postJson<T>("/api/login/", { email, password });
 }

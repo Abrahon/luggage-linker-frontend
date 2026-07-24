@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { toast } from "sonner";
+import { forgotPassword, resendOtp, resetPassword, verifyForgotOtp } from "@/lib/api";
 
 // ----------------------------
 // Zod Schemas
@@ -37,6 +38,7 @@ export const ForgotPassword = () => {
   // ---------------------------- States ----------------------------
   const [step, setStep] = useState<"forgot" | "verify" | "reset">("forgot");
   const [email, setEmail] = useState("");
+  const [resetToken, setResetToken] = useState("");
   const [otp, setOtp] = useState<string[]>(Array(6).fill(""));
   const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
   const [timer, setTimer] = useState(60);
@@ -78,30 +80,63 @@ export const ForgotPassword = () => {
   }, [step, timer]);
 
   // ---------------------------- Handlers ----------------------------
-  const onSubmitEmail = (data: ForgotForm) => {
-    setEmail(data.email);
-    toast.success("OTP sent to your email (demo)");
-    setStep("verify");
-    setTimer(60);
-    setCanResend(false);
+  const onSubmitEmail = async (data: ForgotForm) => {
+    try {
+      await forgotPassword(data.email);
+      setEmail(data.email);
+      toast.success("OTP sent to your email.");
+      setStep("verify");
+      setTimer(60);
+      setCanResend(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to send OTP.";
+      toast.error(message);
+    }
   };
 
-  const onResend = () => {
-    toast.success("OTP resent (demo)");
-    setOtp(Array(6).fill(""));
-    setTimer(60);
-    setCanResend(false);
+  const onResend = async () => {
+    try {
+      await resendOtp(email);
+      toast.success("OTP resent to your email.");
+      setOtp(Array(6).fill(""));
+      setTimer(60);
+      setCanResend(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to resend OTP.";
+      toast.error(message);
+    }
   };
 
-  const onSubmitOTP = () => {
-    if (otp.some((d) => d === "")) return; // All boxes required
-    toast.success("OTP verified (demo)");
-    setStep("reset");
+  const onSubmitOTP = async () => {
+    if (otp.some((d) => d === "")) return;
+
+    const otpCode = otp.join("");
+
+    try {
+      const response = await verifyForgotOtp(email, otpCode);
+      if (response && typeof response === "object" && "reset_token" in response) {
+        setResetToken((response as Record<string, unknown>).reset_token as string);
+      }
+      toast.success("OTP verified successfully.");
+      setStep("reset");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "OTP verification failed.";
+      toast.error(message);
+    }
   };
 
-  const onSubmitReset = (data: ResetForm) => {
-    toast.success("Password reset successful (demo)");
-    console.log("New password:", data.password);
+  const onSubmitReset = async (data: ResetForm) => {
+    try {
+      await resetPassword(data.password, data.confirmPassword, resetToken || undefined);
+      toast.success("Password reset successful.");
+      setStep("forgot");
+      setEmail("");
+      setOtp(Array(6).fill(""));
+      setResetToken("");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to reset password.";
+      toast.error(message);
+    }
   };
 
   // ---------------------------- Render ----------------------------
