@@ -34,3 +34,7 @@ export async function postJson<T = unknown>(path: string, data: unknown): Promis
 export function verifyEmail<T = unknown>(email: string, otp: string): Promise<T> {
   return postJson<T>("/api/verify-email/", { email, otp });
 }
+
+export function login<T = unknown>(email: string, password: string): Promise<T> {
+  return postJson<T>("/api/login/", { email, password });
+}

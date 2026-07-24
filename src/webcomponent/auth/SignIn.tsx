@@ -7,7 +7,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
-import { demoUsers } from "@/lib/demoUser";
+import { login } from "@/lib/api";
 import { toast } from "sonner";
 import { setUserRole } from "@/lib/auth";
 import { useRouter } from "next/navigation";
@@ -32,21 +32,24 @@ export const SignIn = () => {
   });
 
   const onSubmit = async (data: SignInFormData) => {
-    // 🔹 Check against demo users
-    const user = demoUsers.find(
-      (u) => u.email === data.email && u.password === data.password
-    );
+    try {
+      const response = await login<{
+        role?: string;
+        user?: { role?: string };
+      }>(data.email, data.password);
 
-    if (!user) {
-      toast.error("Invalid email or password for demo");
-      return;
+      const role = response.role ?? response.user?.role;
+      if (!role) {
+        throw new Error("Login succeeded, but role data is missing.");
+      }
+
+      setUserRole(role);
+      router.push(role === "admin" ? "/admin" : "/dashboard");
+      toast.success(`Login successful! Role: ${role}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Login failed.";
+      toast.error(message);
     }
-
-    setUserRole(user.role);
-    router.push(user.role === "admin" ? "/admin" : "/dashboard");
-
-    toast.success(`Login successful! Role: ${user.role}`);
-    // 🚀 Here you would redirect to protected dashboard or API call
   };
 
   return (
