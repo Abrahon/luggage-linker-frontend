@@ -45,13 +45,23 @@ export const carrierLink = [
 
 export const senderLink = [
   {
-    label: "Find Travelers",
+    label: "Matching Travelers",
     href: "/find-travelers",
     icon: Search, // 💬 similar message/search connection
   },
   {
     label: "My Package",
     href: "/package-list",
+    icon: Search, // 💬 similar message/search connection
+  },
+ {
+    label: "My Booking",
+    href: "/booking-list",
+    icon: Search, // 💬 similar message/search connection
+  },
+  {
+    label: "My Matching",
+    href: "/matching-trip",
     icon: Search, // 💬 similar message/search connection
   },
   {

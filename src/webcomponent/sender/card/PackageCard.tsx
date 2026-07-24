@@ -17,6 +17,8 @@ interface PackageProps {
     isVerified: boolean;
     risk: string;
   };
+  onView?: () => void;           // 👈 Add this line
+  onEdit?: () => void;           // 👈 Add this line
   onDeleteRequest: (id: string) => void;
 }
 

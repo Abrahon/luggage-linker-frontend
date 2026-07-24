@@ -2,15 +2,15 @@ import React from "react";
 
 export const EmptyState = () => {
   return (
-    <div className="w-full flex flex-col items-center justify-center text-center py-16 px-4 bg-white border border-slate-150 rounded-2xl shadow-sm my-4">
-      <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100 shadow-inner mb-4 text-3xl">
+    <div className="w-full flex flex-col items-center justify-center text-center py-12 px-4 bg-white border border-slate-200 rounded-2xl shadow-2xs my-4">
+      <div className="w-14 h-14 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100 mb-3 text-2xl">
         📦
       </div>
-      <h3 className="text-lg font-bold text-slate-900">No Packages Yet</h3>
-      <p className="text-slate-500 text-sm max-w-sm mt-1">
-        Create your first package listing and start matching with active verified international travelers.
+      <h3 className="text-base font-bold text-slate-900">No Packages Found</h3>
+      <p className="text-slate-500 text-xs sm:text-sm max-w-sm mt-1">
+        Create your first package listing to start matching with verified international travelers.
       </p>
-      <button className="mt-6 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl shadow-sm transition-all hover:shadow">
+      <button className="mt-5 w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm rounded-xl shadow-2xs transition-all cursor-pointer">
         Create Package
       </button>
     </div>
