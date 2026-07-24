@@ -24,16 +24,16 @@ export const ChooseUser = () => {
       <div className="flex flex-col items-center gap-4 bg-white/10 backdrop-blur-2xl px-10 py-8 rounded-2xl">
         <Button
           className="w-56 text-base"
-          onClick={() => router.push("/signup")}
+          onClick={() => router.push("/signup?role=traveler")}
         >
-          Are you a Carrier?
+          Traveler
         </Button>
         <Button
           variant="outline_white"
           className="w-56 text-base"
-          onClick={() => router.push("/signup")}
+          onClick={() => router.push("/signup?role=sender")}
         >
-          Are you a Sender?
+          Sender
         </Button>
       </div>
     </div>

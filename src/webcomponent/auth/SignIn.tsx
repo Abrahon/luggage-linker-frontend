@@ -117,7 +117,7 @@ export const SignIn = () => {
 
       <div className="text-center text-sm mt-4">
         Don’t have an account?{" "}
-        <Link href="/auth/choose-user" className="text-primary hover:underline">
+        <Link href="/choose-user" className="text-primary hover:underline">
           Sign up
         </Link>
       </div>
