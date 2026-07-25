@@ -3,9 +3,13 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   getAdminKYCListApi,
-  updateAdminKYCStatusApi,
+  getAdminKYCDetailApi,
+  approveAdminKYCApi,
+  rejectAdminKYCApi,
+  KYCData,
   KYCStatusType,
 } from "@/api/kyc.api";
+
 import {
   Table,
   TableBody,
@@ -43,32 +47,11 @@ const getStatusBadgeStyle = (status: KYCStatusType | string) => {
   }
 };
 
-export interface KYCUser {
-  id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-}
-
-export interface KYCRecord {
-  id: string;
-  user: KYCUser;
-  id_type: "national_id" | "passport" | "drivers_license";
-  id_number: string;
-  document_front: string;
-  document_back: string | null;
-  selfie: string;
-  status: KYCStatusType;
-  rejection_reason: string | null;
-  verified_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 export const Verification = () => {
-  const [kycData, setKycData] = useState<KYCRecord[]>([]);
-  const [selectedRecord, setSelectedRecord] = useState<KYCRecord | null>(null);
+  const [kycData, setKycData] = useState<KYCData[]>([]);
+  const [selectedRecord, setSelectedRecord] = useState<KYCData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [detailLoading, setDetailLoading] = useState<boolean>(false);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [page, setPage] = useState<number>(1);
   const [totalCount, setTotalCount] = useState<number>(0);
@@ -79,7 +62,7 @@ export const Verification = () => {
     try {
       setLoading(true);
       const data = await getAdminKYCListApi(page);
-      setKycData(data.results as KYCRecord[]);
+      setKycData(data.results);
       setTotalCount(data.count);
     } catch (error) {
       console.error("Failed to fetch KYC records:", error);
@@ -92,28 +75,54 @@ export const Verification = () => {
     fetchKYCRecords();
   }, [fetchKYCRecords]);
 
-  // Handle Approve / Reject actions
-  const handleUpdateStatus = async (status: KYCStatusType) => {
-    if (!selectedRecord) return;
-
-    let reason: string | null = null;
-    if (status === "rejected") {
-      reason = prompt("Enter rejection reason:");
-      if (!reason) return; // Cancel if no reason provided
+  // Open Details Modal & Fetch Latest Detail API
+  const handleOpenDetail = async (id: string) => {
+    try {
+      setDetailLoading(true);
+      const detail = await getAdminKYCDetailApi(id);
+      setSelectedRecord(detail);
+    } catch (error) {
+      console.error("Failed to fetch KYC details:", error);
+      alert("Could not load details for this record.");
+    } finally {
+      setDetailLoading(false);
     }
+  };
+
+  // Handle Approve Action
+  const handleApprove = async () => {
+    if (!selectedRecord) return;
 
     try {
       setActionLoading(true);
-      await updateAdminKYCStatusApi(selectedRecord.id, {
-        status,
-        rejection_reason: reason,
-      });
-
+      const response = await approveAdminKYCApi(selectedRecord.id);
+      alert(response.message || "KYC application approved successfully.");
       setSelectedRecord(null);
-      fetchKYCRecords(); // Refresh list
+      fetchKYCRecords();
     } catch (error) {
-      console.error(`Failed to update status to ${status}:`, error);
-      alert("An error occurred while updating status.");
+      console.error("Failed to approve application:", error);
+      alert("Error approving application.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle Reject Action
+  const handleReject = async () => {
+    if (!selectedRecord) return;
+
+    const reason = prompt("Enter rejection reason:");
+    if (!reason) return; // Cancel if no reason provided
+
+    try {
+      setActionLoading(true);
+      const response = await rejectAdminKYCApi(selectedRecord.id, reason);
+      alert(response.message || "KYC application rejected successfully.");
+      setSelectedRecord(null);
+      fetchKYCRecords();
+    } catch (error) {
+      console.error("Failed to reject application:", error);
+      alert("Error rejecting application.");
     } finally {
       setActionLoading(false);
     }
@@ -178,9 +187,9 @@ export const Verification = () => {
                       <TableCell>
                         <div>
                           <p className="font-medium text-gray-900">
-                            {record.user.first_name} {record.user.last_name}
+                            {record.user?.first_name} {record.user?.last_name}
                           </p>
-                          <p className="text-xs text-gray-500">{record.user.email}</p>
+                          <p className="text-xs text-gray-500">{record.user?.email}</p>
                         </div>
                       </TableCell>
                       <TableCell>{formatDocType(record.id_type)}</TableCell>
@@ -201,7 +210,8 @@ export const Verification = () => {
                         <Button
                           variant="outline"
                           size="icon"
-                          onClick={() => setSelectedRecord(record)}
+                          onClick={() => handleOpenDetail(record.id)}
+                          disabled={detailLoading}
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
@@ -274,13 +284,13 @@ export const Verification = () => {
                 <TabsContent value="personal" className="h-full">
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <p className="flex flex-col gap-1">
-                      <strong>First Name:</strong> {selectedRecord.user.first_name}
+                      <strong>First Name:</strong> {selectedRecord.user?.first_name}
                     </p>
                     <p className="flex flex-col gap-1 place-self-end">
-                      <strong>Last Name:</strong> {selectedRecord.user.last_name}
+                      <strong>Last Name:</strong> {selectedRecord.user?.last_name}
                     </p>
                     <p className="flex flex-col gap-1">
-                      <strong>Email:</strong> {selectedRecord.user.email}
+                      <strong>Email:</strong> {selectedRecord.user?.email}
                     </p>
                     <p className="flex flex-col gap-1 place-self-end">
                       <strong>Status:</strong>{" "}
@@ -299,6 +309,17 @@ export const Verification = () => {
                     <p className="flex flex-col gap-1 place-self-end">
                       <strong>Document Number:</strong> {selectedRecord.id_number}
                     </p>
+                    {selectedRecord.verified_by_email && (
+                      <p className="flex flex-col gap-1">
+                        <strong>Verified By:</strong> {selectedRecord.verified_by_email}
+                      </p>
+                    )}
+                    {selectedRecord.verified_at && (
+                      <p className="flex flex-col gap-1 place-self-end">
+                        <strong>Verified At:</strong>{" "}
+                        {new Date(selectedRecord.verified_at).toLocaleString()}
+                      </p>
+                    )}
                     {selectedRecord.rejection_reason && (
                       <p className="flex flex-col gap-1 col-span-2 text-red-600">
                         <strong>Rejection Reason:</strong> {selectedRecord.rejection_reason}
@@ -361,13 +382,13 @@ export const Verification = () => {
               <div className="flex justify-end gap-3 w-full">
                 <Button
                   variant="outline"
-                  onClick={() => handleUpdateStatus("rejected")}
+                  onClick={handleReject}
                   disabled={actionLoading}
                 >
                   Reject
                 </Button>
                 <Button
-                  onClick={() => handleUpdateStatus("approved")}
+                  onClick={handleApprove}
                   disabled={actionLoading}
                 >
                   {actionLoading ? (

@@ -5,18 +5,32 @@ export type KYCStatus = "pending" | "approved" | "rejected" | "unverified";
 
 export type KYCStatusType = "pending" | "under_review" | "approved" | "rejected" | "unverified";
 
+export interface KYCUser {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+}
+
 export interface KYCData {
   id: string;
+  user?: KYCUser;
   id_type: "national_id" | "passport" | "drivers_license";
   id_number: string;
   document_front: string;
   document_back: string | null;
   selfie: string;
-  status: KYCStatus;
+  status: KYCStatusType; 
   rejection_reason: string | null;
   verified_at: string | null;
+  verified_by_email?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface KYCActionResponse {
+  message: string;
+  data: KYCData;
 }
 
 export interface KYCSubmitPayload {
@@ -89,14 +103,30 @@ export const getAdminKYCListApi = async (page: number = 1): Promise<PaginatedKYC
   return response.data;
 };
 
+export const getAdminKYCDetailApi = async (id: string): Promise<KYCData> => {
+  const response = await axiosInstance.get<KYCData>(`/api/admin/kyc/${id}/`);
+  return response.data;
+};
+
 /**
- * Update KYC verification status (Approve, Reject, Under Review, etc.)
- * Route: PATCH /api/admin/kyc/{id}/
+ * Approve KYC application
+ * Route: POST /api/admin/kyc/{id}/approve/
  */
-export const updateAdminKYCStatusApi = async (
+export const approveAdminKYCApi = async (id: string): Promise<KYCActionResponse> => {
+  const response = await axiosInstance.post<KYCActionResponse>(`/api/admin/kyc/${id}/approve/`);
+  return response.data;
+};
+
+/**
+ * Reject KYC application
+ * Route: POST /api/admin/kyc/{id}/reject/
+ */
+export const rejectAdminKYCApi = async (
   id: string,
-  payload: { status: KYCStatusType; rejection_reason?: string | null }
-): Promise<KYCData> => {
-  const response = await axiosInstance.patch<KYCData>(`/api/admin/kyc/${id}/`, payload);
+  rejectionReason: string
+): Promise<KYCActionResponse> => {
+  const response = await axiosInstance.post<KYCActionResponse>(`/api/admin/kyc/${id}/reject/`, {
+    rejection_reason: rejectionReason,
+  });
   return response.data;
 };
