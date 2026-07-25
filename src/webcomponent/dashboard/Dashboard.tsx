@@ -4,12 +4,14 @@ import { CarrierDashboard } from "../carrier";
 import { SenderDashboard } from "../sender";
 
 export const Dashboard = () => {
-  const role = getUserRole();
+  // Normalize role string to uppercase to avoid case-mismatch issues
+  const role = getUserRole()?.toUpperCase();
+
   return (
     <>
-      {role === "carrier" ? (
+      {role === "TRAVELER" || role === "TRAVELLER" ? (
         <CarrierDashboard />
-      ) : role === "sender" ? (
+      ) : role === "SENDER" ? (
         <SenderDashboard />
       ) : (
         <div>Other Dashboard</div>

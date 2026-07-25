@@ -1,13 +1,25 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { HeadingSection } from "@/webcomponent/reusable/HeadingSection";
-import { CheckCircle, CheckCircle2, Shield } from "lucide-react";
+import { CheckCircle, CheckCircle2, Shield, AlertTriangle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { getMyKYCApi, KYCData } from "@/api/kyc.api";
 
 export const Verification = () => {
   const router = useRouter();
-  const verificationDAta = [
+  const [kycData, setKycData] = useState<KYCData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getMyKYCApi()
+      .then((data) => setKycData(data))
+      .catch((err) => console.error("Failed to load KYC status:", err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const verificationData = [
     {
       id: 1,
       title: "Accept Requests",
@@ -37,25 +49,63 @@ export const Verification = () => {
     },
   ];
 
+  const renderStatusBadge = () => {
+    if (loading) return <span className="text-gray-500 text-sm">Checking status...</span>;
+
+    const status = kycData?.status || "unverified";
+
+    switch (status) {
+      case "approved":
+        return (
+          <span className="flex items-center gap-2 rounded-lg bg-emerald-100 text-emerald-800 px-4 py-2 text-sm font-semibold w-fit border border-emerald-300">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            Verified Profile
+          </span>
+        );
+      case "pending":
+        return (
+          <span className="flex items-center gap-2 rounded-lg bg-amber-100 text-amber-800 px-4 py-2 text-sm font-semibold w-fit border border-amber-300">
+            <Clock className="w-4 h-4 text-amber-600" />
+            Pending Approval
+          </span>
+        );
+      case "rejected":
+        return (
+          <div className="flex flex-col gap-2">
+            <span className="flex items-center gap-2 rounded-lg bg-rose-100 text-rose-800 px-4 py-2 text-sm font-semibold w-fit border border-rose-300">
+              <AlertTriangle className="w-4 h-4 text-rose-600" />
+              Verification Rejected
+            </span>
+            {kycData?.rejection_reason && (
+              <p className="text-sm text-rose-600 font-medium">
+                Reason: {kycData.rejection_reason}
+              </p>
+            )}
+          </div>
+        );
+      default:
+        return (
+          <span className="rounded-lg bg-gray-200 text-gray-700 px-4 py-2 text-sm font-medium w-fit">
+            Unverified
+          </span>
+        );
+    }
+  };
+
   return (
-    <div className="flex flex-col gap-10 py-16 md:px-6 px-4 ">
-      {/* Section Heading */}
+    <div className="flex flex-col gap-10 py-16 md:px-6 px-4">
       <HeadingSection
         heading="Identity Verification"
         subheading="Complete verification to accept shipments & get higher payouts."
       />
 
-      {/* Unverified Badge */}
-      <span className="rounded-lg bg-gray-300 px-6 py-2 text-white text-sm font-medium w-fit">
-        Unverified
-      </span>
+      {renderStatusBadge()}
 
-      {/* Cards */}
-      <div className="grid md:grid-cols-3 sm:grid-cols-2 grid-cols-1 gap-6 w-full ">
-        {verificationDAta.map((item) => (
+      <div className="grid md:grid-cols-3 sm:grid-cols-2 grid-cols-1 gap-6 w-full">
+        {verificationData.map((item) => (
           <div
             key={item.id}
-            className="flex flex-col items-center justify-center text-center gap-3 rounded-xl border backdrop-blur-sm p-8 transition-transform duration-300 hover:scale-[1.02]"
+            className="flex flex-col items-center justify-center text-center gap-3 rounded-xl border p-8 transition-transform duration-300 hover:scale-[1.02]"
             style={{
               backgroundColor: item.bgColor,
               borderColor: "#D4D4D466",
@@ -70,20 +120,26 @@ export const Verification = () => {
             >
               {item.icon}
             </div>
-
-            <h3 className="text-lg font-semibold text-gray-800">
-              {item.title}
-            </h3>
-
+            <h3 className="text-lg font-semibold text-gray-800">{item.title}</h3>
             <p className="text-gray-600 text-sm">{item.description}</p>
           </div>
         ))}
       </div>
 
-      {/* Start Verification Button */}
-      <Button className="mt-4 w-fit self-center" size="lg" onClick={()=>router.push('/verification/personal')}>
-        Start Verification
-      </Button>
+      {kycData?.status !== "approved" && (
+        <Button
+          className="mt-4 w-fit self-center"
+          size="lg"
+          onClick={() => router.push("/verification/personal")}
+          disabled={kycData?.status === "pending"}
+        >
+          {kycData?.status === "rejected"
+            ? "Re-submit Verification"
+            : kycData?.status === "pending"
+            ? "Under Review"
+            : "Start Verification"}
+        </Button>
+      )}
     </div>
   );
 };

@@ -55,7 +55,18 @@ export const SignIn = () => {
       }
 
       setUserRole(role);
-      router.push(role === "admin" ? "/admin" : "/dashboard");
+      const normalizedRole = role.toLowerCase();
+
+      if (normalizedRole === "admin") {
+        router.push("/admin");
+      } else if (normalizedRole === "sender") {
+        router.push("/dashboard");
+      } else if (normalizedRole === "traveler" || normalizedRole === "traveller" || normalizedRole === "carrier") {
+        router.push("/dashboard");
+      } else {
+        router.push("/dashboard");
+      }
+
       toast.success(`Login successful! Role: ${role}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Login failed.";

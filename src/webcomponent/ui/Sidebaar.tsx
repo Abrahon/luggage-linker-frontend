@@ -18,11 +18,13 @@ export const SideBaar = () => {
     { label: "Messages", href: "/messages", icon: MessageCircle },
   ];
 
+  const isCarrierOrTraveler =
+    role === "carrier" || role === "traveler" || role === "TRAVELER";
+
   // Decide link list based on role
-  const links =
-    role === "admin"
-      ? adminLink
-      : [...commonLinks, ...(role === "carrier" ? carrierLink : senderLink)];
+  const links = role === "admin"
+    ? adminLink
+    : [...commonLinks, ...(isCarrierOrTraveler ? carrierLink : senderLink)];
   console.log("Sidebar links for role:", role, links);
   return (
     <div className="flex flex-col h-full bg-white border-r py-6 px-4">

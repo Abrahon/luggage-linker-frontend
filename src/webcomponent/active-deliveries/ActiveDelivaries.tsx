@@ -5,9 +5,12 @@ import { SenderActiveDelivaries } from "../sender";
 
 export const ActiveDelivariesRole = () => {
   const role = getUserRole();
+  const isCarrierOrTraveler =
+    role === "carrier" || role === "traveler" || role === "TRAVELER";
+
   return (
     <>
-      {role === "carrier" ? (
+      {isCarrierOrTraveler ? (
         <ActiveDelivaries />
       ) : role === "sender" ? (
         <SenderActiveDelivaries />

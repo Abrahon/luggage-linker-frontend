@@ -2,16 +2,32 @@
 
 import { removeAccessToken, removeRefreshToken } from "@/lib/token";
 
+export type UserRole = "admin" | "carrier" | "sender" | "traveler";
+
+const normalizeUserRole = (role?: string | null): UserRole | null => {
+  if (!role) return null;
+  const normalized = role.toLowerCase();
+  if (normalized === "traveller") return "traveler";
+  if (normalized === "traveler") return "traveler";
+  if (normalized === "sender") return "sender";
+  if (normalized === "carrier") return "carrier";
+  if (normalized === "admin") return "admin";
+  return null;
+};
+
 // utils/auth.ts
-export const setUserRole = (role: "admin" | "carrier" | "sender" | string) => {
+export const setUserRole = (role: string) => {
   if (typeof window !== "undefined") {
-    localStorage.setItem("userRole", role);
+    const normalizedRole = normalizeUserRole(role);
+    if (normalizedRole) {
+      localStorage.setItem("userRole", normalizedRole);
+    }
   }
 };
 
-export const getUserRole = (): "admin" | "carrier" | "sender" | null => {
+export const getUserRole = (): UserRole | null => {
   if (typeof window !== "undefined") {
-    return (localStorage.getItem("userRole") as "admin" | "carrier" | "sender") || null;
+    return (localStorage.getItem("userRole") as UserRole) || null;
   }
   return null;
 };
