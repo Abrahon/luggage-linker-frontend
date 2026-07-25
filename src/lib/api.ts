@@ -4,6 +4,7 @@ export const API_BASE_URL =
 export async function postJson<T = unknown>(path: string, data: unknown): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
     },

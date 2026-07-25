@@ -1,5 +1,7 @@
 
 
+import { removeAccessToken, removeRefreshToken } from "@/lib/token";
+
 // utils/auth.ts
 export const setUserRole = (role: "admin" | "carrier" | "sender" | string) => {
   if (typeof window !== "undefined") {
@@ -17,5 +19,22 @@ export const getUserRole = (): "admin" | "carrier" | "sender" | null => {
 export const removeUserRole = () => {
   if (typeof window !== "undefined") {
     localStorage.removeItem("userRole");
+  }
+};
+
+export const clearAuthStorage = () => {
+  if (typeof window !== "undefined") {
+    removeUserRole();
+    removeAccessToken();
+    removeRefreshToken();
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+  }
+};
+
+export const logout = () => {
+  if (typeof window !== "undefined") {
+    clearAuthStorage();
+    window.location.replace("/login");
   }
 };

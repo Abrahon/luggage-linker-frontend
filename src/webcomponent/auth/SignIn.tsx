@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { login } from "@/lib/api";
 import { toast } from "sonner";
+import { setAccessToken, setRefreshToken } from "@/lib/token";
 import { setUserRole } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 
@@ -36,7 +37,17 @@ export const SignIn = () => {
       const response = await login<{
         role?: string;
         user?: { role?: string };
+        token?: { access?: string; refresh?: string };
       }>(data.email, data.password);
+
+      const accessToken = response.token?.access;
+      const refreshToken = response.token?.refresh;
+      if (accessToken) {
+        setAccessToken(accessToken);
+      }
+      if (refreshToken) {
+        setRefreshToken(refreshToken);
+      }
 
       const role = response.role ?? response.user?.role;
       if (!role) {

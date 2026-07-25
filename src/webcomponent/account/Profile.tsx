@@ -1,18 +1,18 @@
 "use client";
 
-import { Camera } from "lucide-react";
+import { Camera, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useState, useMemo, useEffect } from "react";
 import { stringToColor } from "@/lib/stringToColor";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useProfile } from "@/hooks/useProfile";
 
-// Updated Zod schema for validation
 const profileSchema = z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters"),
   lastName: z.string().min(2, "Last name must be at least 2 characters"),
-  email: z.string().email("Invalid email address"),
+  email: z.string().email("Invalid email address").optional().or(z.literal("")),
   phone: z.string().min(5, "Invalid phone number").optional().or(z.literal("")),
   country: z.string().min(1, "Country is required"),
   city: z.string().min(1, "City is required"),
@@ -28,26 +28,10 @@ const profileSchema = z.object({
 
 type ProfileForm = z.infer<typeof profileSchema>;
 
-// Mocking the incoming database payload structure
-const profileData = {
-  id: "usr_123456",
-  first_name: "Marcus",
-  last_name: "Aurelius",
-  email: "marcus@example.com",
-  phone: "+1234567890",
-  country: "Italy",
-  city: "Rome",
-  address: "Via dei Fori Imperiali",
-  postal_code: "00186",
-  date_of_birth: "1990-04-26",
-  profile_picture: "",
-  bio: "Stoic philosopher and developer.",
-  created_at: "2024-01-01T00:00:00Z",
-  updated_at: "2026-07-05T00:00:00Z",
-};
-
 export const Profile = () => {
+  const { profile, isLoading, error, updateProfile } = useProfile();
   const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const previewUrl = useMemo(() => {
     if (profilePhoto) return URL.createObjectURL(profilePhoto);
@@ -63,41 +47,84 @@ export const Profile = () => {
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
-    defaultValues: {
-      firstName: profileData.first_name || "",
-      lastName: profileData.last_name || "",
-      email: profileData.email || "",
-      phone: profileData.phone || "",
-      country: profileData.country || "",
-      city: profileData.city || "",
-      address: profileData.address || "",
-      postalCode: profileData.postal_code || "",
-      dateOfBirth: profileData.date_of_birth || "",
-      bio: profileData.bio || "",
-    },
   });
 
+  // Populate form values when backend data arrives
+  useEffect(() => {
+    if (profile) {
+      reset({
+        firstName: profile.first_name || "",
+        lastName: profile.last_name || "",
+        email: profile.email || "",
+        phone: profile.phone || "",
+        country: profile.country || "",
+        city: profile.city || "",
+        address: profile.address || "",
+        postalCode: profile.postal_code || "",
+        dateOfBirth: profile.date_of_birth || "",
+        bio: profile.bio || "",
+      });
+    }
+  }, [profile, reset]);
+
   const onSubmit = async (data: ProfileForm) => {
-    // Map client camelCase keys back to snake_case for your backend payload if needed
-    console.log("Form submitted:", data);
-    console.log("Profile photo:", profilePhoto);
-    alert("Profile updated successfully!");
+    setSubmitError(null);
+    try {
+      await updateProfile({
+        first_name: data.firstName,
+        last_name: data.lastName,
+        phone: data.phone,
+        country: data.country,
+        city: data.city,
+        address: data.address,
+        postal_code: data.postalCode,
+        date_of_birth: data.dateOfBirth,
+        bio: data.bio,
+        profile_picture: profilePhoto,
+      });
+      alert("Profile updated successfully!");
+    } catch (err: any) {
+      setSubmitError(err.message || "Failed to update profile");
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) setProfilePhoto(e.target.files[0]);
+    if (e.target.files && e.target.files[0]) {
+      setProfilePhoto(e.target.files[0]);
+    }
   };
 
-  const fallbackLetter = profileData.first_name
-    ? profileData.first_name[0]
-    : "A";
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 text-center text-red-500">
+        <p>{error}</p>
+      </div>
+    );
+  }
+
+  const fallbackLetter = profile?.first_name ? profile.first_name[0] : "A";
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {submitError && (
+          <div className="p-3 bg-red-50 text-red-600 border border-red-200 rounded-md text-sm">
+            {submitError}
+          </div>
+        )}
+
         {/* Profile Photo */}
         <div className="flex items-center mb-6 gap-4">
           <label
@@ -111,9 +138,9 @@ export const Profile = () => {
                 fill
                 className="object-cover rounded-full"
               />
-            ) : profileData.profile_picture ? (
+            ) : profile?.profile_picture ? (
               <Image
-                src={profileData.profile_picture}
+                src={profile.profile_picture}
                 alt="Profile"
                 fill
                 className="object-cover rounded-full"
@@ -122,7 +149,7 @@ export const Profile = () => {
               <div
                 className="w-full h-full flex items-center justify-center text-white text-2xl font-semibold"
                 style={{
-                  backgroundColor: stringToColor(profileData.first_name || "A"),
+                  backgroundColor: stringToColor(profile?.first_name || "A"),
                 }}
               >
                 {fallbackLetter.toUpperCase()}
@@ -153,10 +180,7 @@ export const Profile = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* First Name */}
           <div>
-            <label
-              htmlFor="first-name"
-              className="block text-sm font-semibold text-gray-700 mb-2"
-            >
+            <label htmlFor="first-name" className="block text-sm font-semibold text-gray-700 mb-2">
               First Name
             </label>
             <input
@@ -167,18 +191,13 @@ export const Profile = () => {
               className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
             />
             {errors.firstName && (
-              <p className="text-red-500 text-sm mt-1">
-                {errors.firstName.message}
-              </p>
+              <p className="text-red-500 text-sm mt-1">{errors.firstName.message}</p>
             )}
           </div>
 
           {/* Last Name */}
           <div>
-            <label
-              htmlFor="last-name"
-              className="block text-sm font-semibold text-gray-700 mb-2"
-            >
+            <label htmlFor="last-name" className="block text-sm font-semibold text-gray-700 mb-2">
               Last Name
             </label>
             <input
@@ -189,18 +208,13 @@ export const Profile = () => {
               className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
             />
             {errors.lastName && (
-              <p className="text-red-500 text-sm mt-1">
-                {errors.lastName.message}
-              </p>
+              <p className="text-red-500 text-sm mt-1">{errors.lastName.message}</p>
             )}
           </div>
 
-          {/* Email (Read-Only) */}
+          {/* Email */}
           <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-semibold text-gray-700 mb-2"
-            >
+            <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
               Email Address
             </label>
             <input
@@ -208,16 +222,14 @@ export const Profile = () => {
               id="email"
               {...register("email")}
               disabled
+              placeholder="N/A"
               className="w-full p-2 border border-gray-300 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
             />
           </div>
 
           {/* Phone */}
           <div>
-            <label
-              htmlFor="phone"
-              className="block text-sm font-semibold text-gray-700 mb-2"
-            >
+            <label htmlFor="phone" className="block text-sm font-semibold text-gray-700 mb-2">
               Phone Number
             </label>
             <input
@@ -228,18 +240,13 @@ export const Profile = () => {
               className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
             />
             {errors.phone && (
-              <p className="text-red-500 text-sm mt-1">
-                {errors.phone.message}
-              </p>
+              <p className="text-red-500 text-sm mt-1">{errors.phone.message}</p>
             )}
           </div>
 
           {/* Date of Birth */}
           <div>
-            <label
-              htmlFor="date-of-birth"
-              className="block text-sm font-semibold text-gray-700 mb-2"
-            >
+            <label htmlFor="date-of-birth" className="block text-sm font-semibold text-gray-700 mb-2">
               Date of Birth
             </label>
             <input
@@ -249,18 +256,13 @@ export const Profile = () => {
               className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
             />
             {errors.dateOfBirth && (
-              <p className="text-red-500 text-sm mt-1">
-                {errors.dateOfBirth.message}
-              </p>
+              <p className="text-red-500 text-sm mt-1">{errors.dateOfBirth.message}</p>
             )}
           </div>
 
           {/* Country */}
           <div>
-            <label
-              htmlFor="country"
-              className="block text-sm font-semibold text-gray-700 mb-2"
-            >
+            <label htmlFor="country" className="block text-sm font-semibold text-gray-700 mb-2">
               Country
             </label>
             <input
@@ -271,18 +273,13 @@ export const Profile = () => {
               className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
             />
             {errors.country && (
-              <p className="text-red-500 text-sm mt-1">
-                {errors.country.message}
-              </p>
+              <p className="text-red-500 text-sm mt-1">{errors.country.message}</p>
             )}
           </div>
 
           {/* City */}
           <div>
-            <label
-              htmlFor="city"
-              className="block text-sm font-semibold text-gray-700 mb-2"
-            >
+            <label htmlFor="city" className="block text-sm font-semibold text-gray-700 mb-2">
               City
             </label>
             <input
@@ -299,10 +296,7 @@ export const Profile = () => {
 
           {/* Postal Code */}
           <div>
-            <label
-              htmlFor="postal-code"
-              className="block text-sm font-semibold text-gray-700 mb-2"
-            >
+            <label htmlFor="postal-code" className="block text-sm font-semibold text-gray-700 mb-2">
               Postal Code
             </label>
             <input
@@ -313,18 +307,13 @@ export const Profile = () => {
               className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
             />
             {errors.postalCode && (
-              <p className="text-red-500 text-sm mt-1">
-                {errors.postalCode.message}
-              </p>
+              <p className="text-red-500 text-sm mt-1">{errors.postalCode.message}</p>
             )}
           </div>
 
-          {/* Address (Spans 2 columns on medium screens) */}
+          {/* Address */}
           <div className="md:col-span-2">
-            <label
-              htmlFor="address"
-              className="block text-sm font-semibold text-gray-700 mb-2"
-            >
+            <label htmlFor="address" className="block text-sm font-semibold text-gray-700 mb-2">
               Address
             </label>
             <input
@@ -335,18 +324,13 @@ export const Profile = () => {
               className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
             />
             {errors.address && (
-              <p className="text-red-500 text-sm mt-1">
-                {errors.address.message}
-              </p>
+              <p className="text-red-500 text-sm mt-1">{errors.address.message}</p>
             )}
           </div>
 
-          {/* Bio (Spans 2 columns on medium screens) */}
+          {/* Bio */}
           <div className="md:col-span-2">
-            <label
-              htmlFor="bio"
-              className="block text-sm font-semibold text-gray-700 mb-2"
-            >
+            <label htmlFor="bio" className="block text-sm font-semibold text-gray-700 mb-2">
               Bio
             </label>
             <textarea
@@ -365,14 +349,20 @@ export const Profile = () => {
         {/* Footer info & Actions */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pt-4 gap-4">
           <span className="text-xs text-gray-400">
-            Profile ID: {profileData.id}
+            Profile ID: {profile?.id}
           </span>
           <button
             type="submit"
-            className="w-full sm:w-fit px-6 py-2 bg-primary rounded-lg text-white text-sm tracking-wider font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            className="w-full sm:w-fit px-6 py-2 bg-primary rounded-lg text-white text-sm tracking-wider font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
             disabled={isSubmitting}
           >
-            {isSubmitting ? "Saving..." : "Save changes"}
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" /> Saving...
+              </>
+            ) : (
+              "Save changes"
+            )}
           </button>
         </div>
       </form>

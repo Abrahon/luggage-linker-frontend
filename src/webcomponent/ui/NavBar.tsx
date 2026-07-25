@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/popover";
 import { Bell, User, Star, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
-import { getUserRole, removeUserRole } from "@/lib/auth";
+import { getUserRole, logout } from "@/lib/auth";
 import { usePathname } from "next/navigation";
 
 export const NavBar = () => {
@@ -118,9 +118,11 @@ export const NavBar = () => {
                 >
                   <LayoutDashboard className="w-4 h-4" /> Dashboard
                 </Link>
-                <button className="flex items-center gap-2 px-3 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-md w-full text-left">
-                  <User className="w-4 h-4" onClick={() => removeUserRole()} />{" "}
-                  Logout
+                <button
+                  onClick={logout}
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-md w-full text-left"
+                >
+                  <User className="w-4 h-4" /> Logout
                 </button>
               </div>
             </PopoverContent>
