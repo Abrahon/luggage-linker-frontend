@@ -58,7 +58,8 @@ export interface AdminReviewResponse {
 export interface FetchPackagesParams {
   search?: string;
   status?: string;
-  verification_status?: string;
+  verification?: string;
+  verification_status?: string; // Kept for backwards compatibility
   category?: string;
   page?: number;
 }
@@ -73,9 +74,13 @@ export const getAdminPackagesApi = async (
 
   if (params?.search?.trim()) queryParams.search = params.search.trim();
   if (params?.status && params.status !== "all") queryParams.status = params.status;
-  if (params?.verification_status && params.verification_status !== "all") {
-    queryParams.verification_status = params.verification_status;
+  
+  // FIX: Read either verification or verification_status, but pass "verification" key to backend API
+  const verificationFilter = params?.verification || params?.verification_status;
+  if (verificationFilter && verificationFilter !== "all") {
+    queryParams.verification = verificationFilter;
   }
+
   if (params?.category && params.category !== "all") {
     queryParams.category = params.category;
   }

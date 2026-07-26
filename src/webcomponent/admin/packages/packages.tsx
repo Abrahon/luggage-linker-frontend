@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
+import { RiskBadge } from "@/components/ui/risk-badge";
 import { HeadingSection } from "@/webcomponent/reusable/HeadingSection";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"; // Adjust to select path if different: @/components/ui/select
+} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -247,7 +248,6 @@ export const Packages = () => {
     <div className="flex flex-col gap-6 py-8 md:px-6 px-4">
       <HeadingSection
         heading="Package Management"
-        subheading="Review, filter, and verify user package submissions across the platform"
       />
 
       {/* Success Notification */}
@@ -368,6 +368,7 @@ export const Packages = () => {
               <TableHead className="font-semibold text-slate-700">Sender</TableHead>
               <TableHead className="font-semibold text-slate-700">Route</TableHead>
               <TableHead className="font-semibold text-slate-700">Weight & Value</TableHead>
+              <TableHead className="font-semibold text-slate-700">Risk Level</TableHead>
               <TableHead className="font-semibold text-slate-700">Verification</TableHead>
               <TableHead className="font-semibold text-slate-700">Status</TableHead>
               <TableHead className="font-semibold text-right text-slate-700">Actions</TableHead>
@@ -376,7 +377,7 @@ export const Packages = () => {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-12">
+                <TableCell colSpan={8} className="text-center py-12">
                   <div className="flex justify-center items-center gap-2 text-slate-500">
                     <Loader2 className="animate-spin text-blue-600" size={20} />
                     <span>Loading packages...</span>
@@ -385,7 +386,7 @@ export const Packages = () => {
               </TableRow>
             ) : packages.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-slate-500 py-12">
+                <TableCell colSpan={8} className="text-center text-slate-500 py-12">
                   No packages found matching your criteria.
                 </TableCell>
               </TableRow>
@@ -398,15 +399,15 @@ export const Packages = () => {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         {primaryImage ? (
-                            <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-slate-200 shrink-0">
+                          <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-slate-200 shrink-0">
                             <Image
-                                src={primaryImage}
-                                alt={pkg.title || "Package image"}
-                                fill
-                                sizes="40px"
-                                className="object-cover"
+                              src={primaryImage}
+                              alt={pkg.title || "Package image"}
+                              fill
+                              sizes="40px"
+                              className="object-cover"
                             />
-                        </div>
+                          </div>
                         ) : (
                           <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
                             <PackageIcon className="w-5 h-5 text-slate-400" />
@@ -444,6 +445,21 @@ export const Packages = () => {
                       <div className="text-xs text-slate-500">
                         {pkg.reward_amount} {pkg.currency}
                       </div>
+                    </TableCell>
+
+                    {/* Risk Badge Table Column */}
+                    <TableCell>
+                      {pkg.risk_score !== undefined && pkg.risk_score !== null ? (
+                        <RiskBadge
+                          score={
+                            pkg.risk_score <= 1
+                              ? Math.round(pkg.risk_score * 100)
+                              : pkg.risk_score
+                          }
+                        />
+                      ) : (
+                        <span className="text-xs text-slate-400 font-medium">N/A</span>
+                      )}
                     </TableCell>
 
                     <TableCell>{getVerificationBadge(pkg.verification_status)}</TableCell>
@@ -571,7 +587,17 @@ export const Packages = () => {
                     <User className="w-3.5 h-3.5" /> Sender: {viewingPackage.sender_email}
                   </p>
                 </div>
-                <div className="flex flex-col items-end gap-1">
+                <div className="flex flex-col items-end gap-1.5">
+                  {viewingPackage.risk_score !== undefined &&
+                    viewingPackage.risk_score !== null && (
+                      <RiskBadge
+                        score={
+                          viewingPackage.risk_score <= 1
+                            ? Math.round(viewingPackage.risk_score * 100)
+                            : viewingPackage.risk_score
+                        }
+                      />
+                    )}
                   {getVerificationBadge(viewingPackage.verification_status)}
                   {getStatusBadge(viewingPackage.status)}
                 </div>
@@ -646,8 +672,19 @@ export const Packages = () => {
                   </span>
                 </div>
                 <div>
-                  <span className="text-xs text-slate-500">Risk Score</span>
-                  <span className="font-semibold text-slate-800">{viewingPackage.risk_score}</span>
+                  <span className="text-xs text-slate-500 block mb-1">Risk Score</span>
+                  {viewingPackage.risk_score !== undefined &&
+                  viewingPackage.risk_score !== null ? (
+                    <RiskBadge
+                      score={
+                        viewingPackage.risk_score <= 1
+                          ? Math.round(viewingPackage.risk_score * 100)
+                          : viewingPackage.risk_score
+                      }
+                    />
+                  ) : (
+                    <span className="font-semibold text-slate-800">N/A</span>
+                  )}
                 </div>
               </div>
             </div>
