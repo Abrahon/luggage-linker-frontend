@@ -2,7 +2,7 @@
 import { ArrowUpRight } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { UserGrowthChart } from "./UserGrowthChart";
-import { SenderCarrierChart } from "./SenderCarrierChart";
+import { SenderTravelerChart } from "./SenderCarrierChart";
 import { RevenueByMonth } from "./RevenueByMonth";
 import { TopRoutes } from "./TripRoutes";
 import RecentActivities from "@/components/RecentActivities";
@@ -35,7 +35,7 @@ export const Dashboard = () => {
             <UserGrowthChart />
           </div>
           <div>
-            <SenderCarrierChart />
+            <SenderTravelerChart />
           </div>
         </div>
 

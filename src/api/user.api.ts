@@ -67,3 +67,43 @@ export const getUserGrowthData = async (): Promise<MonthlyGrowthItem[]> => {
   );
   return response.data;
 };
+
+
+
+export interface RoleDetail {
+  count: number;
+  percentage: number;
+}
+
+export interface UserRoleDistributionResponse {
+  total_users: number;
+  roles: {
+    SENDER: RoleDetail;
+    TRAVELER: RoleDetail;
+  };
+}
+
+export const getUserRoleDistribution = async (): Promise<UserRoleDistributionResponse> => {
+  const response = await axiosInstance.get<UserRoleDistributionResponse>(
+    "/api/admin/users/role-distribution/"
+  );
+  return response.data;
+};
+
+
+export interface MonthlyRevenueItem {
+  year: number;
+  month: number;
+  month_name: string;
+  total_revenue: number;
+  platform_fee_revenue: number;
+  transaction_count: number;
+  paying_users: number;
+}
+
+export const getMonthlyRevenueApi = async (): Promise<MonthlyRevenueItem[]> => {
+  const response = await axiosInstance.get<MonthlyRevenueItem[]>(
+    "/api/admin/revenue/monthly/"
+  );
+  return response.data;
+};
