@@ -18,17 +18,15 @@ export const Dashboard = () => {
           <StatCard title="Pending User" value="780" icon={ArrowUpRight} />
           <StatCard title="Total Revenue" value="$45,203" icon={ArrowUpRight} />
 
-          <StatCard title="Waiting Match" value="126" icon={ArrowUpRight} />
-          <StatCard title="Matched" value="82" icon={ArrowUpRight} />
-          <StatCard title="In Delivery" value="49" icon={ArrowUpRight} />
-          <StatCard title="Delivered" value="3,102" icon={ArrowUpRight} />
+
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
         <StatCard title="Cancelled Orders" value="41" icon={ArrowUpRight} />
-        <StatCard title="Pending KYC" value="17" icon={ArrowUpRight} />
         <StatCard title="Open Disputes" value="6" icon={ArrowUpRight} />
-        <StatCard title="Total Revenue" value="$45,203" icon={ArrowUpRight} />
+        <StatCard title="In Delivery" value="49" icon={ArrowUpRight} />
+        <StatCard title="Delivered" value="3,102" icon={ArrowUpRight} />
+   
       </div>
 
         {/* Charts Grid */}
