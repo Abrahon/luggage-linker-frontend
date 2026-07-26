@@ -107,3 +107,25 @@ export const getMonthlyRevenueApi = async (): Promise<MonthlyRevenueItem[]> => {
   );
   return response.data;
 };
+
+
+export interface RouteItem {
+  package__pickup_country: string;
+  package__pickup_city: string;
+  package__destination_country: string;
+  package__destination_city: string;
+  total_deliveries: number;
+}
+
+export interface TopRoutesApiResponse {
+  success: boolean;
+  message: string;
+  results: RouteItem[];
+}
+
+export const getTopRoutesApi = async (): Promise<TopRoutesApiResponse> => {
+  const response = await axiosInstance.get<TopRoutesApiResponse>(
+    "/api/admin/dashboard/top-routes/"
+  );
+  return response.data;
+};
