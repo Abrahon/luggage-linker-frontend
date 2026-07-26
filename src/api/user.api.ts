@@ -129,3 +129,48 @@ export const getTopRoutesApi = async (): Promise<TopRoutesApiResponse> => {
   );
   return response.data;
 };
+
+export interface ActivityItem {
+  type: "MATCH" | "BOOKING" | "DELIVERY" | "PAYMENT" | "KYC" | "DISPUTE";
+  title: string;
+  description: string;
+  time: string;
+  created_at: string;
+}
+
+export interface RecentActivitiesResponse {
+  message: string;
+  count: number;
+  results: ActivityItem[];
+}
+
+export const getRecentActivitiesApi = async (): Promise<RecentActivitiesResponse> => {
+  const response = await axiosInstance.get<RecentActivitiesResponse>(
+    "/api/admin/dashboard/recent-activities/"
+  );
+  return response.data;
+};
+
+
+export interface DashboardStatsData {
+  total_users: number;
+  total_packages: number;
+  total_bookings: number;
+  platform_revenue: string;
+  active_deliveries: number;
+  completed_deliveries: number;
+  pending_kyc: number;
+  open_disputes: number;
+}
+
+export interface DashboardStatsApiResponse {
+  message: string;
+  data: DashboardStatsData;
+}
+
+export const getDashboardStatsApi = async (): Promise<DashboardStatsApiResponse> => {
+  const response = await axiosInstance.get<DashboardStatsApiResponse>(
+    "/api/admin/dashboard/stats/"
+  );
+  return response.data;
+};
