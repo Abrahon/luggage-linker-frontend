@@ -357,9 +357,7 @@ export const Trips = () => {
                         <span className="font-semibold text-slate-900 text-sm">
                           {trip.title || "Untitled Trip"}
                         </span>
-                        <span className="text-xs text-slate-400 font-mono truncate max-w-[140px]">
-                          ID: {trip.id?.substring(0, 8)}...
-                        </span>
+
                       </div>
                     </TableCell>
 

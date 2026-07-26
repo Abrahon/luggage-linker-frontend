@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { HeadingSection } from "@/webcomponent/reusable/HeadingSection";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,122 +26,167 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-// This import path maps straight to your newly created custom primitive file
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} 
-from  "@/components/ui/dropdown-menu";
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { Eye, MoreHorizontal, ShieldCheck, Undo2, FileText } from "lucide-react";
+import { Eye, MoreHorizontal, ShieldCheck, Undo2, FileText, Loader2 } from "lucide-react";
+import {
+  getAdminPaymentStatsApi,
+  getAdminPaymentsApi,
+  releaseEscrowApi,
+  refundEscrowApi,
+  BackendPaymentStats,
+  BackendPaymentItem,
+} from "@/api/payments.api"; // Adjust import path as needed
 
-// Interface
-export interface Payments {
+// UI Display Model
+export interface PaymentItem {
   paymentId: string;
   bookingId: string;
   senderName: string;
   travelerName: string;
   amount: number;
   platformFee: number;
-  escrowStatus: "Held" | "Released" | "Refunded" | "Pending";
+  escrowStatus: string;
+  rawStatus: string;
   date: string;
 }
 
-// Dummy Data
-const initialPayments: Payments[] = [
-  {
-    paymentId: "PAY001",
-    bookingId: "BKO-9921",
-    senderName: "John Doe",
-    travelerName: "Mehedy Hasan",
-    amount: 250,
-    platformFee: 10,
-    date: "2025-10-12",
-    escrowStatus: "Released",
-  },
-  {
-    paymentId: "PAY002",
-    bookingId: "BKO-4821",
-    senderName: "Nusrat Jahan",
-    travelerName: "Rakibul Islam",
-    amount: 320,
-    platformFee: 15,
-    date: "2025-10-10",
-    escrowStatus: "Held",
-  },
-  {
-    paymentId: "PAY003",
-    bookingId: "BKO-1029",
-    senderName: "Tania Akter",
-    travelerName: "Arif Rahman",
-    amount: 500,
-    platformFee: 20,
-    date: "2025-09-25",
-    escrowStatus: "Released",
-  },
-  {
-    paymentId: "PAY004",
-    bookingId: "BKO-7734",
-    senderName: "Sabbir Ahmed",
-    travelerName: "Jahidul Karim",
-    amount: 150,
-    platformFee: 5,
-    date: "2025-09-20",
-    escrowStatus: "Pending",
-  },
-  {
-    paymentId: "PAY005",
-    bookingId: "BKO-3011",
-    senderName: "Mahmudul Hasan",
-    travelerName: "Sharmin Akter",
-    amount: 420,
-    platformFee: 12,
-    date: "2025-09-15",
-    escrowStatus: "Refunded",
-  },
-];
+// Maps backend status strings to frontend labels & badges
+const mapEscrowStatus = (status: string) => {
+  switch (status.toUpperCase()) {
+    case "AUTHORIZED":
+      return "Pending";
+    case "CAPTURED":
+      return "Held";
+    case "RELEASED":
+      return "Released";
+    case "REFUNDED":
+      return "Refunded";
+    default:
+      return status;
+  }
+};
 
 export const Payment = () => {
+  // State management
+  const [stats, setStats] = useState<BackendPaymentStats | null>(null);
+  const [payments, setPayments] = useState<PaymentItem[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "Held" | "Released" | "Refunded" | "Pending">("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
-  const [selectedPayment, setSelectedPayment] = useState<Payments | null>(null);
-  const rowsPerPage = 5;
 
-  // Filter logic
-  const filteredPayments = initialPayments.filter((p) => {
-    const matchesSearch =
-      p.travelerName.toLowerCase().includes(search.toLowerCase()) ||
-      p.senderName.toLowerCase().includes(search.toLowerCase()) ||
-      p.bookingId.toLowerCase().includes(search.toLowerCase()) ||
-      p.paymentId.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === "all" || p.escrowStatus === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<PaymentItem | null>(null);
 
-  const totalPages = Math.ceil(filteredPayments.length / rowsPerPage);
-  const paginatedData = filteredPayments.slice(
-    (page - 1) * rowsPerPage,
-    page * rowsPerPage
-  );
+  const PAGE_SIZE = 10;
 
-  const nextPage = () => setPage((p) => Math.min(p + 1, totalPages));
-  const prevPage = () => setPage((p) => Math.max(p - 1, 1));
-
-  // Placeholder action alert handlers
-  const handleReleaseEscrow = (paymentId: string) => {
-    alert(`Funds released completely for transaction: ${paymentId}`);
+  // Fetch Dashboard Stats
+  const fetchStats = async () => {
+    try {
+      const data = await getAdminPaymentStatsApi();
+      setStats(data);
+    } catch (err) {
+      console.error("Failed to fetch payment stats:", err);
+    }
   };
 
-  const handleRefund = (paymentId: string) => {
-    alert(`Refund processed successfully for transaction: ${paymentId}`);
+  // Fetch Payments List
+  const fetchPayments = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await getAdminPaymentsApi({
+        search,
+        escrow_status: statusFilter,
+        page,
+      });
+
+      const formattedResults: PaymentItem[] = data.results.map((item: BackendPaymentItem) => ({
+        paymentId: item.id,
+        bookingId: item.booking_id,
+        senderName: item.sender,
+        travelerName: item.traveler,
+        amount: parseFloat(item.amount) || 0,
+        platformFee: parseFloat(item.platform_fee) || 0,
+        escrowStatus: mapEscrowStatus(item.escrow_status),
+        rawStatus: item.escrow_status,
+        date: new Date(item.created_at).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        }),
+      }));
+
+      setPayments(formattedResults);
+      setTotalCount(data.count);
+    } catch (err) {
+      console.error("Failed to fetch payments:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [search, statusFilter, page]);
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchPayments();
+    }, 300); // Debounce search calls
+    return () => clearTimeout(timer);
+  }, [fetchPayments]);
+
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE) || 1;
+
+  // Actions
+  const handleReleaseEscrow = async (paymentId: string) => {
+    try {
+      setActionLoading(true);
+      await releaseEscrowApi(paymentId);
+      alert(`Funds released completely for transaction: ${paymentId}`);
+      setSelectedPayment(null);
+      fetchPayments();
+      fetchStats();
+    } catch (err) {
+      console.error("Failed to release escrow:", err);
+      alert("Error releasing funds. Please try again.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRefund = async (paymentId: string) => {
+    try {
+      setActionLoading(true);
+      await refundEscrowApi(paymentId);
+      alert(`Refund processed successfully for transaction: ${paymentId}`);
+      setSelectedPayment(null);
+      fetchPayments();
+      fetchStats();
+    } catch (err) {
+      console.error("Failed to refund escrow:", err);
+      alert("Error processing refund. Please try again.");
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleViewInvoice = (paymentId: string) => {
     alert(`Generating system billing invoice view for transaction: ${paymentId}`);
+  };
+
+  const formatCurrency = (val?: string | number) => {
+    const num = typeof val === "string" ? parseFloat(val) : val;
+    return `$${(num || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
   };
 
   return (
@@ -154,12 +199,12 @@ export const Payment = () => {
       {/* Top Metrics Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {[
-          { label: "Total Transactions", value: "$245,320", color: "border-l-blue-500" },
-          { label: "Escrow Balance", value: "$65,420", color: "border-l-indigo-500" },
-          { label: "Pending Escrow", value: "$12,340", color: "border-l-amber-500" },
-          { label: "Released Escrow", value: "$52,980", color: "border-l-emerald-500" },
-          { label: "Refund Amount", value: "$2,430", color: "border-l-rose-500" },
-          { label: "Platform Revenue", value: "$15,620", color: "border-l-purple-500" },
+          { label: "Total Transactions", value: stats?.total_transactions ?? 0, isRaw: true, color: "border-l-blue-500" },
+          { label: "Escrow Balance", value: formatCurrency(stats?.escrow_balance), color: "border-l-indigo-500" },
+          { label: "Pending Escrow", value: formatCurrency(stats?.pending_escrow), color: "border-l-amber-500" },
+          { label: "Released Escrow", value: formatCurrency(stats?.released_escrow), color: "border-l-emerald-500" },
+          { label: "Refund Amount", value: formatCurrency(stats?.refund_amount), color: "border-l-rose-500" },
+          { label: "Platform Revenue", value: formatCurrency(stats?.platform_revenue), color: "border-l-purple-500" },
         ].map((card, idx) => (
           <div key={idx} className={cn("bg-white p-4 rounded-xl border border-gray-100 shadow-sm border-l-4", card.color)}>
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">{card.label}</p>
@@ -172,7 +217,7 @@ export const Payment = () => {
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-2">
         <div className="relative w-full md:w-1/3">
           <Input
-            placeholder="Search by name, ID, or Booking ID..."
+            placeholder="Search by email or Booking ID..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -183,7 +228,7 @@ export const Payment = () => {
 
         <Select
           value={statusFilter}
-          onValueChange={(v: typeof statusFilter) => {
+          onValueChange={(v) => {
             setStatusFilter(v);
             setPage(1);
           }}
@@ -193,10 +238,10 @@ export const Payment = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="Pending">Pending</SelectItem>
-            <SelectItem value="Held">Held</SelectItem>
-            <SelectItem value="Released">Released</SelectItem>
-            <SelectItem value="Refunded">Refunded</SelectItem>
+            <SelectItem value="AUTHORIZED">Pending (Authorized)</SelectItem>
+            <SelectItem value="CAPTURED">Held (Captured)</SelectItem>
+            <SelectItem value="RELEASED">Released</SelectItem>
+            <SelectItem value="REFUNDED">Refunded</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -207,7 +252,6 @@ export const Payment = () => {
           <TableHeader className="bg-gray-50">
             <TableRow>
               <TableHead className="font-semibold text-gray-700">Payment ID</TableHead>
-              <TableHead className="font-semibold text-gray-700">Booking ID</TableHead>
               <TableHead className="font-semibold text-gray-700">Sender</TableHead>
               <TableHead className="font-semibold text-gray-700">Traveler</TableHead>
               <TableHead className="font-semibold text-gray-700">Amount</TableHead>
@@ -218,13 +262,28 @@ export const Payment = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedData.length > 0 ? (
-              paginatedData.map((p, index) => (
-                <TableRow key={index} className="hover:bg-gray-50/50 transition-colors">
-                  <TableCell className="font-medium text-gray-900">{p.paymentId}</TableCell>
-                  <TableCell className="text-gray-600 font-mono text-xs">{p.bookingId}</TableCell>
-                  <TableCell className="text-gray-700">{p.senderName}</TableCell>
-                  <TableCell className="text-gray-700">{p.travelerName}</TableCell>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={9} className="text-center py-12 text-gray-500">
+                  <div className="flex justify-center items-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                    <span>Loading payment transactions...</span>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : payments.length > 0 ? (
+              payments.map((p) => (
+                <TableRow key={p.paymentId} className="hover:bg-gray-50/50 transition-colors">
+                  <TableCell className="font-medium text-gray-900 font-mono text-xs" title={p.paymentId}>
+                    {p.paymentId.slice(0, 8)}...
+                  </TableCell>
+
+                  <TableCell className="text-gray-700 max-w-[150px] truncate" title={p.senderName}>
+                    {p.senderName}
+                  </TableCell>
+                  <TableCell className="text-gray-700 max-w-[150px] truncate" title={p.travelerName}>
+                    {p.travelerName}
+                  </TableCell>
                   <TableCell className="font-medium text-gray-900">${p.amount.toFixed(2)}</TableCell>
                   <TableCell className="text-emerald-600 font-medium">${p.platformFee.toFixed(2)}</TableCell>
                   <TableCell>
@@ -240,7 +299,7 @@ export const Payment = () => {
                       {p.escrowStatus}
                     </span>
                   </TableCell>
-                  <TableCell className="text-gray-500 text-sm">{p.date}</TableCell>
+                  <TableCell className="text-gray-500 text-sm whitespace-nowrap">{p.date}</TableCell>
                   <TableCell className="text-center">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -300,7 +359,7 @@ export const Payment = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={prevPage}
+            onClick={() => setPage((p) => Math.max(p - 1, 1))}
             disabled={page === 1}
           >
             Previous
@@ -311,7 +370,7 @@ export const Payment = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={nextPage}
+            onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
             disabled={page === totalPages}
           >
             Next
@@ -330,7 +389,7 @@ export const Payment = () => {
             <div className="mt-4 flex flex-col gap-3 text-sm bg-gray-50 p-4 rounded-xl border border-gray-100">
               <div className="flex justify-between border-b pb-2 border-gray-200/60">
                 <span className="text-gray-500">Payment ID:</span>
-                <span className="font-semibold text-gray-900">{selectedPayment.paymentId}</span>
+                <span className="font-semibold text-gray-900 font-mono text-xs">{selectedPayment.paymentId}</span>
               </div>
               <div className="flex justify-between border-b pb-2 border-gray-200/60">
                 <span className="text-gray-500">Booking Reference:</span>
@@ -338,11 +397,11 @@ export const Payment = () => {
               </div>
               <div className="flex justify-between border-b pb-2 border-gray-200/60">
                 <span className="text-gray-500">Sender:</span>
-                <span className="text-gray-900">{selectedPayment.senderName}</span>
+                <span className="text-gray-900 font-medium">{selectedPayment.senderName}</span>
               </div>
               <div className="flex justify-between border-b pb-2 border-gray-200/60">
                 <span className="text-gray-500">Traveler:</span>
-                <span className="text-gray-900">{selectedPayment.travelerName}</span>
+                <span className="text-gray-900 font-medium">{selectedPayment.travelerName}</span>
               </div>
               <div className="flex justify-between border-b pb-2 border-gray-200/60">
                 <span className="text-gray-500">Net Amount:</span>
@@ -353,7 +412,7 @@ export const Payment = () => {
                 <span className="text-emerald-600 font-semibold">${selectedPayment.platformFee.toFixed(2)}</span>
               </div>
               <div className="flex justify-between border-b pb-2 border-gray-200/60">
-                <span className="text-gray-500">Settled On:</span>
+                <span className="text-gray-500">Created On:</span>
                 <span className="text-gray-700">{selectedPayment.date}</span>
               </div>
               <div className="flex justify-between pt-1">
@@ -367,7 +426,7 @@ export const Payment = () => {
                     selectedPayment.escrowStatus === "Refunded" && "bg-rose-100 text-rose-800"
                   )}
                 >
-                  {selectedPayment.escrowStatus}
+                  {selectedPayment.escrowStatus} ({selectedPayment.rawStatus})
                 </span>
               </div>
             </div>
@@ -378,22 +437,18 @@ export const Payment = () => {
               <div className="flex gap-2 w-full justify-end">
                 <Button 
                   variant="outline" 
+                  disabled={actionLoading}
                   className="text-rose-600 border-rose-200 hover:bg-rose-50" 
-                  onClick={() => {
-                    handleRefund(selectedPayment.paymentId);
-                    setSelectedPayment(null);
-                  }}
+                  onClick={() => handleRefund(selectedPayment.paymentId)}
                 >
-                  Issue Refund
+                  {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Issue Refund"}
                 </Button>
                 <Button 
+                  disabled={actionLoading}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white" 
-                  onClick={() => {
-                    handleReleaseEscrow(selectedPayment.paymentId);
-                    setSelectedPayment(null);
-                  }}
+                  onClick={() => handleReleaseEscrow(selectedPayment.paymentId)}
                 >
-                  Release Funds
+                  {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Release Funds"}
                 </Button>
               </div>
             ) : (
