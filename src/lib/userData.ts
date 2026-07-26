@@ -1,6 +1,7 @@
 
 import {
   Plane,
+  Package,
   MessageCircle,
   DollarSign,
   History,
@@ -97,6 +98,13 @@ export const adminLink = [
     href: "/admin/trips",
     icon: Plane, // ✈️ trip management
   },
+  {
+    label: "Packages", 
+    href: "/admin/packages",
+    icon: Package,
+
+  },
+
   {
     label: "Payments",
     href: "/admin/payments",
