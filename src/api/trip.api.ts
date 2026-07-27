@@ -45,7 +45,9 @@ export interface CancelTripApiResponse {
   };
 }
 
-// Fetch list of all trips
+
+
+
 // Cancel trip API call
 // Fetch trips with optional search and status query parameters
 export const getAdminTripsApi = async (params?: {
