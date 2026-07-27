@@ -45,22 +45,22 @@ const countryList = [
   "India",
 ];
 
-const GENDER_VALUES = ["male", "female", "other", ""] as const;
-
 const personalInfoSchema = z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters"),
   lastName: z.string().min(2, "Last name must be at least 2 characters"),
   phoneNumber: z.string().min(6, "Please enter a valid phone number"),
   dateOfBirth: z.string().min(1, "Date of birth is required"),
-  gender: z.enum(GENDER_VALUES).refine((val) => val !== "", {
-    message: "Please select your gender",
-  }),
+gender: z
+    .string()
+    .min(1, "Please select your gender")
+    .refine((val) => ["male", "female", "other"].includes(val), {
+      message: "Please select a valid gender",
+    }),
   country: z.string().min(1, "Country is required"),
 });
 
-type PersonalInfoFormValues = z.infer<typeof personalInfoSchema>;
+export type PersonalInfoFormValues = z.infer<typeof personalInfoSchema>;
 
-// CHANGED: Renamed from PersonalInfo to PersonalInformation to fix the undefined render crash
 export const PersonalInformation = () => {
   const { setStepComplete } = useVerification();
   const [openCountry, setOpenCountry] = useState(false);
@@ -73,7 +73,7 @@ export const PersonalInformation = () => {
       lastName: "",
       phoneNumber: "",
       dateOfBirth: "",
-      gender: "", 
+      gender: undefined, 
       country: "",
     },
   });
@@ -89,7 +89,7 @@ export const PersonalInformation = () => {
       <form className="flex flex-col gap-5 w-full max-w-2xl mx-auto py-2">
         {/* Grid: First Name & Last Name */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <FormField
+          <FormField<PersonalInfoFormValues, "firstName">
             control={form.control}
             name="firstName"
             render={({ field }) => (
@@ -102,7 +102,7 @@ export const PersonalInformation = () => {
               </FormItem>
             )}
           />
-          <FormField
+          <FormField<PersonalInfoFormValues, "lastName">
             control={form.control}
             name="lastName"
             render={({ field }) => (
@@ -111,14 +111,14 @@ export const PersonalInformation = () => {
                 <FormControl>
                   <Input placeholder="Doe" {...field} className="h-11" />
                 </FormControl>
-                  <FormMessage />
-                </FormItem>
+                <FormMessage />
+              </FormItem>
             )}
           />
         </div>
 
         {/* Phone Number */}
-        <FormField
+        <FormField<PersonalInfoFormValues, "phoneNumber">
           control={form.control}
           name="phoneNumber"
           render={({ field }) => (
@@ -134,7 +134,7 @@ export const PersonalInformation = () => {
 
         {/* Grid: Date of Birth & Gender */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <FormField
+          <FormField<PersonalInfoFormValues, "dateOfBirth">
             control={form.control}
             name="dateOfBirth"
             render={({ field }) => (
@@ -147,15 +147,15 @@ export const PersonalInformation = () => {
               </FormItem>
             )}
           />
-          <FormField
+          <FormField<PersonalInfoFormValues, "gender">
             control={form.control}
             name="gender"
             render={({ field }) => (
               <FormItem className="flex flex-col gap-1.5">
                 <FormLabel className="font-bold text-sm tracking-wide">Gender</FormLabel>
                 <Select 
-                  onValueChange={(value) => field.onChange(value)}
-                  value={field.value || ""}
+                  onValueChange={field.onChange}
+                  value={field.value ?? ""}
                 >
                   <FormControl>
                     <SelectTrigger className="h-11 capitalize">
@@ -175,13 +175,13 @@ export const PersonalInformation = () => {
         </div>
 
         {/* Country Picker Popover */}
-        <FormField
+        <FormField<PersonalInfoFormValues, "country">
           control={form.control}
           name="country"
           render={({ field }) => (
             <FormItem className="flex flex-col gap-1.5">
               <FormLabel className="font-bold text-sm tracking-wide">Country</FormLabel>
-              <Popover open={openCountry} onOpenChange={setOpenCountry}>
+              <Popover open={openCountry} onOpenChange={(open: boolean) => setOpenCountry(open)}>
                 <PopoverTrigger asChild>
                   <FormControl>
                     <Button
@@ -206,8 +206,8 @@ export const PersonalInformation = () => {
                           <CommandItem
                             key={country}
                             value={country}
-                            onSelect={() => {
-                              field.onChange(country);
+                            onSelect={(selectedVal: string) => {
+                              field.onChange(selectedVal);
                               setOpenCountry(false);
                             }}
                             className="cursor-pointer"

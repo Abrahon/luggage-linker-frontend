@@ -1,232 +1,116 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useState, useEffect } from "react";
 import { useVerification } from "@/app/(protected)/(carrier)/verification/(verification)/VerificationLayOut";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { FileUpload } from "@/webcomponent/reusable/FileUpload";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
 
-const countryList = [
-  "United States",
-  "Canada",
-  "United Kingdom",
-  "Bangladesh",
-  "India",
-];
+const idTypes = [
+  { label: "National ID", value: "national_id" },
+  { label: "Passport", value: "passport" },
+  { label: "Driver's License", value: "drivers_license" },
+] as const;
 
-const GENDER_VALUES = ["male", "female", "other", ""] as const;
+export interface IDVerificationData {
+  idType: string;
+  idNumber: string;
+  front?: File;
+  back?: File;
+}
 
-const personalInfoSchema = z.object({
-  firstName: z.string().min(2, "First name must be at least 2 characters"),
-  lastName: z.string().min(2, "Last name must be at least 2 characters"),
-  phoneNumber: z.string().min(6, "Please enter a valid phone number"),
-  dateOfBirth: z.string().min(1, "Date of birth is required"),
-  gender: z.enum(GENDER_VALUES).refine((val) => val !== "", {
-    message: "Please select your gender",
-  }),
-  country: z.string().min(1, "Country is required"),
-});
+interface Props {
+  onChange?: (data: IDVerificationData) => void;
+}
 
-type PersonalInfoFormValues = z.infer<typeof personalInfoSchema>;
-
-export const PersonalInfo = () => {
+export const IDVerification = ({ onChange }: Props) => {
   const { setStepComplete } = useVerification();
-  const [openCountry, setOpenCountry] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("national_id");
+  const [idNumber, setIdNumber] = useState<string>("");
+  const [files, setFiles] = useState<{ front?: File; back?: File }>({});
 
-  const form = useForm<PersonalInfoFormValues>({
-    resolver: zodResolver(personalInfoSchema),
-    mode: "onChange", // FIX 1: Forces the form to validate dynamically on every keystroke/change
-    defaultValues: {
-      firstName: "",
-      lastName: "",
-      phoneNumber: "",
-      dateOfBirth: "",
-      gender: "", 
-      country: "",
-    },
-  });
-
-  // Accessing isValid directly from formState guarantees accurate step completion mapping
-  const { isValid } = form.formState;
-
-  // FIX 2: Instead of running a manual safeParse, let React Hook Form's native state handle the step completion
   useEffect(() => {
+    let isValid = false;
+    const hasNumber = idNumber.trim().length > 3;
+
+    if (activeTab === "passport") {
+      isValid = hasNumber && !!files.front;
+    } else {
+      isValid = hasNumber && !!files.front && !!files.back;
+    }
+
     setStepComplete(isValid);
-  }, [isValid, setStepComplete]);
+
+    if (onChange) {
+      onChange({
+        idType: activeTab,
+        idNumber,
+        front: files.front,
+        back: files.back,
+      });
+    }
+  }, [files, activeTab, idNumber, setStepComplete, onChange]);
+
+  const handleFileChange = (key: "front" | "back", file: File | null) => {
+    setFiles((prev) => ({ ...prev, [key]: file || undefined }));
+  };
 
   return (
-    <Form {...form}>
-      <form className="flex flex-col gap-5 w-full max-w-2xl mx-auto py-2">
-        {/* Grid: First Name & Last Name */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <FormField
-            control={form.control}
-            name="firstName"
-            render={({ field }) => (
-              <FormItem className="flex flex-col gap-1.5">
-                <FormLabel className="font-bold text-sm tracking-wide">First Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="John" {...field} className="h-11" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="lastName"
-            render={({ field }) => (
-              <FormItem className="flex flex-col gap-1.5">
-                <FormLabel className="font-bold text-sm tracking-wide">Last Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="Doe" {...field} className="h-11" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+    <div className="flex flex-col gap-6 py-6 max-w-2xl mx-auto">
+      <h2 className="text-lg font-bold">Document Details</h2>
 
-        {/* Phone Number */}
-        <FormField
-          control={form.control}
-          name="phoneNumber"
-          render={({ field }) => (
-            <FormItem className="flex flex-col gap-1.5">
-              <FormLabel className="font-bold text-sm tracking-wide">Phone Number</FormLabel>
-              <FormControl>
-                <Input type="tel" placeholder="+1 (555) 000-0000" {...field} className="h-11" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+      {/* ID Number Input */}
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="idNumber" className="font-bold text-sm tracking-wide">
+          Document ID / Registration Number
+        </Label>
+        <Input
+          id="idNumber"
+          placeholder="Enter ID number"
+          value={idNumber}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIdNumber(e.target.value)}
+          className="h-11"
         />
+      </div>
 
-        {/* Grid: Date of Birth & Gender */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <FormField
-            control={form.control}
-            name="dateOfBirth"
-            render={({ field }) => (
-              <FormItem className="flex flex-col gap-1.5">
-                <FormLabel className="font-bold text-sm tracking-wide">Date of Birth</FormLabel>
-                <FormControl>
-                  <Input type="date" {...field} className="h-11 block w-full" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="gender"
-            render={({ field }) => (
-              <FormItem className="flex flex-col gap-1.5">
-                <FormLabel className="font-bold text-sm tracking-wide">Gender</FormLabel>
-                <Select 
-                  onValueChange={(value) => field.onChange(value)} // Explicitly pass the value out
-                  value={field.value || ""}
-                >
-                  <FormControl>
-                    <SelectTrigger className="h-11 capitalize">
-                      <SelectValue placeholder="Select gender" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="male" className="cursor-pointer">Male</SelectItem>
-                    <SelectItem value="female" className="cursor-pointer">Female</SelectItem>
-                    <SelectItem value="other" className="cursor-pointer">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+      <h2 className="text-lg font-bold mt-2">Select Document Type</h2>
 
-        {/* Country Picker Popover */}
-        <FormField
-          control={form.control}
-          name="country"
-          render={({ field }) => (
-            <FormItem className="flex flex-col gap-1.5">
-              <FormLabel className="font-bold text-sm tracking-wide">Country</FormLabel>
-              <Popover open={openCountry} onOpenChange={setOpenCountry}>
-                <PopoverTrigger asChild>
-                  <FormControl>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-between text-left font-normal h-11 px-3",
-                        !field.value && "text-muted-foreground"
-                      )}
-                    >
-                      {field.value || "Select country"}
-                    </Button>
-                  </FormControl>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="p-0 w-[var(--radix-popover-trigger-width)]">
-                  <Command className="w-full">
-                    <CommandInput placeholder="Search country..." className="h-10" />
-                    <CommandList>
-                      <CommandEmpty>No country found.</CommandEmpty>
-                      <CommandGroup>
-                        {countryList.map((country) => (
-                          <CommandItem
-                            key={country}
-                            value={country}
-                            onSelect={() => {
-                              // FIX 3: Trigger full form updates cleanly by routing it through field.onChange
-                              field.onChange(country);
-                              setOpenCountry(false);
-                            }}
-                            className="cursor-pointer"
-                          >
-                            {country}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      </form>
-    </Form>
+      <Tabs value={activeTab} onValueChange={(v: string) => setActiveTab(v)}>
+        <TabsList className="flex gap-2 border rounded-lg p-1 bg-white">
+          {idTypes.map((type) => (
+            <TabsTrigger
+              key={type.value}
+              value={type.value}
+              className={`rounded-lg px-4 py-2 font-medium transition-colors duration-200 ${
+                activeTab === type.value ? "bg-[#EFF6FF]" : "bg-white hover:bg-gray-100"
+              }`}
+            >
+              {type.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        <TabsContent value="national_id">
+          <div className="flex flex-col gap-4 mt-4">
+            <FileUpload label="Front Side" onFileChange={(file) => handleFileChange("front", file)} />
+            <FileUpload label="Back Side" onFileChange={(file) => handleFileChange("back", file)} />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="passport">
+          <div className="flex flex-col gap-4 mt-4">
+            <FileUpload label="Passport Information Page" onFileChange={(file) => handleFileChange("front", file)} />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="drivers_license">
+          <div className="flex flex-col gap-4 mt-4">
+            <FileUpload label="Front Side" onFileChange={(file) => handleFileChange("front", file)} />
+            <FileUpload label="Back Side" onFileChange={(file) => handleFileChange("back", file)} />
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 };
