@@ -39,36 +39,23 @@ export interface ApiResponse<T> {
   data: T;
 }
 
-// Config to prevent browser and Next.js request caching
-const noCacheConfig = {
-  headers: {
-    'Cache-Control': 'no-cache, no-store, must-revalidate',
-    'Pragma': 'no-cache',
-    'Expires': '0',
-  },
-};
-
 export const getTravelerStats = async (): Promise<ApiResponse<TravelerStatsData>> => {
-  // Adding timestamp query param guarantees a fresh network request
   const response = await axiosInstance.get<ApiResponse<TravelerStatsData>>(
-    `/api/traveler/stats/?_t=${Date.now()}`,
-    noCacheConfig
+    `/api/traveler/stats/?_t=${Date.now()}`
   );
   return response.data;
 };
 
 export const getTravelerMonthlyEarnings = async (): Promise<ApiResponse<MonthlyEarningsData>> => {
   const response = await axiosInstance.get<ApiResponse<MonthlyEarningsData>>(
-    `/api/traveler/monthly-earnings/?_t=${Date.now()}`,
-    noCacheConfig
+    `/api/traveler/monthly-earnings/?_t=${Date.now()}`
   );
   return response.data;
 };
 
 export const getTravelerRecentActivities = async (): Promise<ApiResponse<RecentActivityItem[]>> => {
   const response = await axiosInstance.get<ApiResponse<RecentActivityItem[]>>(
-    `/api/traveler/recent-activities/?_t=${Date.now()}`,
-    noCacheConfig
+    `/api/traveler/recent-activities/?_t=${Date.now()}`
   );
   return response.data;
 };

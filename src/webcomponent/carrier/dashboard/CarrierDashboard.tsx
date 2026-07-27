@@ -32,40 +32,55 @@ export const CarrierDashboard = () => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+    setLoading(true);
+    setError(null);
 
-      const [statsRes, earningsRes, activitiesRes] = await Promise.all([
-        getTravelerStats(),
-        getTravelerMonthlyEarnings(),
-        getTravelerRecentActivities(),
-      ]);
+    const [statsRes, earningsRes, activitiesRes] = await Promise.allSettled([
+      getTravelerStats(),
+      getTravelerMonthlyEarnings(),
+      getTravelerRecentActivities(),
+    ]);
 
-      console.log("FRESH BACKEND STATS RESPONSE:", statsRes);
+    let hasSuccess = false;
 
-      if (statsRes?.success && statsRes.data) {
-        setStats(statsRes.data);
-      } else if (statsRes && !statsRes.success) {
-        throw new Error(statsRes.message || "Unable to load traveler stats.");
-      }
-
-      if (earningsRes?.success && earningsRes.data) {
-        setChartData(earningsRes.data.chart_data || []);
-        setTotalYearEarnings(earningsRes.data.total_year_earnings || "0.00");
-      }
-
-      if (activitiesRes?.success && Array.isArray(activitiesRes.data)) {
-        setActivities(activitiesRes.data);
-      }
-    } catch (err: any) {
-      console.error("Dashboard Fetch Error:", err);
-      setError(
-        err?.response?.data?.message || "Failed to load dashboard data."
-      );
-    } finally {
-      setLoading(false);
+    // 1. Process Traveler Stats
+    if (statsRes.status === "fulfilled" && statsRes.value?.data) {
+      setStats(statsRes.value.data);
+      hasSuccess = true;
+    } else {
+      console.warn("Stats API call failed or returned empty:", statsRes);
     }
+
+    // 2. Process Monthly Earnings
+    if (earningsRes.status === "fulfilled" && earningsRes.value?.data) {
+      setChartData(earningsRes.value.data.chart_data || []);
+      setTotalYearEarnings(earningsRes.value.data.total_year_earnings || "0.00");
+      hasSuccess = true;
+    } else {
+      console.warn("Earnings API call failed or returned empty:", earningsRes);
+    }
+
+    // 3. Process Recent Activities
+    if (activitiesRes.status === "fulfilled" && Array.isArray(activitiesRes.value?.data)) {
+      setActivities(activitiesRes.value.data);
+      hasSuccess = true;
+    } else {
+      console.warn("Activities API call failed or returned empty:", activitiesRes);
+    }
+
+    // Show persistent error UI ONLY if all calls fail AND we have zero default data display
+    if (!hasSuccess) {
+      const statsErr: any = statsRes.status === "rejected" ? statsRes.reason : null;
+      const status = statsErr?.response?.status;
+
+      if (status === 401 || status === 403) {
+        setError("Your session has expired. Please log in again.");
+      } else {
+        setError("Unable to connect to backend server. Verify DevTunnel connection.");
+      }
+    }
+
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -83,98 +98,90 @@ export const CarrierDashboard = () => {
   if (error) {
     return (
       <div className="p-6 my-8 bg-red-50 border border-red-200 rounded-xl text-center text-red-600 max-w-lg mx-auto">
-        <p className="font-semibold">{error}</p>
+        <p className="font-semibold text-sm">{error}</p>
         <button
           onClick={fetchDashboardData}
           className="mt-3 px-4 py-1.5 text-xs font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
         >
-          Retry
+          Retry Connection
         </button>
       </div>
     );
   }
 
-  // Exactly 8 Cards rendered dynamically from the backend data
-  const statCards: CardProps[] = stats
-    ? [
-        {
-          icon: "https://api.iconify.design/lucide:wallet.svg?color=%234f46e5",
-          title: "Available Balance",
-          quantity: `$${stats.available_balance}`,
-          sugtitle: "Available Balance",
-        },
-        {
-          icon: "https://api.iconify.design/lucide:truck.svg?color=%234f46e5",
-          title: "Active Deliveries",
-          quantity: stats.active_deliveries,
-          sugtitle: "Active Deliveries",
-        },
-        {
-          icon: "https://api.iconify.design/lucide:map.svg?color=%234f46e5",
-          title: "Active Trips",
-          quantity: stats.active_trips,
-          sugtitle: "Active Trips",
-        },
-        {
-          icon: "https://api.iconify.design/lucide:clipboard-list.svg?color=%2364748b",
-          title: "Pending Requests",
-          quantity: stats.pending_requests,
-          sugtitle: "Pending Requests",
-        },
-        {
-          icon: "https://api.iconify.design/lucide:star.svg?color=%23eab308",
-          title: "Rating",
-          quantity: stats.rating,
-          sugtitle: "Rating",
-        },
-        {
-          icon: "https://api.iconify.design/lucide:check-circle.svg?color=%2310b981",
-          title: "Completed Deliveries",
-          quantity: stats.completed_deliveries,
-          sugtitle: "Completed Deliveries",
-        },
-        {
-          icon: "https://api.iconify.design/lucide:banknote.svg?color=%2364748b",
-          title: "Pending Earnings",
-          quantity: `$${stats.pending_earnings}`,
-          sugtitle: "Pending Earnings",
-        },
-        {
-          icon: "https://api.iconify.design/lucide:dollar-sign.svg?color=%2310b981",
-          title: "Lifetime Earnings",
-          quantity: `$${stats.lifetime_earnings}`,
-          sugtitle: "Lifetime Earnings",
-        },
-      ]
-    : [];
+  const statCards: CardProps[] = [
+    {
+      icon: "https://api.iconify.design/lucide:wallet.svg?color=%234f46e5",
+      title: "Available Balance",
+      quantity: `$${stats.available_balance}`,
+      sugtitle: "Available Balance",
+    },
+    {
+      icon: "https://api.iconify.design/lucide:truck.svg?color=%234f46e5",
+      title: "Active Deliveries",
+      quantity: stats.active_deliveries,
+      sugtitle: "Active Deliveries",
+    },
+    {
+      icon: "https://api.iconify.design/lucide:map.svg?color=%234f46e5",
+      title: "Active Trips",
+      quantity: stats.active_trips,
+      sugtitle: "Active Trips",
+    },
+    {
+      icon: "https://api.iconify.design/lucide:clipboard-list.svg?color=%2364748b",
+      title: "Pending Requests",
+      quantity: stats.pending_requests,
+      sugtitle: "Pending Requests",
+    },
+    {
+      icon: "https://api.iconify.design/lucide:star.svg?color=%23eab308",
+      title: "Rating",
+      quantity: stats.rating,
+      sugtitle: "Rating",
+    },
+    {
+      icon: "https://api.iconify.design/lucide:check-circle.svg?color=%2310b981",
+      title: "Completed Deliveries",
+      quantity: stats.completed_deliveries,
+      sugtitle: "Completed Deliveries",
+    },
+    {
+      icon: "https://api.iconify.design/lucide:banknote.svg?color=%2364748b",
+      title: "Pending Earnings",
+      quantity: `$${stats.pending_earnings}`,
+      sugtitle: "Pending Earnings",
+    },
+    {
+      icon: "https://api.iconify.design/lucide:dollar-sign.svg?color=%2310b981",
+      title: "Lifetime Earnings",
+      quantity: `$${stats.lifetime_earnings}`,
+      sugtitle: "Lifetime Earnings",
+    },
+  ];
 
   const numericEarnings = chartData.map((d) => parseFloat(d.earnings) || 0);
   const maxAmount = Math.max(...numericEarnings, 1);
 
   return (
     <div className="flex flex-col gap-6 py-6 text-slate-900">
-      {/* 1. Dynamic Header */}
-      {stats && (
-        <Breadcrumb
-          title="Traveler Dashboard"
-          subtitle="Your Lifetime earnings from deliveries"
-          math={[
-            {
-              mhki: `$${stats.lifetime_earnings}`,
-              mhki_subtitle: `From ${stats.completed_deliveries} completed deliveries`,
-            },
-          ]}
-        />
-      )}
+      <Breadcrumb
+        title="Traveler Dashboard"
+        subtitle="Your Lifetime earnings from deliveries"
+        math={[
+          {
+            mhki: `$${stats.lifetime_earnings}`,
+            mhki_subtitle: `From ${stats.completed_deliveries} completed deliveries`,
+          },
+        ]}
+      />
 
-      {/* 2. Grid with 8 Dynamic Cards */}
       <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {statCards.map((cardProps, index) => (
           <Card key={index} {...cardProps} />
         ))}
       </div>
 
-      {/* 3. Monthly Earnings Dynamic Bar Chart */}
       <div className="p-6 bg-white border border-slate-200 rounded-2xl shadow-sm">
         <div className="flex justify-between items-center mb-8">
           <div>
@@ -216,7 +223,6 @@ export const CarrierDashboard = () => {
         </div>
       </div>
 
-      {/* 4. Live Recent Activities */}
       <div className="p-6 bg-white border border-slate-200 rounded-2xl shadow-sm">
         <h3 className="text-base font-semibold text-slate-900 mb-4">
           Recent Activity Stream
