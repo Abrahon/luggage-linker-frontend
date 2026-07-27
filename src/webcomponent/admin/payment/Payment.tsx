@@ -34,17 +34,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { Eye, MoreHorizontal, ShieldCheck, Undo2, FileText, Loader2 } from "lucide-react";
+import { Eye, MoreHorizontal, FileText, Loader2 } from "lucide-react";
 import {
   getAdminPaymentStatsApi,
   getAdminPaymentsApi,
-  releaseEscrowApi,
-  refundEscrowApi,
   BackendPaymentStats,
   BackendPaymentItem,
-} from "@/api/payments.api"; // Adjust import path as needed
+} from "@/api/payments.api";
 
-// UI Display Model
 export interface PaymentItem {
   paymentId: string;
   bookingId: string;
@@ -57,24 +54,25 @@ export interface PaymentItem {
   date: string;
 }
 
-// Maps backend status strings to frontend labels & badges
-const mapEscrowStatus = (status: string) => {
-  switch (status.toUpperCase()) {
-    case "AUTHORIZED":
-      return "Pending";
-    case "CAPTURED":
-      return "Held";
-    case "RELEASED":
-      return "Released";
-    case "REFUNDED":
-      return "Refunded";
-    default:
-      return status;
-  }
+// Status options array with "all" value (fixes Radix UI crash)
+const paymentStatusOptions = [
+  { label: "All", value: "all" },
+  { label: "Pending", value: "PENDING" },
+  { label: "Initialized", value: "INITIALIZED" },
+  { label: "In Escrow", value: "AUTHORIZED" },
+  { label: "Released", value: "CAPTURED" },
+  { label: "Refunded", value: "REFUNDED" },
+  { label: "Failed", value: "FAILED" },
+];
+
+const getStatusLabel = (rawStatus: string) => {
+  const match = paymentStatusOptions.find(
+    (opt) => opt.value === rawStatus?.toUpperCase()
+  );
+  return match ? match.label : rawStatus;
 };
 
 export const Payment = () => {
-  // State management
   const [stats, setStats] = useState<BackendPaymentStats | null>(null);
   const [payments, setPayments] = useState<PaymentItem[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -84,12 +82,10 @@ export const Payment = () => {
   const [page, setPage] = useState(1);
 
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<PaymentItem | null>(null);
 
   const PAGE_SIZE = 10;
 
-  // Fetch Dashboard Stats
   const fetchStats = async () => {
     try {
       const data = await getAdminPaymentStatsApi();
@@ -99,24 +95,23 @@ export const Payment = () => {
     }
   };
 
-  // Fetch Payments List
   const fetchPayments = useCallback(async () => {
     setLoading(true);
     try {
       const data = await getAdminPaymentsApi({
         search,
-        escrow_status: statusFilter,
+        status: statusFilter,
         page,
       });
 
-      const formattedResults: PaymentItem[] = data.results.map((item: BackendPaymentItem) => ({
+      const formattedResults: PaymentItem[] = (data.results || []).map((item: BackendPaymentItem) => ({
         paymentId: item.id,
         bookingId: item.booking_id,
         senderName: item.sender,
         travelerName: item.traveler,
         amount: parseFloat(item.amount) || 0,
         platformFee: parseFloat(item.platform_fee) || 0,
-        escrowStatus: mapEscrowStatus(item.escrow_status),
+        escrowStatus: getStatusLabel(item.escrow_status),
         rawStatus: item.escrow_status,
         date: new Date(item.created_at).toLocaleDateString("en-US", {
           year: "numeric",
@@ -126,7 +121,7 @@ export const Payment = () => {
       }));
 
       setPayments(formattedResults);
-      setTotalCount(data.count);
+      setTotalCount(data.count || 0);
     } catch (err) {
       console.error("Failed to fetch payments:", err);
     } finally {
@@ -141,44 +136,11 @@ export const Payment = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchPayments();
-    }, 300); // Debounce search calls
+    }, 300);
     return () => clearTimeout(timer);
   }, [fetchPayments]);
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE) || 1;
-
-  // Actions
-  const handleReleaseEscrow = async (paymentId: string) => {
-    try {
-      setActionLoading(true);
-      await releaseEscrowApi(paymentId);
-      alert(`Funds released completely for transaction: ${paymentId}`);
-      setSelectedPayment(null);
-      fetchPayments();
-      fetchStats();
-    } catch (err) {
-      console.error("Failed to release escrow:", err);
-      alert("Error releasing funds. Please try again.");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleRefund = async (paymentId: string) => {
-    try {
-      setActionLoading(true);
-      await refundEscrowApi(paymentId);
-      alert(`Refund processed successfully for transaction: ${paymentId}`);
-      setSelectedPayment(null);
-      fetchPayments();
-      fetchStats();
-    } catch (err) {
-      console.error("Failed to refund escrow:", err);
-      alert("Error processing refund. Please try again.");
-    } finally {
-      setActionLoading(false);
-    }
-  };
 
   const handleViewInvoice = (paymentId: string) => {
     alert(`Generating system billing invoice view for transaction: ${paymentId}`);
@@ -196,10 +158,10 @@ export const Payment = () => {
         subheading="Monitor system transactions, platform revenue, and secure escrow accounts"
       />
 
-      {/* Top Metrics Cards Grid */}
+      {/* Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {[
-          { label: "Total Transactions", value: stats?.total_transactions ?? 0, isRaw: true, color: "border-l-blue-500" },
+          { label: "Total Transactions", value: stats?.total_transactions ?? 0, color: "border-l-blue-500" },
           { label: "Escrow Balance", value: formatCurrency(stats?.escrow_balance), color: "border-l-indigo-500" },
           { label: "Pending Escrow", value: formatCurrency(stats?.pending_escrow), color: "border-l-amber-500" },
           { label: "Released Escrow", value: formatCurrency(stats?.released_escrow), color: "border-l-emerald-500" },
@@ -213,7 +175,7 @@ export const Payment = () => {
         ))}
       </div>
 
-      {/* Filters Row */}
+      {/* Search & Select Controls */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-2">
         <div className="relative w-full md:w-1/3">
           <Input
@@ -228,8 +190,8 @@ export const Payment = () => {
 
         <Select
           value={statusFilter}
-          onValueChange={(v) => {
-            setStatusFilter(v);
+          onValueChange={(val) => {
+            setStatusFilter(val);
             setPage(1);
           }}
         >
@@ -237,21 +199,22 @@ export const Payment = () => {
             <SelectValue placeholder="All Escrow Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="AUTHORIZED">Pending (Authorized)</SelectItem>
-            <SelectItem value="CAPTURED">Held (Captured)</SelectItem>
-            <SelectItem value="RELEASED">Released</SelectItem>
-            <SelectItem value="REFUNDED">Refunded</SelectItem>
+            {paymentStatusOptions.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
 
-      {/* Payment Data Table */}
+      {/* Payments Table */}
       <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-visible">
         <Table>
           <TableHeader className="bg-gray-50">
             <TableRow>
               <TableHead className="font-semibold text-gray-700">Payment ID</TableHead>
+              <TableHead className="font-semibold text-gray-700">Booking ID</TableHead>
               <TableHead className="font-semibold text-gray-700">Sender</TableHead>
               <TableHead className="font-semibold text-gray-700">Traveler</TableHead>
               <TableHead className="font-semibold text-gray-700">Amount</TableHead>
@@ -277,7 +240,9 @@ export const Payment = () => {
                   <TableCell className="font-medium text-gray-900 font-mono text-xs" title={p.paymentId}>
                     {p.paymentId.slice(0, 8)}...
                   </TableCell>
-
+                  <TableCell className="text-gray-600 font-mono text-xs" title={p.bookingId}>
+                    {p.bookingId.slice(0, 8)}...
+                  </TableCell>
                   <TableCell className="text-gray-700 max-w-[150px] truncate" title={p.senderName}>
                     {p.senderName}
                   </TableCell>
@@ -290,10 +255,12 @@ export const Payment = () => {
                     <span
                       className={cn(
                         "px-2.5 py-1 text-xs font-semibold rounded-full tracking-wide inline-block",
-                        p.escrowStatus === "Released" && "bg-green-100 text-green-800",
-                        p.escrowStatus === "Held" && "bg-indigo-100 text-indigo-800",
-                        p.escrowStatus === "Pending" && "bg-amber-100 text-amber-800",
-                        p.escrowStatus === "Refunded" && "bg-rose-100 text-rose-800"
+                        p.rawStatus === "CAPTURED" && "bg-green-100 text-green-800",
+                        p.rawStatus === "AUTHORIZED" && "bg-indigo-100 text-indigo-800",
+                        p.rawStatus === "PENDING" && "bg-amber-100 text-amber-800",
+                        p.rawStatus === "REFUNDED" && "bg-rose-100 text-rose-800",
+                        p.rawStatus === "FAILED" && "bg-red-100 text-red-800",
+                        p.rawStatus === "INITIALIZED" && "bg-blue-100 text-blue-800"
                       )}
                     >
                       {p.escrowStatus}
@@ -308,32 +275,20 @@ export const Payment = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48 bg-white shadow-md rounded-lg border border-gray-100 z-50">
-                        <DropdownMenuItem className="cursor-pointer flex items-center gap-2 text-gray-700 px-3 py-2 hover:bg-gray-50" onClick={() => setSelectedPayment(p)}>
+                        <DropdownMenuItem 
+                          className="cursor-pointer flex items-center gap-2 text-gray-700 px-3 py-2 hover:bg-gray-50" 
+                          onClick={() => setSelectedPayment(p)}
+                        >
                           <Eye className="w-4 h-4 text-gray-400" />
                           <span>View Payment</span>
                         </DropdownMenuItem>
                         
-                        <DropdownMenuItem 
-                          className="cursor-pointer flex items-center gap-2 text-gray-700 px-3 py-2 hover:bg-gray-50 data-[disabled]:opacity-40"
-                          disabled={p.escrowStatus !== "Held" && p.escrowStatus !== "Pending"}
-                          onClick={() => handleReleaseEscrow(p.paymentId)}
-                        >
-                          <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                          <span>Release Escrow</span>
-                        </DropdownMenuItem>
-
-                        <DropdownMenuItem 
-                          className="cursor-pointer flex items-center gap-2 px-3 py-2 text-rose-600 hover:bg-rose-50 data-[disabled]:opacity-40"
-                          disabled={p.escrowStatus !== "Held" && p.escrowStatus !== "Pending"}
-                          onClick={() => handleRefund(p.paymentId)}
-                        >
-                          <Undo2 className="w-4 h-4 text-rose-400" />
-                          <span>Refund</span>
-                        </DropdownMenuItem>
-                        
                         <DropdownMenuSeparator className="bg-gray-100" />
                         
-                        <DropdownMenuItem className="cursor-pointer flex items-center gap-2 text-gray-700 px-3 py-2 hover:bg-gray-50" onClick={() => handleViewInvoice(p.paymentId)}>
+                        <DropdownMenuItem 
+                          className="cursor-pointer flex items-center gap-2 text-gray-700 px-3 py-2 hover:bg-gray-50" 
+                          onClick={() => handleViewInvoice(p.paymentId)}
+                        >
                           <FileText className="w-4 h-4 text-gray-400" />
                           <span>View Invoice</span>
                         </DropdownMenuItem>
@@ -353,7 +308,7 @@ export const Payment = () => {
         </Table>
       </div>
 
-      {/* Pagination Controls */}
+      {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex justify-end items-center gap-3 mt-2">
           <Button
@@ -417,15 +372,7 @@ export const Payment = () => {
               </div>
               <div className="flex justify-between pt-1">
                 <span className="text-gray-500">Current Status:</span>
-                <span
-                  className={cn(
-                    "px-2 py-0.5 text-xs font-bold rounded-full",
-                    selectedPayment.escrowStatus === "Released" && "bg-green-100 text-green-800",
-                    selectedPayment.escrowStatus === "Held" && "bg-indigo-100 text-indigo-800",
-                    selectedPayment.escrowStatus === "Pending" && "bg-amber-100 text-amber-800",
-                    selectedPayment.escrowStatus === "Refunded" && "bg-rose-100 text-rose-800"
-                  )}
-                >
+                <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-gray-200 text-gray-800">
                   {selectedPayment.escrowStatus} ({selectedPayment.rawStatus})
                 </span>
               </div>
@@ -433,29 +380,9 @@ export const Payment = () => {
           )}
 
           <DialogFooter className="mt-4">
-            {selectedPayment?.escrowStatus === "Held" || selectedPayment?.escrowStatus === "Pending" ? (
-              <div className="flex gap-2 w-full justify-end">
-                <Button 
-                  variant="outline" 
-                  disabled={actionLoading}
-                  className="text-rose-600 border-rose-200 hover:bg-rose-50" 
-                  onClick={() => handleRefund(selectedPayment.paymentId)}
-                >
-                  {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Issue Refund"}
-                </Button>
-                <Button 
-                  disabled={actionLoading}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white" 
-                  onClick={() => handleReleaseEscrow(selectedPayment.paymentId)}
-                >
-                  {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Release Funds"}
-                </Button>
-              </div>
-            ) : (
-              <Button variant="outline" className="w-full" onClick={() => setSelectedPayment(null)}>
-                Close Record
-              </Button>
-            )}
+            <Button variant="outline" className="w-full" onClick={() => setSelectedPayment(null)}>
+              Close Record
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
