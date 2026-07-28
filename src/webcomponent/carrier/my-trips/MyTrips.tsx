@@ -1,10 +1,7 @@
-
-
-
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { getMyTripsApi, type BackendTrip } from "@/api/trip.api";
+import { getMyTrips, type BackendTrip } from "@/api/trip.api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { NewTrip } from "./NewTrip";
@@ -21,25 +18,19 @@ export const MyTrips = () => {
   const [selectedTripForEdit, setSelectedTripForEdit] = useState<BackendTrip | null>(null);
   const [selectedTripIdForView, setSelectedTripIdForView] = useState<string | null>(null);
 
-  // API Call: Fetch list via getMyTripsApi
+  // API Call: Fetch list via getMyTrips
   const fetchMyTrips = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const result: any = await getMyTripsApi();
       
-      // Safely extract array regardless of payload wrapping (data, results, or raw array)
-      if (Array.isArray(result)) {
-        setTrips(result);
-      } else if (Array.isArray(result?.data)) {
-        setTrips(result.data);
-      } else if (Array.isArray(result?.results)) {
-        setTrips(result.results);
-      } else {
-        setTrips([]);
-      }
+      // getMyTrips already parses response.data.data / response.data.results into an array
+      const data = await getMyTrips();
+      setTrips(data);
     } catch (err: any) {
-      setError(err.response?.data?.message || err.message || "Failed to fetch trips.");
+      setError(
+        err.response?.data?.message || err.message || "Failed to fetch trips."
+      );
     } finally {
       setLoading(false);
     }

@@ -82,7 +82,6 @@
 // };
 
 
-
 import axiosInstance from "./axios";
 
 // ==========================================
@@ -121,9 +120,9 @@ export interface CreateTripPayload {
   to_city: string;
   departure_date: string;
   arrival_date: string;
-  max_weight_kg: number;
-  available_weight_kg: number;
-  reward_per_kg: number;
+  max_weight_kg: number | string;
+  available_weight_kg?: number | string;
+  reward_per_kg: number | string;
   currency: string;
   status?: string;
   is_active?: boolean;
@@ -155,35 +154,52 @@ export interface CancelTripApiResponse {
 }
 
 // ==========================================
-// User Trip APIs (4 Core Endpoints)
+// User Trip APIs (Core Endpoints)
 // ==========================================
 
 /**
- * 1. List Trips: GET /api/my-trips/
- * Fetches all trips belonging to the authenticated user
+ * 1. Fetch User's Trips: GET /api/my-trips/
+ * Safely handles both `.data` and `.results` array responses.
  */
-export const getMyTripsApi = async (): Promise<TripsListApiResponse> => {
-  const response = await axiosInstance.get<TripsListApiResponse>("/api/my-trips/");
-  return response.data;
+export const getMyTrips = async (): Promise<BackendTrip[]> => {
+  const response = await axiosInstance.get<TripsListApiResponse>(
+    `/api/my-trips/?_t=${Date.now()}`
+  );
+
+  const rawData = response.data;
+
+  if (rawData && Array.isArray(rawData.data)) {
+    return rawData.data;
+  }
+
+  if (rawData && Array.isArray(rawData.results)) {
+    return rawData.results;
+  }
+
+  return [];
 };
 
-/**
- * 2. Create Trip: POST /api/trips/
- * Creates a new trip entry
- */
-export const createTripApi = async (
-  payload: CreateTripPayload
-): Promise<TripDetailApiResponse> => {
-  const response = await axiosInstance.post<TripDetailApiResponse>(
-    "/api/trips/",
-    payload
-  );
+
+export const createTrip = async (payload: CreateTripPayload) => {
+  const maxWeight = Number(payload.max_weight_kg) || 0;
+
+  // On creation, available_weight_kg MUST equal max_weight_kg
+  const formattedPayload = {
+    ...payload,
+    max_weight_kg: maxWeight,
+    available_weight_kg: maxWeight, // Enforce equality on creation
+    reward_per_kg: Number(payload.reward_per_kg) || 0,
+    status: "PLANNED", // Django expects "PLANNED" for new trips
+    is_active: payload.is_active ?? true,
+    is_public: payload.is_public ?? true,
+  };
+
+  const response = await axiosInstance.post(`/api/trips/`, formattedPayload);
   return response.data;
 };
 
 /**
  * 3. Trip Details: GET /api/trip/{id}/
- * Fetches single trip details
  */
 export const getTripDetailApi = async (
   tripId: string
@@ -194,10 +210,7 @@ export const getTripDetailApi = async (
   return response.data;
 };
 
-/**
- * 4. Update Trip: PATCH /api/trip/{id}/manage/
- * Modifies an existing trip's details
- */
+
 export const updateTripApi = async (
   tripId: string,
   payload: UpdateTripPayload
@@ -205,6 +218,13 @@ export const updateTripApi = async (
   const response = await axiosInstance.patch<TripDetailApiResponse>(
     `/api/trip/${tripId}/manage/`,
     payload
+  );
+  return response.data;
+};
+
+export const deleteTripApi = async (tripId: string): Promise<void> => {
+  const response = await axiosInstance.delete(
+    `/api/trip/${tripId}/manage/`
   );
   return response.data;
 };
@@ -232,9 +252,9 @@ export const cancelAdminTripApi = async (
   tripId: string,
   data: { reason: string }
 ): Promise<CancelTripApiResponse> => {
-  const response = await axiosInstance.patch<any, CancelTripApiResponse>(
+  const response = await axiosInstance.patch<CancelTripApiResponse>(
     `/api/admin/trips/${tripId}/cancel/`,
     data
   );
-  return response;
+  return response.data;
 };
