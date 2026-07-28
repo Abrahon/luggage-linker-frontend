@@ -13,7 +13,7 @@ import {
   MapPin,
   ArrowRight,
 } from "lucide-react";
-import { bookingApi, RawBooking } from "@/api/booking.api";
+import { bookingApi, deliveryApi, BookingData }from "@/api/booking.api";
 import { DelivaryData, SenderData } from "@/interface/DelivaryData";
 
 // ----------------------------------------------------------------------
