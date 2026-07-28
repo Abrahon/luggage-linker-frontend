@@ -10,21 +10,38 @@ import {
   Loader2,
   Check,
   XCircle,
+  MapPin,
+  ArrowRight,
 } from "lucide-react";
 import { bookingApi, RawBooking } from "@/api/booking.api";
 import { DelivaryData, SenderData } from "@/interface/DelivaryData";
 
 // ----------------------------------------------------------------------
-// Data Transformer (Preserves String UUIDs for API Calls)
+// Data Transformer (Preserves String UUIDs & Reads Route Info)
 // ----------------------------------------------------------------------
 
+interface ExtendedTripDetails {
+  id: string;
+  trackingNo: string;
+  pickupCity: string;
+  pickupCountry: string;
+  destinationCity: string;
+  destinationCountry: string;
+  createdAt: string;
+}
+
 const transformRawBookingToDeliveryData = (
-  raw: RawBooking
+  raw: RawBooking & {
+    from_city?: string;
+    from_country?: string;
+    to_city?: string;
+    to_country?: string;
+  }
 ): { delivery: DelivaryData; sender: SenderData; rawId: string } => {
-  const pickupCity = raw.route?.from_city || "N/A";
-  const pickupCountry = raw.route?.from_country || "N/A";
-  const destinationCity = raw.route?.to_city || "N/A";
-  const destinationCountry = raw.route?.to_country || "N/A";
+  const pickupCity = raw.route?.from_city || raw.from_city || "N/A";
+  const pickupCountry = raw.route?.from_country || raw.from_country || "N/A";
+  const destinationCity = raw.route?.to_city || raw.to_city || "N/A";
+  const destinationCountry = raw.route?.to_country || raw.to_country || "N/A";
 
   const statusMap: Record<string, "pending" | "in-progress" | "completed"> = {
     PENDING: "pending",
@@ -40,7 +57,7 @@ const transformRawBookingToDeliveryData = (
 
   const mappedStatus = statusMap[raw.status] || "pending";
 
-  const tripData = {
+  const tripData: ExtendedTripDetails = {
     id: raw.id,
     trackingNo: raw.tracking_number,
     pickupCity,
@@ -57,10 +74,10 @@ const transformRawBookingToDeliveryData = (
   };
 
   const delivery: DelivaryData = {
-    delivaryId: Number(raw.id) || 0, // for legacy numeric interface requirements
+    delivaryId: Number(raw.id) || 0,
     name: raw.package_title || "Unnamed Package",
     status: mappedStatus,
-    tripData: tripData as any,
+    tripData: tripData as unknown as DelivaryData["tripData"],
     images: raw.package_image
       ? [raw.package_image]
       : [
@@ -77,11 +94,12 @@ const transformRawBookingToDeliveryData = (
     senderPackageWeight: `${raw.agreed_weight_kg || 0} kg`,
     senderWeight: parseFloat(raw.agreed_weight_kg || "0"),
     senderPrice: parseFloat(raw.agreed_reward || "0"),
-    tripData: tripData as any,
+    tripData: tripData as unknown as SenderData["tripData"],
   };
 
   return { delivery, sender, rawId: raw.id };
 };
+
 
 const getStatusBadge = (status: "pending" | "in-progress" | "completed") => {
   switch (status) {
@@ -163,7 +181,6 @@ export function PendingRequests() {
 
     try {
       setActionLoadingId(bookingUuid);
-      // Pass the valid string UUID to Django's <uuid:id> parameter
       await bookingApi.respondToBooking(bookingUuid, action);
       setItems((prev) => prev.filter((item) => item.rawId !== bookingUuid));
     } catch (err: any) {
@@ -184,10 +201,15 @@ export function PendingRequests() {
 
       if (searchQuery.trim() !== "") {
         const q = searchQuery.toLowerCase();
+        // Type assertion for local access:
+        const trip = delivery.tripData as { pickupCity?: string; destinationCity?: string };
+
         return (
           delivery.name.toLowerCase().includes(q) ||
           sender.name.toLowerCase().includes(q) ||
-          (sender.email && sender.email.toLowerCase().includes(q))
+          (sender.email && sender.email.toLowerCase().includes(q)) ||
+          trip?.pickupCity?.toLowerCase().includes(q) ||
+          trip?.destinationCity?.toLowerCase().includes(q)
         );
       }
 
@@ -216,7 +238,7 @@ export function PendingRequests() {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search package, sender..."
+              placeholder="Search package, sender, route..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs sm:text-sm text-slate-800 shadow-2xs placeholder:text-slate-400 focus:border-blue-600 focus:outline-hidden"
@@ -267,13 +289,21 @@ export function PendingRequests() {
               const badge = getStatusBadge(delivery.status);
               const isProcessing = actionLoadingId === rawId;
 
+              // Local type assertion for trip details
+              const trip = delivery.tripData as {
+                pickupCity?: string;
+                pickupCountry?: string;
+                destinationCity?: string;
+                destinationCountry?: string;
+              } | undefined;
+
               return (
                 <div
                   key={rawId}
                   className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-2xs hover:border-slate-300 transition-all"
                 >
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-                    {/* Package Info & Image */}
+                    {/* Package Info, Image & Route */}
                     <div className="md:col-span-4 flex items-center gap-4">
                       <img
                         src={
@@ -290,6 +320,18 @@ export function PendingRequests() {
                         <h3 className="mt-1 text-sm font-bold text-slate-900 truncate">
                           {delivery.name}
                         </h3>
+
+                        {/* ROUTE DISPLAY */}
+                        <div className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-600 font-medium">
+                          <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                          <span className="truncate">
+                            {trip?.pickupCity}, {trip?.pickupCountry}
+                          </span>
+                          <ArrowRight className="h-3 w-3 text-slate-400 shrink-0" />
+                          <span className="truncate">
+                            {trip?.destinationCity}, {trip?.destinationCountry}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
@@ -376,7 +418,16 @@ export function PendingRequests() {
       </div>
 
       {/* DETAILS MODAL */}
-      {selectedItem && (
+    {/* DETAILS MODAL */}
+    {selectedItem && (() => {
+      const trip = selectedItem.delivery.tripData as {
+        pickupCity?: string;
+        pickupCountry?: string;
+        destinationCity?: string;
+        destinationCountry?: string;
+      } | undefined;
+
+      return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-2xs">
           <div className="w-full max-w-xl rounded-3xl bg-white shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 max-h-[90vh]">
             <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 bg-slate-50">
@@ -412,7 +463,13 @@ export function PendingRequests() {
               </div>
 
               <div className="space-y-2 text-xs text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center border-b border-slate-200/60 pb-2">
+                  <span className="font-semibold text-slate-500">Route:</span>
+                  <span className="font-bold text-blue-600">
+                    {trip?.pickupCity} ({trip?.pickupCountry}) ➔ {trip?.destinationCity} ({trip?.destinationCountry})
+                  </span>
+                </div>
+                <div className="flex justify-between pt-1">
                   <span>Sender Name:</span>
                   <span className="font-bold text-slate-900">
                     {selectedItem.sender.name}
@@ -431,7 +488,7 @@ export function PendingRequests() {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Offered Price:</span>
+                  <span>Offered Reward:</span>
                   <span className="font-bold text-emerald-600 text-sm">
                     ${selectedItem.sender.senderPrice?.toFixed(2) || "0.00"}
                   </span>
@@ -440,7 +497,8 @@ export function PendingRequests() {
             </div>
           </div>
         </div>
-      )}
+      );
+    })()}
     </div>
   );
 }

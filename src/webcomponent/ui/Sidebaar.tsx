@@ -27,8 +27,7 @@ export const SideBaar = () => {
     setRole(userRole);
   }, []);
 
-  const isCarrierOrTraveler =
-    role === "carrier" || role === "traveler" || role === "TRAVELER";
+  const isCarrierOrTraveler =role === "traveler" || role === "TRAVELER";
 
   // Determine navigation links based on user role
   const links =

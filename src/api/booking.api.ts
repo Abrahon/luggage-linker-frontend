@@ -11,7 +11,7 @@ export interface RouteInfo {
   to_city: string;
 }
 
-export interface RawBooking {
+export interface BookingData {
   id: string;
   tracking_number: string;
   package_title: string;
@@ -22,12 +22,22 @@ export interface RawBooking {
   traveler_email: string;
   route: RouteInfo;
   package_image: string | null;
-  status: string;
-  payment_status: string;
+  status:
+    | "PENDING"
+    | "TRAVELER_ACCEPTED"
+    | "PAYMENT_PENDING"
+    | "CONFIRMED"
+    | "PICKED_UP"
+    | "IN_TRANSIT"
+    | "COMPLETED"
+    | "CANCELLED"
+    | "EXPIRED"
+    | string;
+  payment_status: "UNPAID" | "PAID" | "REFUNDED" | string;
   agreed_reward: string;
   currency: string;
   agreed_weight_kg: string;
-  expires_at: string;
+  expires_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -36,7 +46,14 @@ export interface PendingBookingResponse {
   success: boolean;
   message: string;
   count: number;
-  data: RawBooking[];
+  data: BookingData[];
+}
+
+export interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
 }
 
 export interface RespondBookingPayload {
@@ -49,17 +66,22 @@ export interface RespondBookingResponse {
   data?: any;
 }
 
+export interface CancelBookingResponse {
+  message: string;
+  id: string;
+  status: string;
+}
+
 // ----------------------------------------------------------------------
-// Booking API Endpoints
+// Booking & Delivery API Endpoints
 // ----------------------------------------------------------------------
 
 export const bookingApi = {
   /**
    * Fetch pending booking requests assigned to the logged-in traveler
-   * Route: path("bookings/traveler/pending/", ...)
+   * Route: /api/bookings/traveler/pending/
    */
   async getTravelerPendingBookings(): Promise<PendingBookingResponse> {
-    // Make sure path starts with /bookings/ traveler/pending/
     const response = await axiosInstance.get<PendingBookingResponse>(
       "/api/bookings/traveler/pending/"
     );
@@ -68,7 +90,7 @@ export const bookingApi = {
 
   /**
    * Accept or Reject a booking request
-   * Route: path("bookings/<uuid:id>/respond/", ...)
+   * Route: /api/bookings/<uuid:id>/respond/
    */
   async respondToBooking(
     bookingId: string,
@@ -78,6 +100,42 @@ export const bookingApi = {
     const response = await axiosInstance.post<RespondBookingResponse>(
       `/api/bookings/${bookingId}/respond/`,
       payload
+    );
+    return response.data;
+  },
+};
+
+export const deliveryApi = {
+  /**
+   * Fetch list of active bookings (PAYMENT_PENDING, CONFIRMED, PICKED_UP, IN_TRANSIT)
+   * Route: /api/bookings/active/
+   */
+  async getActiveDeliveries(): Promise<PaginatedResponse<BookingData>> {
+    const response = await axiosInstance.get<PaginatedResponse<BookingData>>(
+      "/api/bookings/active/"
+    );
+    return response.data;
+  },
+
+  /**
+   * Fetch single booking detail by ID
+   * Route: /api/bookings/<uuid:id>/
+   */
+  async getDeliveryById(bookingId: string): Promise<BookingData> {
+    const response = await axiosInstance.get<BookingData>(
+      `/api/bookings/${bookingId}/`
+    );
+    return response.data;
+  },
+
+  /**
+   * Cancel an active booking request
+   * Accessible before payment or after payment (before pickup)
+   * Route: /api/bookings/<uuid:id>/cancel/
+   */
+  async cancelDelivery(bookingId: string): Promise<CancelBookingResponse> {
+    const response = await axiosInstance.post<CancelBookingResponse>(
+      `/api/bookings/${bookingId}/cancel/`
     );
     return response.data;
   },
