@@ -9,6 +9,7 @@ import {
   UserCog,
   FileText,
   Search,
+  XCircle
 } from "lucide-react";
 
 export const carrierLink = [
@@ -26,6 +27,11 @@ export const carrierLink = [
     label: "Completed Trips",
     href: "/completed-trips",
     icon: CheckCircle, // ✅ success/trip complete
+  },
+  {
+    label: "Canceled Deliveries",
+    href: "/canceled-deliveries",
+    icon: XCircle, // ❌ canceled deliveries/trips
   },
   {
     label: "Earnings",

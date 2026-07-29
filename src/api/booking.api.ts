@@ -35,6 +35,8 @@ export interface BookingData {
     | string;
   payment_status: "UNPAID" | "PAID" | "REFUNDED" | string;
   escrow_status?: "PENDING" | "HELD" | "RELEASED" | "REFUNDED" | string; 
+  traveler_matches_listing?: boolean | null; // 👈 Add this line
+  traveler_refusal_reason?: string | null;    // 👈 Add this line
   agreed_reward: string;
   currency: string;
   agreed_weight_kg: string;
@@ -78,6 +80,14 @@ export interface CompletedDeliveriesResponse {
   count: number;
   data: BookingData[];
 }
+
+export interface CancelledDeliveriesResponse {
+  success: boolean;
+  message: string;
+  count: number;
+  data: BookingData[];
+}
+
 
 // ----------------------------------------------------------------------
 // Booking & Delivery API Endpoints
@@ -151,6 +161,13 @@ export const deliveryApi = {
    async getCompletedDeliveries(): Promise<CompletedDeliveriesResponse> {
     const response = await axiosInstance.get<CompletedDeliveriesResponse>(
       "/api/traveler/completed-deliveries/"
+    );
+    return response.data;
+  },
+
+  async getCancelledDeliveries(): Promise<CancelledDeliveriesResponse> {
+    const response = await axiosInstance.get<CancelledDeliveriesResponse>(
+      "/api/bookings/cancelled/"
     );
     return response.data;
   },
