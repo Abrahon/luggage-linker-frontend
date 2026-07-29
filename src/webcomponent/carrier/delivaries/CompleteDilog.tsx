@@ -1,79 +1,171 @@
 "use client";
 
+import Image from "next/image";
+import { BookingData } from "@/api/booking.api";
+import { statusStyles } from "@/lib/statusColor";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  ArrowRight,
+  CalendarDays,
+  Package,
+  User,
+  Mail,
+  ShieldCheck,
+  CheckCircle2,
+} from "lucide-react";
 
-import { ArrowRight, CalendarDays, Package, StickyNote } from "lucide-react";
-import { DelivaryData } from "@/interface/DelivaryData";
-import { statusStyles } from "@/lib/statusColor";
-
-interface AcceptDeliveryDialogProps {
+interface CompleteDilogProps {
   open: boolean;
   setOpen: (open: boolean) => void;
-  delivery: DelivaryData | null;
+  delivery: BookingData | null;
 }
 
 export const CompleteDilog = ({
   open,
   setOpen,
   delivery,
-}: AcceptDeliveryDialogProps) => {
-  const currentStyle = statusStyles[delivery?.status || "pending"];
-
+}: CompleteDilogProps) => {
   if (!delivery) return null;
+
+  const currentStyle =
+    (statusStyles && statusStyles[delivery.status]) || {
+      label: "Completed",
+      bg: "bg-emerald-50",
+      text: "text-emerald-700",
+      border: "border-emerald-200",
+    };
+
+  const formattedDate = delivery.created_at
+    ? new Date(delivery.created_at).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "N/A";
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-2xl font-montserrat">
+      <DialogContent className="max-w-2xl font-montserrat max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl font-semibold">
-            Trip Details
-          </DialogTitle>
+          <div className="flex justify-between items-center pr-6">
+            <DialogTitle className="text-xl font-semibold">
+              Trip Summary
+            </DialogTitle>
+            <span
+              className={`px-3 py-1 rounded-full text-xs font-semibold border ${currentStyle.bg} ${currentStyle.text} ${currentStyle.border}`}
+            >
+              {currentStyle.label || delivery.status}
+            </span>
+          </div>
+          <p className="text-xs font-mono text-gray-400">
+            Tracking No: {delivery.tracking_number}
+          </p>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4 mt-2">
-          <div className="flex items-start gap-2">
-            <div className="p-2 rounded-full bg-[#FEB42333]">
-              <StickyNote className="text-[#FEB423] w-4 h-4" />
+        <div className="flex flex-col gap-5 mt-2">
+          {/* Main Route Header */}
+          <div className="bg-gray-50 p-4 rounded-xl border flex flex-col gap-2">
+            <h3 className="font-bold text-lg text-gray-900">
+              {delivery.package_title}
+            </h3>
+            <p className="text-xs text-gray-500 font-medium">
+              Trip: {delivery.trip_title}
+            </p>
+            <div className="flex items-center text-gray-700 text-sm gap-2 bg-white p-2.5 rounded-lg border mt-1">
+              <span className="font-semibold">
+                {delivery.route?.from_city}, {delivery.route?.from_country}
+              </span>
+              <ArrowRight className="w-4 h-4 text-gray-400 shrink-0" />
+              <span className="font-semibold">
+                {delivery.route?.to_city}, {delivery.route?.to_country}
+              </span>
             </div>
-            {/* <span className="text-sm text-gray-700">{tripData.note}</span> */}
-            <div className="flex flex-col gap-2">
-              <h3 className="font-medium text-base text-gray-900">
-                {delivery.name}
-              </h3>
-              <div className="flex items-center text-gray-700 text-sm gap-2">
-                <span>{delivery.tripData.from}</span>
-                <ArrowRight className="w-4 h-4 text-gray-500" />
-                <span>{delivery.tripData.to}</span>
+          </div>
+
+          {/* Package Image Preview */}
+          {delivery.package_image && (
+            <div>
+              <h4 className="text-sm font-semibold text-gray-800 mb-2">
+                Package Photo
+              </h4>
+              <div className="w-full h-48 relative rounded-xl overflow-hidden border bg-gray-100">
+                <Image
+                  src={delivery.package_image}
+                  alt={delivery.package_title || "Package Image"}
+                  fill
+                  className="object-cover"
+                  unoptimized={delivery.package_image.includes("cloudinary.com")}
+                />
               </div>
-              <div
-                className={`px-3 py-1 rounded-full text-sm font-medium w-fit ${currentStyle.bg} ${currentStyle.text}`}
-              >
-                {currentStyle.label}
+            </div>
+          )}
+
+          {/* Participant Details */}
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
+              <User className="w-4 h-4 text-gray-500 shrink-0" />
+              <div className="truncate">
+                <p className="text-xs text-gray-400">Sender</p>
+                <p className="font-medium text-gray-800 truncate">
+                  {delivery.sender_name}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
+              <Mail className="w-4 h-4 text-gray-500 shrink-0" />
+              <div className="truncate">
+                <p className="text-xs text-gray-400">Sender Email</p>
+                <p className="font-medium text-gray-800 truncate">
+                  {delivery.sender_email}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
+              <Package className="w-4 h-4 text-gray-500 shrink-0" />
+              <div>
+                <p className="text-xs text-gray-400">Agreed Weight</p>
+                <p className="font-medium text-gray-800">
+                  {delivery.agreed_weight_kg} kg
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
+              <CalendarDays className="w-4 h-4 text-gray-500 shrink-0" />
+              <div>
+                <p className="text-xs text-gray-400">Date Completed</p>
+                <p className="font-medium text-gray-800">{formattedDate}</p>
               </div>
             </div>
           </div>
-          {/* Note Section */}
-          <div className="text-xl font-semibold">Package Information</div>
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <Package className="w-4 h-4 text-gray-500" />
-              <span>{delivery.tripData.carryWeight} kg</span>
+
+          {/* Earnings Card */}
+          <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-emerald-100 rounded-full">
+                <ShieldCheck className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-emerald-800 uppercase tracking-wide">
+                  Earnings Released
+                </p>
+                <div className="flex items-center gap-1 text-xs text-emerald-700">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Escrow Status: {delivery.escrow_status || "RELEASED"}</span>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <CalendarDays className="w-4 h-4 text-gray-500" />
-              <span>
-                {typeof delivery.tripData.date === "string" &&
-                  delivery.tripData.date}
+            <div className="text-right">
+              <span className="text-2xl font-bold text-emerald-700">
+                {delivery.currency} ${delivery.agreed_reward}
               </span>
-            </div>
-            <div className="bg-[#F0FDF4] border border-[#B9F8CF] flex flex-col items-center">
-              <span className="font-light text-sm">Total Earnings</span>
-              <span>{delivery.tripData.price}</span>
             </div>
           </div>
         </div>
@@ -81,3 +173,5 @@ export const CompleteDilog = ({
     </Dialog>
   );
 };
+
+export default CompleteDilog;

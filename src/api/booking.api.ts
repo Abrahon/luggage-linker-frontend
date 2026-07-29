@@ -34,6 +34,7 @@ export interface BookingData {
     | "EXPIRED"
     | string;
   payment_status: "UNPAID" | "PAID" | "REFUNDED" | string;
+  escrow_status?: "PENDING" | "HELD" | "RELEASED" | "REFUNDED" | string; 
   agreed_reward: string;
   currency: string;
   agreed_weight_kg: string;
@@ -70,6 +71,12 @@ export interface CancelBookingResponse {
   message: string;
   id: string;
   status: string;
+}
+export interface CompletedDeliveriesResponse {
+  success: boolean;
+  message: string;
+  count: number;
+  data: BookingData[];
 }
 
 // ----------------------------------------------------------------------
@@ -139,4 +146,20 @@ export const deliveryApi = {
     );
     return response.data;
   },
+
+
+   async getCompletedDeliveries(): Promise<CompletedDeliveriesResponse> {
+    const response = await axiosInstance.get<CompletedDeliveriesResponse>(
+      "/api/traveler/completed-deliveries/"
+    );
+    return response.data;
+  },
 };
+
+
+// ----------------------------------------------------------------------
+// Delivery API Endpoints
+// ----------------------------------------------------------------------
+
+
+
