@@ -71,9 +71,9 @@ export const WithdrawHistoryTable = () => {
               <TableHead className="font-semibold text-gray-800 border-b">
                 Amount
               </TableHead>
-              <TableHead className="font-semibold text-gray-800 border-b">
+              {/* <TableHead className="font-semibold text-gray-800 border-b">
                 Status
-              </TableHead>
+              </TableHead> */}
             </TableRow>
           </TableHeader>
 
