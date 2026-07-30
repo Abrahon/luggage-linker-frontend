@@ -75,6 +75,18 @@ export interface WalletData {
   total_withdrawn: string;
 }
 
+export interface MonthlyWithdrawalData {
+  month: string;
+  withdrawn: string;
+  withdrawals: number;
+}
+
+export interface MonthlyWithdrawalResponse {
+  success: boolean;
+  message: string;
+  data: MonthlyWithdrawalData[];
+}
+
 // --- API Functions ---
 export const getWalletData = async (): Promise<WalletData> => {
   const response = await axiosInstance.get("/api/wallets/");
@@ -110,3 +122,39 @@ export const requestWithdrawal = async (
   );
   return response.data;
 };
+
+
+
+export const getMonthlyWithdrawals = async (): Promise<MonthlyWithdrawalResponse> => {
+  const response = await axiosInstance.get<MonthlyWithdrawalResponse>("/api/wallet/monthly-withdrawals/");
+  return response.data;
+};
+
+
+
+// --- Wallet Ledger Types & Function ---
+export interface WalletLedgerItem {
+  reference: string;
+  transaction_date: string;
+  transaction_type: string;
+  amount: string; // Backend sends string formatted numbers (e.g., "-10.00", "80.00")
+  booking_id: string | null;
+  booking_tracking: string | null;
+  status: string;
+  description: string;
+}
+
+export interface WalletLedgerResponse {
+  success: boolean;
+  message: string;
+  count: number;
+  data: WalletLedgerItem[];
+}
+
+// Fetch ledger history using axiosInstance for consistent base URL & headers
+export const getWalletLedger = async (): Promise<WalletLedgerResponse> => {
+  const response = await axiosInstance.get<WalletLedgerResponse>("/api/wallet/ledger/");
+  return response.data;
+};
+
+

@@ -3,6 +3,9 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+import { MonthlyWithdrawalChart, } from "../Wallet/MonthlyWithdrawalChart";
+import { RecentActivityLedger, } from "../Wallet/RecentActivityLedger";
 import {
   Dialog,
   DialogContent,
@@ -41,7 +44,7 @@ import {
   CreateWithdrawMethodPayload,
 } from "@/api/wallets.api";
 
-// Mock Data
+// Mock Data for ledger & pending releases
 const initialTransactions = [
   { id: "TXN-7721", type: "Earnings", booking: "BKO-9921", amount: 120.00, date: "2026-07-05", status: "Completed" },
   { id: "TXN-7610", type: "Earnings", booking: "BKO-4821", amount: 130.00, date: "2026-07-02", status: "Completed" },
@@ -50,17 +53,8 @@ const initialTransactions = [
 ];
 
 const pendingEarnings = [
-  { id: "PEND-01", booking: "BKO-3341", amount: 70.00, releaseDate: "Expected 2026-07-12", source: "Delivery Escrow" },
-  { id: "PEND-02", booking: "BKO-8812", amount: 50.00, releaseDate: "Expected 2026-07-15", source: "Luggage Spacing Premium" },
-];
-
-const chartData = [
-  { month: "Feb", amount: 180 },
-  { month: "Mar", amount: 320 },
-  { month: "Apr", amount: 210 },
-  { month: "May", amount: 450 },
-  { month: "Jun", amount: 500 },
-  { month: "Jul", amount: 250 },
+  { id: "PEND-01", booking: "BKO-3341", amount: 70.00, releaseDate: "Expected 2026-08-05", source: "Delivery Escrow" },
+  { id: "PEND-02", booking: "BKO-8812", amount: 50.00, releaseDate: "Expected 2026-08-10", source: "Luggage Spacing Premium" },
 ];
 
 export default function MyWallet() {
@@ -82,7 +76,7 @@ export default function MyWallet() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isAddingMethod, setIsAddingMethod] = useState<boolean>(false);
   
-  // Updated type definition to handle structured API error objects
+  // Structured API error handler state
   const [errorMessage, setErrorMessage] = useState<string | Record<string, any> | null>(null);
 
   // New Method Form Fields
@@ -143,7 +137,7 @@ export default function MyWallet() {
       const apiData = err?.response?.data;
       setErrorMessage(
         apiData && typeof apiData === "object"
-          ? apiData.message || apiData.error || apiData
+          ? apiData.errors || apiData.message || apiData.error || apiData
           : "Failed to load withdrawal methods."
       );
     }
@@ -190,7 +184,6 @@ export default function MyWallet() {
       const newMethod = res.data || (res as unknown as WithdrawMethod);
 
       if (newMethod && newMethod.id) {
-        // Prevent duplicate appending if state already has it
         setMethods((prev) => {
           const exists = prev.some((m) => m.id === newMethod.id);
           return exists ? prev : [...prev, newMethod];
@@ -206,7 +199,7 @@ export default function MyWallet() {
     } catch (err: any) {
       const apiData = err?.response?.data;
       if (apiData && typeof apiData === "object") {
-        setErrorMessage(apiData.error || apiData.message || apiData);
+        setErrorMessage(apiData.errors || apiData.error || apiData.message || apiData);
       } else {
         setErrorMessage("Failed to save withdrawal method.");
       }
@@ -218,7 +211,6 @@ export default function MyWallet() {
   const handleWithdrawSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 1. Validation checks prior to submit
     if (!selectedMethodId) {
       setErrorMessage("Please select or add a payout destination.");
       return;
@@ -239,11 +231,9 @@ export default function MyWallet() {
       return;
     }
 
-    // 2. Clear previous errors and start loading state
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    // 3. API Call
     try {
       const res = await requestWithdrawal({
         withdrawal_method: selectedMethodId,
@@ -257,7 +247,6 @@ export default function MyWallet() {
     } catch (err: any) {
       const apiData = err?.response?.data;
       if (apiData && typeof apiData === "object") {
-        // Prioritize `errors` object first (so `non_field_errors` and field-specific errors are passed directly to setErrorMessage)
         setErrorMessage(apiData.errors || apiData.error || apiData.message || apiData);
       } else {
         setErrorMessage("Failed to initiate withdrawal request.");
@@ -336,41 +325,9 @@ export default function MyWallet() {
         </div>
       </div>
 
-      {/* Chart & Pending */}
+      {/* Chart & Pending Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm lg:col-span-2 flex flex-col justify-between">
-          <div>
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="font-bold text-gray-900">Monthly Earnings</h3>
-                <p className="text-xs text-gray-400">Visual performance breakdown of historical trip payouts</p>
-              </div>
-              <span className="text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md font-semibold">2026 Ledger</span>
-            </div>
-
-            <div className="h-48 flex items-end gap-4 pt-6 pb-2 px-2">
-              {chartData.map((data, index) => {
-                const maxAmount = Math.max(...chartData.map(d => d.amount));
-                const heightPercentage = (data.amount / maxAmount) * 100;
-                return (
-                  <div key={index} className="flex-1 flex flex-col items-center gap-2 group cursor-pointer">
-                    <div className="w-full relative rounded-t-md bg-gray-100 group-hover:bg-blue-100 transition-colors flex items-end h-36">
-                      <div 
-                        style={{ height: `${heightPercentage}%` }}
-                        className="w-full bg-blue-600 rounded-t-md transition-all duration-500 relative group-hover:bg-blue-700"
-                      >
-                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] font-bold px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-sm">
-                          ${data.amount}
-                        </div>
-                      </div>
-                    </div>
-                    <span className="text-xs text-gray-400 font-medium">{data.month}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+        <MonthlyWithdrawalChart />
 
         <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
           <div>
@@ -399,48 +356,7 @@ export default function MyWallet() {
       </div>
 
       {/* Activity Ledger */}
-      <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-        <h3 className="font-bold text-gray-900">Recent Activity Ledger</h3>
-        <p className="text-xs text-gray-400 mb-4">Complete tracking of standard inflow and outflow records</p>
-        
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader className="bg-gray-50/60">
-              <TableRow>
-                <TableHead className="text-xs font-semibold py-2">Reference / Date</TableHead>
-                <TableHead className="text-xs font-semibold py-2">Type</TableHead>
-                <TableHead className="text-xs font-semibold py-2 text-right">Amount</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {initialTransactions.map((txn) => (
-                <TableRow key={txn.id} className="hover:bg-gray-50/40">
-                  <TableCell className="py-2.5">
-                    <div className="flex flex-col">
-                      <span className="text-xs font-semibold text-gray-800">{txn.id}</span>
-                      <span className="text-[10px] text-gray-400 font-mono">{txn.date} {txn.booking !== "—" && `• ${txn.booking}`}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="py-2.5">
-                    <span className={cn(
-                      "text-[10px] px-2 py-0.5 rounded font-medium inline-block",
-                      txn.type === "Earnings" ? "bg-green-50 text-green-700" : "bg-purple-50 text-purple-700"
-                    )}>
-                      {txn.type}
-                    </span>
-                  </TableCell>
-                  <TableCell className={cn(
-                    "text-xs font-bold text-right py-2.5",
-                    txn.amount > 0 ? "text-green-600" : "text-gray-900"
-                  )}>
-                    {txn.amount > 0 ? "+" : ""}${txn.amount.toFixed(2)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
+      <RecentActivityLedger />
 
       {/* Integrated Withdrawal Modal */}
       <Dialog open={isWithdrawOpen} onOpenChange={setIsWithdrawOpen}>
@@ -456,36 +372,32 @@ export default function MyWallet() {
             </DialogDescription>
           </DialogHeader>
 
-          {/* General/Global Error Display */}
-
-          {/* General/Global Error Display */}
-            {errorMessage && (
-              <div className="p-3 bg-red-50 text-red-600 border border-red-200 text-xs rounded-md font-medium">
-                {typeof errorMessage === "string" ? (
-                  errorMessage
-                ) : errorMessage.non_field_errors ? (
-                  /* Specific handler for DRF non_field_errors */
-                  <ul className="list-disc list-inside space-y-0.5">
-                    {(Array.isArray(errorMessage.non_field_errors)
-                      ? errorMessage.non_field_errors
-                      : [errorMessage.non_field_errors]
-                    ).map((err: any, idx: number) => (
-                      <li key={idx}>{String(err)}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  /* Fallback renderer for other key-value validation errors */
-                  <ul className="list-disc list-inside space-y-0.5">
-                    {Object.entries(errorMessage).map(([key, val]) => (
-                      <li key={key}>
-                        <strong className="capitalize">{key.replace("_", " ")}:</strong>{" "}
-                        {Array.isArray(val) ? val.join(" ") : String(val)}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
+          {/* Global Error Banner */}
+          {errorMessage && (
+            <div className="p-3 bg-red-50 text-red-600 border border-red-200 text-xs rounded-md font-medium">
+              {typeof errorMessage === "string" ? (
+                errorMessage
+              ) : errorMessage.non_field_errors ? (
+                <ul className="list-disc list-inside space-y-0.5">
+                  {(Array.isArray(errorMessage.non_field_errors)
+                    ? errorMessage.non_field_errors
+                    : [errorMessage.non_field_errors]
+                  ).map((err: any, idx: number) => (
+                    <li key={idx}>{String(err)}</li>
+                  ))}
+                </ul>
+              ) : (
+                <ul className="list-disc list-inside space-y-0.5">
+                  {Object.entries(errorMessage).map(([key, val]) => (
+                    <li key={key}>
+                      <strong className="capitalize">{key.replace("_", " ")}:</strong>{" "}
+                      {Array.isArray(val) ? val.join(" ") : String(val)}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           {!isAddingMethod ? (
             <form onSubmit={handleWithdrawSubmit} className="flex flex-col gap-4 mt-2">
