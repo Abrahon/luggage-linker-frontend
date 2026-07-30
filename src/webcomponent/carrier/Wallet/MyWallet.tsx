@@ -6,6 +6,10 @@ import { Input } from "@/components/ui/input";
 
 import { MonthlyWithdrawalChart, } from "../Wallet/MonthlyWithdrawalChart";
 import { RecentActivityLedger, } from "../Wallet/RecentActivityLedger";
+import { PendingReleasesCard, } from "../Wallet/PendingReleasesCard";
+
+
+
 import {
   Dialog,
   DialogContent,
@@ -14,14 +18,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+
 import { cn } from "@/lib/utils";
 import { 
   Wallet, 
@@ -327,32 +324,13 @@ export default function MyWallet() {
 
       {/* Chart & Pending Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <MonthlyWithdrawalChart />
-
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
-          <div>
-            <h3 className="font-bold text-gray-900 flex items-center gap-1.5">
-              <span>Pending Releases</span>
-              <span title="Funds held securely until transport verifies shipment arrivals" className="cursor-help flex items-center">
-                <HelpCircle className="w-3.5 h-3.5 text-gray-400" />
-              </span>
-            </h3>
-            <p className="text-xs text-gray-400 mb-4">Secured amounts queued for automated settlement</p>
-            
-            <div className="flex flex-col gap-3">
-              {pendingEarnings.map((pnd) => (
-                <div key={pnd.id} className="p-3 bg-amber-50/50 border border-amber-100/60 rounded-xl flex justify-between items-center">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-semibold text-gray-800">{pnd.source}</span>
-                    <span className="text-[11px] text-gray-400 font-mono mt-0.5">{pnd.booking} • {pnd.releaseDate}</span>
-                  </div>
-                  <span className="text-sm font-bold text-amber-700">+${pnd.amount.toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <p className="text-[11px] text-gray-400 italic mt-4 text-center">Funds process out of escrow instantly following traveler order confirmations.</p>
+        {/* Takes 2/3 width */}
+        <div className="lg:col-span-2">
+          <MonthlyWithdrawalChart />
         </div>
+
+        {/* Takes 1/3 width (Same height & layout) */}
+        <PendingReleasesCard />
       </div>
 
       {/* Activity Ledger */}

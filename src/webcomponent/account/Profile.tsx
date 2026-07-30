@@ -116,6 +116,17 @@ export const Profile = () => {
 
   const fallbackLetter = profile?.first_name ? profile.first_name[0] : "A";
 
+  // Helper to resolve backend profile picture URL
+  const getProfilePictureUrl = (url: string | null | undefined): string | null => {
+    if (!url) return null;
+    if (url.startsWith("http://") || url.startsWith("https://")) return url;
+    // Prefix relative backend paths with API base URL if applicable
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+    return `${baseUrl}${url}`;
+  };
+
+  const resolvedPictureUrl = getProfilePictureUrl(profile?.profile_picture);
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -137,13 +148,15 @@ export const Profile = () => {
                 alt="Preview"
                 fill
                 className="object-cover rounded-full"
+                unoptimized
               />
-            ) : profile?.profile_picture ? (
+            ) : resolvedPictureUrl ? (
               <Image
-                src={profile.profile_picture}
+                src={resolvedPictureUrl}
                 alt="Profile"
                 fill
                 className="object-cover rounded-full"
+                unoptimized
               />
             ) : (
               <div

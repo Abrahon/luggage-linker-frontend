@@ -158,3 +158,29 @@ export const getWalletLedger = async (): Promise<WalletLedgerResponse> => {
 };
 
 
+
+export interface PendingReleaseItem {
+  id: string;
+  tracking_number: string;
+  package: string;
+  reward: string; // e.g. "80.00"
+  currency: string; // e.g. "USD"
+  expected_release: string; // e.g. "2026-08-04"
+  escrow_status: string; // e.g. "HELD"
+  status: string; // e.g. "IN_TRANSIT", "PICKED_UP"
+}
+
+export interface PendingReleasesResponse {
+  success: boolean;
+  message: string;
+  count: number;
+  data: PendingReleaseItem[];
+}
+
+// Fetch pending release records
+export const getPendingReleases = async (): Promise<PendingReleasesResponse> => {
+  const response = await axiosInstance.get<PendingReleasesResponse>("/api/wallet/pending-releases/");
+  return response.data;
+};
+
+

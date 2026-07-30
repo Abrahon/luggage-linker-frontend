@@ -157,7 +157,7 @@ export function RecentActivityLedger() {
                     <TableCell
                       className={cn(
                         "text-xs font-bold text-right py-2.5 whitespace-nowrap",
-                        isPositive ? "text-green-600" : "text-gray-900"
+                        isPositive ? "text-green-600" : "text-red-600"
                       )}
                     >
                       {isPositive ? "+" : "-"}
