@@ -35,8 +35,8 @@ export interface BookingData {
     | string;
   payment_status: "UNPAID" | "PAID" | "REFUNDED" | string;
   escrow_status?: "PENDING" | "HELD" | "RELEASED" | "REFUNDED" | string; 
-  traveler_matches_listing?: boolean | null; // 👈 Add this line
-  traveler_refusal_reason?: string | null;    // 👈 Add this line
+  traveler_matches_listing?: boolean | null;
+  traveler_refusal_reason?: string | null;
   agreed_reward: string;
   currency: string;
   agreed_weight_kg: string;
@@ -88,6 +88,42 @@ export interface CancelledDeliveriesResponse {
   data: BookingData[];
 }
 
+export interface VerifyPickupPayload {
+  booking_id: string;
+  traveler_matches_listing: boolean;
+  pickup_pin?: string;
+  traveler_refusal_reason?: string;
+}
+
+export interface VerifyPickupResponse {
+  success: boolean;
+  message: string;
+  current_status: string;
+  picked_up_at?: string;
+}
+
+export interface StartTransitPayload {
+  booking_id: string;
+}
+
+export interface StartTransitResponse {
+  success: boolean;
+  message: string;
+  current_status: string;
+  in_transit_at?: string;
+}
+
+export interface VerifyDeliveryPayload {
+  booking_id: string;
+  delivery_pin: string;
+}
+
+export interface VerifyDeliveryResponse {
+  success: boolean;
+  message: string;
+  current_status: string;
+  delivered_at?: string;
+}
 
 // ----------------------------------------------------------------------
 // Booking & Delivery API Endpoints
@@ -171,12 +207,49 @@ export const deliveryApi = {
     );
     return response.data;
   },
-};
 
-
-// ----------------------------------------------------------------------
+  // ----------------------------------------------------------------------
 // Delivery API Endpoints
 // ----------------------------------------------------------------------
+
+  /**
+   * Verify package pickup (match or refusal)
+   * Route: POST /api/booking/verify-pickup/
+   */
+  async verifyPickup(payload: VerifyPickupPayload): Promise<VerifyPickupResponse> {
+    const response = await axiosInstance.post<VerifyPickupResponse>(
+      "/api/booking/verify-pickup/",
+      payload
+    );
+    return response.data;
+  },
+
+  /**
+   * Start transit state
+   * Route: POST /api/booking/start-transit/
+   */
+  async startTransit(payload: StartTransitPayload): Promise<StartTransitResponse> {
+    const response = await axiosInstance.post<StartTransitResponse>(
+      "/api/booking/start-transit/",
+      payload
+    );
+    return response.data;
+  },
+
+  /**
+   * Verify delivery PIN at destination
+   * Route: POST /api/booking/verify-delivery/
+   */
+  async verifyDelivery(payload: VerifyDeliveryPayload): Promise<VerifyDeliveryResponse> {
+    const response = await axiosInstance.post<VerifyDeliveryResponse>(
+      "/api/booking/verify-delivery/",
+      payload
+    );
+    return response.data;
+  },
+
+};
+
 
 
 

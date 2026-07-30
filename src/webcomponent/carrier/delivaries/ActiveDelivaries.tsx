@@ -9,8 +9,6 @@ import { AcceptDeliveryDialog } from "./AcceptDeliveryDialog";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
-
-
 export const ActiveDelivaries = () => {
   const [isMounted, setIsMounted] = useState<boolean>(false);
   const [activeDeliveries, setActiveDeliveries] = useState<BookingData[]>([]);
@@ -29,7 +27,9 @@ export const ActiveDelivaries = () => {
     try {
       setIsLoading(true);
       const data = await deliveryApi.getActiveDeliveries();
-      const results = data.results ? data.results : (data as unknown as BookingData[]);
+      const results = data.results
+        ? data.results
+        : (data as unknown as BookingData[]);
       setActiveDeliveries(results);
     } catch (error: any) {
       toast.error(
@@ -56,10 +56,8 @@ export const ActiveDelivaries = () => {
     setOpenDialog(true);
   };
 
-  const handleBookingCancelled = (cancelledId: string) => {
-    setActiveDeliveries((prev) =>
-      prev.filter((item) => item.id !== cancelledId)
-    );
+  const handleBookingUpdated = () => {
+    fetchActiveDeliveries();
   };
 
   return (
@@ -105,7 +103,7 @@ export const ActiveDelivaries = () => {
           open={openDialog}
           setOpen={setOpenDialog}
           delivery={selectedDelivery}
-          onBookingCancelled={handleBookingCancelled}
+          onBookingUpdated={handleBookingUpdated}
         />
       )}
     </div>
