@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { 
   fetchRevenueDashboardData, 
   WalletDashboardData, 
@@ -32,6 +32,8 @@ import {
   Eye,
   Loader2
 } from "lucide-react";
+
+const ALL_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export default function TravelerEarningsAnalytics() {
   // --- UI Interactive States ---
@@ -87,31 +89,71 @@ export default function TravelerEarningsAnalytics() {
     ? parseFloat(monthlyEarnings[monthlyEarnings.length - 1].earnings) 
     : 0;
 
-  // --- Dynamic Chart Points ---
-  const chartPoints = monthlyEarnings.length > 0 
-    ? monthlyEarnings.map((item) => ({
-        label: item.month,
-        value: parseFloat(item.earnings),
-        detail: `${item.deliveries} delivery(${item.deliveries === 1 ? "" : "s"}) completed`
-      }))
-    : [{ label: "No Data", value: 0, detail: "0 deliveries recorded" }];
+  // --- 12-Month Mapping and Dynamic Chart Calculations ---
+  const fullYearChartPoints = useMemo(() => {
+    const earningsMap = new Map<string, MonthlyEarningItem>();
+    monthlyEarnings.forEach((item) => {
+      // Handles both full month names and abbreviated names (e.g., "January" -> "Jan")
+      const shortName = item.month.substring(0, 3);
+      earningsMap.set(shortName.toLowerCase(), item);
+    });
 
-  const maxChartValue = Math.max(...chartPoints.map((p) => p.value), 1);
-  const chartWidth = 700;
-  const chartHeight = 170;
-  const paddingX = 35;
-  const paddingY = 30;
+    return ALL_MONTHS.map((month) => {
+      const match = earningsMap.get(month.toLowerCase());
+      const value = match ? parseFloat(match.earnings) : 0;
+      const deliveries = match ? match.deliveries : 0;
+      return {
+        label: month,
+        value,
+        detail: `${deliveries} delivery(${deliveries === 1 ? "" : "s"}) completed`,
+      };
+    });
+  }, [monthlyEarnings]);
 
-  const pointsCoordinates = chartPoints.map((pt, idx) => {
-    const divider = chartPoints.length > 1 ? chartPoints.length - 1 : 1;
-    const x = paddingX + (idx * (chartWidth - paddingX * 2)) / divider;
-    const y = chartHeight - paddingY - (pt.value / maxChartValue) * (chartHeight - paddingY * 2);
-    return { x, y, ...pt };
-  });
+  const chartWidth = 750;
+  const chartHeight = 240;
+  const paddingLeft = 55; // Space for Y-axis dollar ticks
+  const paddingRight = 20;
+  const paddingTop = 25;
+  const paddingBottom = 35;
 
-  const linePath = pointsCoordinates.length > 1
-    ? pointsCoordinates.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ")
-    : `M ${paddingX} ${chartHeight - paddingY} L ${chartWidth - paddingX} ${chartHeight - paddingY}`;
+  // Calculate Y-Max rounded up to clean $500 step intervals
+  const { maxY, yTicks } = useMemo(() => {
+    const rawMax = Math.max(...fullYearChartPoints.map((p) => p.value), 100);
+    const step = 500;
+    const calculatedMax = Math.ceil(rawMax / step) * step || 2000;
+
+    const ticks = [];
+    for (let i = 0; i <= calculatedMax; i += step) {
+      ticks.push(i);
+    }
+
+    return { maxY: calculatedMax, yTicks: ticks };
+  }, [fullYearChartPoints]);
+
+  const pointsCoordinates = useMemo(() => {
+    const drawableWidth = chartWidth - paddingLeft - paddingRight;
+    const drawableHeight = chartHeight - paddingTop - paddingBottom;
+
+    return fullYearChartPoints.map((pt, idx) => {
+      const x = paddingLeft + (idx / (fullYearChartPoints.length - 1)) * drawableWidth;
+      const y = chartHeight - paddingBottom - (pt.value / maxY) * drawableHeight;
+      return { x, y, ...pt };
+    });
+  }, [fullYearChartPoints, maxY]);
+
+  // Generate Smooth Bézier Curve Path
+  const linePath = useMemo(() => {
+    if (pointsCoordinates.length < 2) return "";
+
+    return pointsCoordinates.reduce((acc, point, i, arr) => {
+      if (i === 0) return `M ${point.x},${point.y}`;
+
+      const prev = arr[i - 1];
+      const cx = (prev.x + point.x) / 2;
+      return `${acc} C ${cx},${prev.y} ${cx},${point.y} ${point.x},${point.y}`;
+    }, "");
+  }, [pointsCoordinates]);
 
   if (loading) {
     return (
@@ -265,39 +307,72 @@ export default function TravelerEarningsAnalytics() {
             hoveredPoint !== null ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 -translate-y-2 pointer-events-none"
           )}>
             <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-400">
-              {hoveredPoint !== null && chartPoints[hoveredPoint]?.label} Payout Log
+              {hoveredPoint !== null && fullYearChartPoints[hoveredPoint]?.label} Payout Log
             </span>
             <span className="text-lg font-extrabold text-white">
-              ${hoveredPoint !== null && chartPoints[hoveredPoint]?.value.toFixed(2)}
+              ${hoveredPoint !== null && fullYearChartPoints[hoveredPoint]?.value.toFixed(2)}
             </span>
             <span className="text-[11px] text-gray-400 font-medium leading-none mt-1">
-              {hoveredPoint !== null && chartPoints[hoveredPoint]?.detail}
+              {hoveredPoint !== null && fullYearChartPoints[hoveredPoint]?.detail}
             </span>
           </div>
         </div>
 
         {/* Scaled Responsive Vector Engine Container */}
-        <div className="w-full overflow-hidden pt-4">
+        <div className="w-full overflow-hidden pt-2">
           <svg 
             viewBox={`0 0 ${chartWidth} ${chartHeight}`} 
             className="w-full h-auto overflow-visible"
           >
-            {/* Horizontal Sub-Grid Alignment Trackers */}
-            <line x1={paddingX} y1={paddingY} x2={chartWidth - paddingX} y2={paddingY} stroke="#F1F5F9" strokeWidth="1" strokeDasharray="3 3" />
-            <line x1={paddingX} y1={chartHeight / 2} x2={chartWidth - paddingX} y2={chartHeight / 2} stroke="#F1F5F9" strokeWidth="1" strokeDasharray="3 3" />
-            <line x1={paddingX} y1={chartHeight - paddingY} x2={chartWidth - paddingX} y2={chartHeight - paddingY} stroke="#E2E8F0" strokeWidth="1.2" />
+            {/* Dynamic Y-Axis Dollar Amount Ticks & Horizontal Lines ($0, $500, $1000...) */}
+            {yTicks.map((tickVal) => {
+              const drawableHeight = chartHeight - paddingTop - paddingBottom;
+              const yPos = chartHeight - paddingBottom - (tickVal / maxY) * drawableHeight;
+
+              return (
+                <g key={tickVal}>
+                  <line 
+                    x1={paddingLeft} 
+                    y1={yPos} 
+                    x2={chartWidth - paddingRight} 
+                    y2={yPos} 
+                    stroke="#F1F5F9" 
+                    strokeWidth="1" 
+                    strokeDasharray="3 3" 
+                  />
+                  <text 
+                    x={paddingLeft - 10} 
+                    y={yPos + 4} 
+                    textAnchor="end" 
+                    className="text-[10px] font-medium fill-gray-400"
+                  >
+                    ${tickVal}
+                  </text>
+                </g>
+              );
+            })}
+
+            {/* Bottom X-Axis Line */}
+            <line 
+              x1={paddingLeft} 
+              y1={chartHeight - paddingBottom} 
+              x2={chartWidth - paddingRight} 
+              y2={chartHeight - paddingBottom} 
+              stroke="#E2E8F0" 
+              strokeWidth="1.2" 
+            />
 
             {/* Premium Thin Smooth Path */}
             <path
               d={linePath}
               fill="none"
               stroke="#10b981"
-              strokeWidth="1.5"
+              strokeWidth="1.8"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
 
-            {/* Interactive Data Node Anchor Pins */}
+            {/* Interactive Data Node Anchor Pins (All 12 Months) */}
             {pointsCoordinates.map((pt, idx) => (
               <g 
                 key={idx} 
@@ -305,25 +380,28 @@ export default function TravelerEarningsAnalytics() {
                 onMouseEnter={() => setHoveredPoint(idx)}
                 onMouseLeave={() => setHoveredPoint(null)}
               >
+                {/* Hit Target */}
                 <circle cx={pt.x} cy={pt.y} r="14" fill="transparent" />
                 
+                {/* Visual Node */}
                 <circle 
                   cx={pt.x} 
                   cy={pt.y} 
-                  r={hoveredPoint === idx ? "4" : "2.5"} 
+                  r={hoveredPoint === idx ? "4.5" : "2.5"} 
                   fill={hoveredPoint === idx ? "#0f172a" : "#10b981"} 
                   stroke={hoveredPoint === idx ? "#ffffff" : "transparent"} 
-                  strokeWidth="1"
+                  strokeWidth="1.5"
                   className="transition-all duration-150"
                 />
 
+                {/* 12 Month Label */}
                 <text 
                   x={pt.x} 
-                  y={chartHeight - 10} 
+                  y={chartHeight - 12} 
                   textAnchor="middle" 
                   className={cn(
-                    "text-[9px] font-light tracking-tight fill-gray-400 transition-colors duration-150",
-                    hoveredPoint === idx && "fill-emerald-600 font-normal"
+                    "text-[10px] font-medium fill-gray-400 transition-colors duration-150",
+                    hoveredPoint === idx && "fill-emerald-600 font-bold"
                   )}
                 >
                   {pt.label}
@@ -456,24 +534,6 @@ export default function TravelerEarningsAnalytics() {
         </div>
 
       </div>
-
-      {/* ----------- POPUP MODAL DIALOGS OVERLAYS ----------- */}
-      {/* {selectedDelivery && selectedDelivery.status !== "COMPLETED" && selectedDelivery.status !== "completed" ? (
-        <AcceptDeliveryDialog
-          open={openDialog}
-          setOpen={setOpenDialog}
-          delivery={selectedDelivery as any}
-          showCheckbox={selectedDelivery.status === "pending"}
-        />
-      ) : (
-        selectedDelivery && (
-          <CompleteDilog
-            open={openDialog}
-            setOpen={setOpenDialog}
-            delivery={selectedDelivery as any}
-          />
-        ) */}
-      {/* )} */}
 
     </div>
   );

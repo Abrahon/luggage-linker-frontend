@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { MonthlyWithdrawalChart, } from "../Wallet/MonthlyWithdrawalChart";
 import { RecentActivityLedger, } from "../Wallet/RecentActivityLedger";
 import { PendingReleasesCard, } from "../Wallet/PendingReleasesCard";
-import {WithdrawalHistory } from "../Wallet/WithdrawalHistory";
+// import {WithdrawalHistory } from "../withdrawal/WithdrawalHistory";
 
 
 
@@ -335,7 +335,6 @@ export default function MyWallet() {
       </div>
 
       {/* Activity Ledger */}
-       <WithdrawalHistory></WithdrawalHistory>
       <RecentActivityLedger />
      
 

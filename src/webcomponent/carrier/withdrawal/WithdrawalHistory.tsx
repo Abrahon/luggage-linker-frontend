@@ -106,7 +106,7 @@ export const WithdrawalHistory = () => {
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto p-4 sm:p-6 bg-white rounded-2xl shadow-sm border border-gray-100">
+    <div className="w-full mt-6 p-4 sm:p-6 bg-white rounded-2xl shadow-sm border border-gray-100">
       {/* Header */}
       <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
         <div className="flex items-center gap-3">
@@ -124,7 +124,7 @@ export const WithdrawalHistory = () => {
         <button
           onClick={loadData}
           disabled={isLoading}
-          className="flex items-center gap-2 px-3.5 py-2 text-xs font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg transition disabled:opacity-50"
+          className="flex items-center gap-2 px-3.5 py-2 text-xs font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg transition disabled:opacity-50 cursor-pointer"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
           Refresh
@@ -151,7 +151,7 @@ export const WithdrawalHistory = () => {
         </div>
       ) : (
         /* Requests Table */
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto w-full">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-gray-100 text-xs font-semibold text-gray-400 uppercase tracking-wider">

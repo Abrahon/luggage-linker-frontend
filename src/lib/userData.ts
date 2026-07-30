@@ -9,7 +9,8 @@ import {
   UserCog,
   FileText,
   Search,
-  XCircle
+  XCircle,
+  Receipt,
 } from "lucide-react";
 
 export const carrierLink = [
@@ -42,6 +43,11 @@ export const carrierLink = [
     label: "Wallet",
     href: "/wallet",
     icon: DollarSign, // 💰 earnings
+  },
+  {
+    label: "Withdrawal History",
+    href: "/withdrawal-history",
+    icon: Receipt, // 🧾 withdrawal history / receipts
   },
   {
     label:'Verification',
