@@ -1,4 +1,3 @@
-// src/api/wallets.api.ts
 import axiosInstance from "@/api/axios";
 
 // --- Enums & Types ---
@@ -68,6 +67,7 @@ export interface WithdrawalRecord {
   created_at: string;
   updated_at: string;
 }
+
 export interface WalletData {
   available_balance: string;
   pending_balance: string;
@@ -87,57 +87,41 @@ export interface MonthlyWithdrawalResponse {
   data: MonthlyWithdrawalData[];
 }
 
-// --- API Functions ---
-export const getWalletData = async (): Promise<WalletData> => {
-  const response = await axiosInstance.get("/api/wallets/");
-  // Handles both response formats: direct object or nested in .data
-  return response.data?.data || response.data;
-};
+// --- Withdrawal Requests History Types ---
 
-export const getWithdrawalMethods = async (): Promise<WithdrawMethod[]> => {
-  const response = await axiosInstance.get<any>(
-    "/api/wallets/withdraw-methods/"
-  );
-  // Safely handles direct array, { data: [...] }, or paginated { results: [...] }
-  return response.data?.data || response.data?.results || response.data || [];
-};
+export interface WithdrawalMethodDetails {
+  type: "BANK" | "MOBILE_MONEY" | "BKASH" | "NAGAD" | "ROCKET" | string;
+  type_display: string;
+  account_name: string;
+  account_number: string;
+  bank_name?: string;
+  branch_name?: string;
+}
 
-export const createWithdrawalMethod = async (
-  payload: CreateWithdrawMethodPayload
-): Promise<ApiResponse<WithdrawMethod>> => {
-  const response = await axiosInstance.post<ApiResponse<WithdrawMethod>>(
-    "/api/wallets/withdraw-methods/",
-    payload
-  );
-  return response.data;
-};
+export interface WithdrawalItem {
+  id: string;
+  amount: string;
+  status: "PENDING" | "PROCESSING" | "COMPLETED" | "CANCELLED" | "FAILED" | string;
+  created_at: string;
+  processed_at: string | null;
+  completed_at: string | null;
+  withdrawal_method: WithdrawalMethodDetails;
+}
 
+export interface WithdrawalResponse {
+  success: boolean;
+  message: string;
+  count: number;
+  data: WithdrawalItem[];
+}
 
-export const requestWithdrawal = async (
-  payload: RequestWithdrawalPayload
-): Promise<ApiResponse<WithdrawalRecord>> => {
-  const response = await axiosInstance.post<ApiResponse<WithdrawalRecord>>(
-    "/api/wallets/withdraw/",
-    payload
-  );
-  return response.data;
-};
+// --- Wallet Ledger Types ---
 
-
-
-export const getMonthlyWithdrawals = async (): Promise<MonthlyWithdrawalResponse> => {
-  const response = await axiosInstance.get<MonthlyWithdrawalResponse>("/api/wallet/monthly-withdrawals/");
-  return response.data;
-};
-
-
-
-// --- Wallet Ledger Types & Function ---
 export interface WalletLedgerItem {
   reference: string;
   transaction_date: string;
   transaction_type: string;
-  amount: string; // Backend sends string formatted numbers (e.g., "-10.00", "80.00")
+  amount: string;
   booking_id: string | null;
   booking_tracking: string | null;
   status: string;
@@ -151,23 +135,17 @@ export interface WalletLedgerResponse {
   data: WalletLedgerItem[];
 }
 
-// Fetch ledger history using axiosInstance for consistent base URL & headers
-export const getWalletLedger = async (): Promise<WalletLedgerResponse> => {
-  const response = await axiosInstance.get<WalletLedgerResponse>("/api/wallet/ledger/");
-  return response.data;
-};
-
-
+// --- Pending Release Types ---
 
 export interface PendingReleaseItem {
   id: string;
   tracking_number: string;
   package: string;
-  reward: string; // e.g. "80.00"
-  currency: string; // e.g. "USD"
-  expected_release: string; // e.g. "2026-08-04"
-  escrow_status: string; // e.g. "HELD"
-  status: string; // e.g. "IN_TRANSIT", "PICKED_UP"
+  reward: string;
+  currency: string;
+  expected_release: string;
+  escrow_status: string;
+  status: string;
 }
 
 export interface PendingReleasesResponse {
@@ -177,10 +155,64 @@ export interface PendingReleasesResponse {
   data: PendingReleaseItem[];
 }
 
-// Fetch pending release records
-export const getPendingReleases = async (): Promise<PendingReleasesResponse> => {
-  const response = await axiosInstance.get<PendingReleasesResponse>("/api/wallet/pending-releases/");
+// --- API Functions ---
+
+export const getWalletData = async (): Promise<WalletData> => {
+  const response = await axiosInstance.get("/api/wallets/");
+  return response.data?.data || response.data;
+};
+
+export const getWithdrawalMethods = async (): Promise<WithdrawMethod[]> => {
+  const response = await axiosInstance.get<any>(
+    "/api/wallets/withdraw-methods/"
+  );
+  return response.data?.data || response.data?.results || response.data || [];
+};
+
+export const createWithdrawalMethod = async (
+  payload: CreateWithdrawMethodPayload
+): Promise<ApiResponse<WithdrawMethod>> => {
+  const response = await axiosInstance.post<ApiResponse<WithdrawMethod>>(
+    "/api/wallets/withdraw-methods/",
+    payload
+  );
   return response.data;
 };
 
+export const requestWithdrawal = async (
+  payload: RequestWithdrawalPayload
+): Promise<ApiResponse<WithdrawalRecord>> => {
+  const response = await axiosInstance.post<ApiResponse<WithdrawalRecord>>(
+    "/api/wallets/withdraw/",
+    payload
+  );
+  return response.data;
+};
 
+export const getWithdrawals = async (): Promise<WithdrawalResponse> => {
+  const response = await axiosInstance.get<WithdrawalResponse>(
+    "/api/wallets/withdrawals/"
+  );
+  return response.data;
+};
+
+export const getMonthlyWithdrawals = async (): Promise<MonthlyWithdrawalResponse> => {
+  const response = await axiosInstance.get<MonthlyWithdrawalResponse>(
+    "/api/wallet/monthly-withdrawals/"
+  );
+  return response.data;
+};
+
+export const getWalletLedger = async (): Promise<WalletLedgerResponse> => {
+  const response = await axiosInstance.get<WalletLedgerResponse>(
+    "/api/wallet/ledger/"
+  );
+  return response.data;
+};
+
+export const getPendingReleases = async (): Promise<PendingReleasesResponse> => {
+  const response = await axiosInstance.get<PendingReleasesResponse>(
+    "/api/wallet/pending-releases/"
+  );
+  return response.data;
+};

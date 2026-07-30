@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { MonthlyWithdrawalChart, } from "../Wallet/MonthlyWithdrawalChart";
 import { RecentActivityLedger, } from "../Wallet/RecentActivityLedger";
 import { PendingReleasesCard, } from "../Wallet/PendingReleasesCard";
+import {WithdrawalHistory } from "../Wallet/WithdrawalHistory";
 
 
 
@@ -334,7 +335,9 @@ export default function MyWallet() {
       </div>
 
       {/* Activity Ledger */}
+       <WithdrawalHistory></WithdrawalHistory>
       <RecentActivityLedger />
+     
 
       {/* Integrated Withdrawal Modal */}
       <Dialog open={isWithdrawOpen} onOpenChange={setIsWithdrawOpen}>
