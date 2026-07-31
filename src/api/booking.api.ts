@@ -161,7 +161,7 @@ export const bookingApi = {
 export const deliveryApi = {
   /**
    * Fetch list of active bookings (PAYMENT_PENDING, CONFIRMED, PICKED_UP, IN_TRANSIT)
-   * Route: /api/bookings/active/
+
    */
   async getActiveDeliveries(): Promise<PaginatedResponse<BookingData>> {
     const response = await axiosInstance.get<PaginatedResponse<BookingData>>(

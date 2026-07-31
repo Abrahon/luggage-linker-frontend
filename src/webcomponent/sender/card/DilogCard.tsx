@@ -1,169 +1,165 @@
 "use client";
 
-import {
-  ArrowRight,
-  CalendarDays,
-  MessageCircleMoreIcon,
-  Package,
-  Phone,
-  StickyNote,
-  Star,
-} from "lucide-react";
-import { useState } from "react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Package, MapPin, Mail, Scale, DollarSign, ExternalLink, Calendar } from "lucide-react";
 
 interface SenderDilogCardProps {
-  name: string;
-  status: "Verified" | "Delivered" | "In progress" | string;
-  phone: string;
-  email: string;
-  from: string;
-  to: string;
-  date: string;
-  weight: number;
+  id: string;
+  trackingNumber: string;
+  packageTitle: string;
+  tripTitle: string;
+  fromCity: string;
+  fromCountry: string;
+  toCity: string;
+  toCountry: string;
+  weightKg: string;
+  reward: string;
+  currency: string;
+  status: string;
+  paymentStatus: string;
+  escrowStatus: string;
+  senderEmail: string;
+  travelerEmail: string;
+  packageImage: string | null;
+  createdAt: string;
 }
 
 export const SenderDilogCard = ({
-  name,
+  id,
+  trackingNumber,
+  packageTitle,
+  tripTitle,
+  fromCity,
+  fromCountry,
+  toCity,
+  toCountry,
+  weightKg,
+  reward,
+  currency,
   status,
-  phone,
-  email,
-  from,
-  to,
-  date,
-  weight,
+  paymentStatus,
+  escrowStatus,
+  senderEmail,
+  travelerEmail,
+  packageImage,
+  createdAt,
 }: SenderDilogCardProps) => {
-  const [rating, setRating] = useState<number>(0);
-  const [hovered, setHovered] = useState<number>(0);
-  const [feedback, setFeedback] = useState<string>("");
+  const router = useRouter();
 
-  const currentStyle =
-    status === "Delivered"
-      ? { bg: "bg-[#00A63E]", text: "text-white" }
-      : status === "In Progress"
-      ? { bg: "bg-[#FFF0D3]", text: "text-[#FEB423]" }
-      : { bg: "bg-[#299D4E66]", text: "text-[#299D4E]" };
-
-  const data = [
-    { icon: Phone, text: `${phone}` },
-    { icon: MessageCircleMoreIcon, text: email },
-    { icon: Package, text: `${weight} kg` },
-    { icon: CalendarDays, text: date },
-  ];
-
-  const handleSend = () => {
-    if (!rating) {
-      alert("Please rate before submitting.");
-      return;
-    }
-    console.log({ rating, feedback });
-    alert("Review submitted successfully!");
+  const handleTrack = () => {
+    router.push(`/dashboard/sender/track/${trackingNumber}`);
   };
 
+  const formattedDate = new Date(createdAt).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
   return (
-    <div className="flex flex-col gap-6">
-      {/* Carrier Information */}
-      <div>
-        <span className="text-lg font-semibold">Carrier Information</span>
-        <div className="flex flex-col gap-3 mt-2">
-          <div className="flex items-start justify-between">
-            <div className="flex items-start gap-3">
-              <div className="p-2 rounded-full bg-[#FEB42333]">
-                <StickyNote className="text-[#FEB423] w-4 h-4" />
-              </div>
-              <div className="flex flex-col gap-1">
-                <h3 className="font-semibold text-base text-gray-900">
-                  {name}
-                </h3>
-                <div className="flex items-center text-gray-700 text-sm gap-2">
-                  <span>{from}</span>
-                  <ArrowRight className="w-4 h-4 text-gray-500" />
-                  <span>{to}</span>
-                </div>
-              </div>
+    <div className="flex flex-col gap-4 p-1">
+      {/* Package Header & Tracking */}
+      <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+        <div>
+          <h3 className="text-base font-bold text-slate-900">{packageTitle}</h3>
+          <p className="text-xs font-medium text-slate-500">{tripTitle}</p>
+        </div>
+        <span className="font-mono text-[11px] font-semibold bg-slate-100 text-slate-700 px-2 py-1 rounded-md">
+          {trackingNumber}
+        </span>
+      </div>
+
+      {/* Package Image Banner */}
+      <div className="relative w-full h-44 rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
+        {packageImage ? (
+          <Image
+            src={packageImage}
+            alt={packageTitle}
+            fill
+            className="object-cover"
+            unoptimized
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
+            <Package className="w-8 h-8 mb-1" />
+            <span className="text-xs">No Image Available</span>
+          </div>
+        )}
+      </div>
+
+      {/* Details Grid */}
+      <div className="grid grid-cols-2 gap-3 text-xs">
+        {/* Route */}
+        <div className="col-span-2 bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
+            <div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase">From</p>
+              <p className="font-semibold text-slate-800">{fromCity}, {fromCountry}</p>
             </div>
           </div>
-          <div
-            className={`px-3 py-1 rounded-full text-xs font-medium w-fit ${currentStyle.bg} ${currentStyle.text}`}
-          >
-            {status}
+          <span className="text-slate-300 font-bold">→</span>
+          <div className="flex items-center gap-2 text-right">
+            <div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase">To</p>
+              <p className="font-semibold text-slate-800">{toCity}, {toCountry}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Weight */}
+        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center gap-2">
+          <Scale className="w-4 h-4 text-blue-500 shrink-0" />
+          <div>
+            <p className="text-[10px] text-slate-400 font-bold uppercase">Weight</p>
+            <p className="font-semibold text-slate-800">{weightKg} kg</p>
+          </div>
+        </div>
+
+        {/* Reward */}
+        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center gap-2">
+          <DollarSign className="w-4 h-4 text-emerald-600 shrink-0" />
+          <div>
+            <p className="text-[10px] text-slate-400 font-bold uppercase">Reward</p>
+            <p className="font-semibold text-slate-800">{reward} {currency}</p>
+          </div>
+        </div>
+
+        {/* Traveler Email */}
+        <div className="col-span-2 bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center gap-2">
+          <Mail className="w-4 h-4 text-indigo-500 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] text-slate-400 font-bold uppercase">Traveler Contact</p>
+            <p className="font-semibold text-slate-800 truncate">{travelerEmail || "N/A"}</p>
           </div>
         </div>
       </div>
 
-      {/* Contact Info */}
-      <div>
-        <span className="text-lg font-semibold">Contact Information</span>
-        <div className="flex flex-col gap-2 mt-2">
-          {data.slice(0, 2).map((item, index) => (
-            <div className="flex items-center gap-3" key={index}>
-              <item.icon className="w-4 h-4 text-gray-500" />
-              <span className="text-gray-700 text-sm">{item.text}</span>
-            </div>
-          ))}
-        </div>
+      {/* Badges Row */}
+      <div className="flex flex-wrap gap-2 text-[10px] font-bold">
+        <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full border border-blue-200">
+          STATUS: {status}
+        </span>
+        <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full border border-emerald-200">
+          PAYMENT: {paymentStatus}
+        </span>
+        <span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full border border-purple-200">
+          ESCROW: {escrowStatus}
+        </span>
       </div>
 
-      {/* Package Info */}
-      <div>
-        <span className="text-lg font-semibold">Package Information</span>
-        <div className="flex flex-col gap-2 mt-2">
-          {data.slice(2, 4).map((item, index) => (
-            <div className="flex items-center gap-3" key={index}>
-              <item.icon className="w-4 h-4 text-gray-500" />
-              <span className="text-gray-700 text-sm">{item.text}</span>
-            </div>
-          ))}
-        </div>
+      {/* Action Footer */}
+      <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+        <Button
+          onClick={handleTrack}
+          className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs gap-2 py-2.5 rounded-xl transition-all"
+        >
+          <ExternalLink className="w-4 h-4" />
+          <span>Track Delivery</span>
+        </Button>
       </div>
-
-      {/* Review Section */}
-      {status === "Delivered" && (
-        <div className="pt-4 mt-2">
-          <span className="text-lg font-semibold">Rate user</span>
-          <div className="space-y-4 mt-3">
-            {/* ⭐ Star Rating */}
-            <div className="flex gap-2">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <Star
-                  key={star}
-                  className={`w-6 h-6 cursor-pointer transition-all ${
-                    (hovered || rating) >= star
-                      ? "fill-black text-black"
-                      : "text-gray-400"
-                  }`}
-                  onMouseEnter={() => setHovered(star)}
-                  onMouseLeave={() => setHovered(0)}
-                  onClick={() => setRating(star)}
-                />
-              ))}
-            </div>
-
-            {/* 📝 Feedback Textarea */}
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="experience" className="text-sm text-gray-600">
-                Write your experience
-              </Label>
-              <Textarea
-                id="experience"
-                value={feedback}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                  setFeedback(e.target.value)
-                }
-                placeholder="Share your feedback..."
-                className="resize-none min-h-[100px]"
-              />
-            </div>
-
-            {/* 📤 Send Button */}
-            <div className="flex justify-end">
-              <Button onClick={handleSend}>Send</Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
