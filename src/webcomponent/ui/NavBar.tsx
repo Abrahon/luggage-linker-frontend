@@ -87,10 +87,19 @@ export const NavBar = () => {
   // Helper: Unread Count
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
+  // Helper: YouTube-style badge count formatter (e.g., 9+ or 99+)
+  const formatBadgeCount = (count: number) => {
+    if (count > 99) return "99+";
+    if (count > 9) return "9+";
+    return count.toString();
+  };
+
   // Helper: Role & Type Icon Mapper
   const renderNotificationIcon = (type: NotificationTypeEnum, title: string) => {
-    // Override icon for dispute / rejection alerts regardless of type
-    if (title.toLowerCase().includes("dispute") || title.toLowerCase().includes("rejected")) {
+    if (
+      title.toLowerCase().includes("dispute") ||
+      title.toLowerCase().includes("rejected")
+    ) {
       return <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />;
     }
 
@@ -145,7 +154,9 @@ export const NavBar = () => {
   };
 
   // Helper to resolve profile image URL
-  const getProfilePictureUrl = (url: string | null | undefined): string | null => {
+  const getProfilePictureUrl = (
+    url: string | null | undefined
+  ): string | null => {
     if (!url) return null;
     if (url.startsWith("http://") || url.startsWith("https://")) return url;
     const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
@@ -173,15 +184,16 @@ export const NavBar = () => {
           <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
             <PopoverTrigger asChild>
               <button
-                className="relative text-gray-800 p-1 rounded-full hover:bg-gray-100 transition"
+                className="relative text-gray-800 p-2 rounded-full hover:bg-gray-100 transition focus:outline-none"
                 onClick={() => setUserMenuOpen(false)}
                 aria-label="Notifications"
               >
-                <Bell className="w-6 h-6" />
+                <Bell className="w-6 h-6 text-gray-700" />
+
+                {/* Visible YouTube-Style Red Badge */}
                 {unreadCount > 0 && (
-                  <span className="absolute top-0 right-0 flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                  <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 bg-red-600 text-white text-[10px] font-bold rounded-full border-2 border-white shadow-sm leading-none select-none z-10">
+                    {formatBadgeCount(unreadCount)}
                   </span>
                 )}
               </button>
@@ -195,7 +207,9 @@ export const NavBar = () => {
                 {/* Popover Header */}
                 <div className="p-3 px-4 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-sm text-gray-900">Notifications</h3>
+                    <h3 className="font-bold text-sm text-gray-900">
+                      Notifications
+                    </h3>
                     {unreadCount > 0 && (
                       <span className="bg-red-100 text-red-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                         {unreadCount} new
@@ -238,7 +252,10 @@ export const NavBar = () => {
                           !item.is_read ? "bg-blue-50/30" : ""
                         }`}
                       >
-                        {renderNotificationIcon(item.notification_type, item.title)}
+                        {renderNotificationIcon(
+                          item.notification_type,
+                          item.title
+                        )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-1 mb-0.5">
                             <h4 className="text-xs font-semibold text-gray-900 truncate">

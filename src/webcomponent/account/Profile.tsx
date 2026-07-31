@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, Loader2 } from "lucide-react";
+import { Camera, Loader2, Edit3, X, Save, CheckCircle2, MapPin, User as UserIcon, Mail } from "lucide-react";
 import Image from "next/image";
 import { useState, useMemo, useEffect } from "react";
 import { stringToColor } from "@/lib/stringToColor";
@@ -30,8 +30,12 @@ type ProfileForm = z.infer<typeof profileSchema>;
 
 export const Profile = () => {
   const { profile, isLoading, error, updateProfile } = useProfile();
+  
+  // Local state for edit mode toggle
+  const [isEditing, setIsEditing] = useState<boolean>(false);
   const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const previewUrl = useMemo(() => {
     if (profilePhoto) return URL.createObjectURL(profilePhoto);
@@ -54,7 +58,7 @@ export const Profile = () => {
   });
 
   // Populate form values when backend data arrives
-  useEffect(() => {
+  const populateFields = () => {
     if (profile) {
       reset({
         firstName: profile.first_name || "",
@@ -69,10 +73,22 @@ export const Profile = () => {
         bio: profile.bio || "",
       });
     }
+  };
+
+  useEffect(() => {
+    populateFields();
   }, [profile, reset]);
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setProfilePhoto(null);
+    setSubmitError(null);
+    populateFields(); // Reset fields back to saved backend values
+  };
 
   const onSubmit = async (data: ProfileForm) => {
     setSubmitError(null);
+    setSuccessMsg(null);
     try {
       await updateProfile({
         first_name: data.firstName,
@@ -86,7 +102,11 @@ export const Profile = () => {
         bio: data.bio,
         profile_picture: profilePhoto,
       });
-      alert("Profile updated successfully!");
+      setSuccessMsg("Profile updated successfully!");
+      setIsEditing(false);
+      
+      // Clear success notification after 4s
+      setTimeout(() => setSuccessMsg(null), 4000);
     } catch (err: any) {
       setSubmitError(err.message || "Failed to update profile");
     }
@@ -100,27 +120,25 @@ export const Profile = () => {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="flex justify-center items-center min-h-[500px]">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-6 text-center text-red-500">
-        <p>{error}</p>
+      <div className="p-8 text-center text-red-500 max-w-lg mx-auto bg-red-50 border border-red-200 rounded-xl my-10">
+        <p className="font-medium">{error}</p>
       </div>
     );
   }
 
   const fallbackLetter = profile?.first_name ? profile.first_name[0] : "A";
 
-  // Helper to resolve backend profile picture URL
   const getProfilePictureUrl = (url: string | null | undefined): string | null => {
     if (!url) return null;
     if (url.startsWith("http://") || url.startsWith("https://")) return url;
-    // Prefix relative backend paths with API base URL if applicable
     const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
     return `${baseUrl}${url}`;
   };
@@ -128,257 +146,374 @@ export const Profile = () => {
   const resolvedPictureUrl = getProfilePictureUrl(profile?.profile_picture);
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {submitError && (
-          <div className="p-3 bg-red-50 text-red-600 border border-red-200 rounded-md text-sm">
-            {submitError}
-          </div>
-        )}
+    <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6">
+      {/* Container Box */}
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+        {/* Banner Section */}
+        <div className="h-32 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 relative" />
 
-        {/* Profile Photo */}
-        <div className="flex items-center mb-6 gap-4">
-          <label
-            htmlFor="profile-photo"
-            className="flex justify-center items-center w-24 h-24 border-2 rounded-full cursor-pointer relative overflow-hidden shrink-0"
-          >
-            {previewUrl ? (
-              <Image
-                src={previewUrl}
-                alt="Preview"
-                fill
-                className="object-cover rounded-full"
-                unoptimized
-              />
-            ) : resolvedPictureUrl ? (
-              <Image
-                src={resolvedPictureUrl}
-                alt="Profile"
-                fill
-                className="object-cover rounded-full"
-                unoptimized
-              />
-            ) : (
-              <div
-                className="w-full h-full flex items-center justify-center text-white text-2xl font-semibold"
-                style={{
-                  backgroundColor: stringToColor(profile?.first_name || "A"),
-                }}
+        <form onSubmit={handleSubmit(onSubmit)} className="p-6 sm:p-8 -mt-16">
+          {/* Header Bar */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 pb-6 border-b border-gray-100">
+            {/* Avatar & Info */}
+            <div className="flex items-end gap-5">
+              <div className="relative group">
+                <label
+                  htmlFor="profile-photo"
+                  className={`flex justify-center items-center w-28 h-28 border-4 border-white rounded-full relative overflow-hidden shrink-0 shadow-md ${
+                    isEditing ? "cursor-pointer" : "cursor-default"
+                  }`}
+                >
+                  {previewUrl ? (
+                    <Image
+                      src={previewUrl}
+                      alt="Preview"
+                      fill
+                      className="object-cover rounded-full"
+                      unoptimized
+                    />
+                  ) : resolvedPictureUrl ? (
+                    <Image
+                      src={resolvedPictureUrl}
+                      alt="Profile"
+                      fill
+                      className="object-cover rounded-full"
+                      unoptimized
+                    />
+                  ) : (
+                    <div
+                      className="w-full h-full flex items-center justify-center text-white text-3xl font-bold"
+                      style={{
+                        backgroundColor: stringToColor(profile?.first_name || "A"),
+                      }}
+                    >
+                      {fallbackLetter.toUpperCase()}
+                    </div>
+                  )}
+
+                  {/* Camera overlay only active in edit mode */}
+                  {isEditing && (
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Camera className="text-white w-7 h-7" />
+                    </div>
+                  )}
+                </label>
+
+                {isEditing && (
+                  <input
+                    type="file"
+                    id="profile-photo"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    accept="image/*"
+                  />
+                )}
+              </div>
+
+              <div className="mb-1">
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {profile?.first_name} {profile?.last_name}
+                </h1>
+                <p className="text-sm text-gray-500 flex items-center gap-1.5 mt-0.5">
+                  <Mail className="w-3.5 h-3.5 text-gray-400" />
+                  {profile?.email || "No email provided"}
+                </p>
+              </div>
+            </div>
+
+            {/* Toggle Button in Header */}
+            {!isEditing ? (
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition flex items-center gap-2 self-stretch sm:self-auto justify-center"
               >
-                {fallbackLetter.toUpperCase()}
+                <Edit3 className="w-3.5 h-3.5" /> Edit Profile
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="flex-1 sm:flex-none px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5"
+                >
+                  <X className="w-3.5 h-3.5" /> Cancel
+                </button>
               </div>
             )}
-            <div className="absolute bg-black/40 w-full h-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-              <Camera className="text-white w-6 h-6" />
+          </div>
+
+          {/* Feedback Alerts */}
+          {submitError && (
+            <div className="mt-6 p-3.5 bg-red-50 text-red-700 border border-red-200 rounded-xl text-xs font-medium flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
+              {submitError}
             </div>
-          </label>
-          <input
-            type="file"
-            id="profile-photo"
-            onChange={handleFileChange}
-            className="hidden"
-            accept="image/*"
-          />
-          <div className="flex flex-col">
-            <span className="text-lg font-semibold">Profile Photo</span>
-            <span className="text-sm text-gray-500">
-              Upload a new photo or change your existing one
-            </span>
+          )}
+
+          {successMsg && (
+            <div className="mt-6 p-3.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-medium flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              {successMsg}
+            </div>
+          )}
+
+          {/* Form Content Sections */}
+          <div className="mt-8 space-y-8">
+            {/* Personal Information */}
+            <div>
+              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <UserIcon className="w-4 h-4 text-gray-400" /> Personal Details
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* First Name */}
+                <div>
+                  <label htmlFor="first-name" className="block text-xs font-semibold text-gray-700 mb-1.5">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    id="first-name"
+                    disabled={!isEditing}
+                    {...register("firstName")}
+                    placeholder="Enter first name"
+                    className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
+                      isEditing
+                        ? "bg-white border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
+                    }`}
+                  />
+                  {errors.firstName && (
+                    <p className="text-red-500 text-xs mt-1">{errors.firstName.message}</p>
+                  )}
+                </div>
+
+                {/* Last Name */}
+                <div>
+                  <label htmlFor="last-name" className="block text-xs font-semibold text-gray-700 mb-1.5">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    id="last-name"
+                    disabled={!isEditing}
+                    {...register("lastName")}
+                    placeholder="Enter last name"
+                    className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
+                      isEditing
+                        ? "bg-white border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
+                    }`}
+                  />
+                  {errors.lastName && (
+                    <p className="text-red-500 text-xs mt-1">{errors.lastName.message}</p>
+                  )}
+                </div>
+
+                {/* Email (Always Readonly) */}
+                <div>
+                  <label htmlFor="email" className="block text-xs font-semibold text-gray-700 mb-1.5">
+                    Email Address <span className="text-gray-400 font-normal">(Non-editable)</span>
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    disabled
+                    {...register("email")}
+                    className="w-full text-xs p-3 rounded-xl border border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed"
+                  />
+                </div>
+
+                {/* Phone */}
+                <div>
+                  <label htmlFor="phone" className="block text-xs font-semibold text-gray-700 mb-1.5">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    id="phone"
+                    disabled={!isEditing}
+                    {...register("phone")}
+                    placeholder="Enter phone number"
+                    className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
+                      isEditing
+                        ? "bg-white border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
+                    }`}
+                  />
+                  {errors.phone && (
+                    <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>
+                  )}
+                </div>
+
+                {/* Date of Birth */}
+                <div>
+                  <label htmlFor="date-of-birth" className="block text-xs font-semibold text-gray-700 mb-1.5">
+                    Date of Birth
+                  </label>
+                  <input
+                    type="date"
+                    id="date-of-birth"
+                    disabled={!isEditing}
+                    {...register("dateOfBirth")}
+                    className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
+                      isEditing
+                        ? "bg-white border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
+                    }`}
+                  />
+                  {errors.dateOfBirth && (
+                    <p className="text-red-500 text-xs mt-1">{errors.dateOfBirth.message}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Location & Address Section */}
+            <div>
+              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-gray-400" /> Location Details
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {/* Country */}
+                <div>
+                  <label htmlFor="country" className="block text-xs font-semibold text-gray-700 mb-1.5">
+                    Country
+                  </label>
+                  <input
+                    type="text"
+                    id="country"
+                    disabled={!isEditing}
+                    {...register("country")}
+                    placeholder="Enter country"
+                    className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
+                      isEditing
+                        ? "bg-white border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
+                    }`}
+                  />
+                  {errors.country && (
+                    <p className="text-red-500 text-xs mt-1">{errors.country.message}</p>
+                  )}
+                </div>
+
+                {/* City */}
+                <div>
+                  <label htmlFor="city" className="block text-xs font-semibold text-gray-700 mb-1.5">
+                    City
+                  </label>
+                  <input
+                    type="text"
+                    id="city"
+                    disabled={!isEditing}
+                    {...register("city")}
+                    placeholder="Enter city"
+                    className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
+                      isEditing
+                        ? "bg-white border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
+                    }`}
+                  />
+                  {errors.city && (
+                    <p className="text-red-500 text-xs mt-1">{errors.city.message}</p>
+                  )}
+                </div>
+
+                {/* Postal Code */}
+                <div>
+                  <label htmlFor="postal-code" className="block text-xs font-semibold text-gray-700 mb-1.5">
+                    Postal Code
+                  </label>
+                  <input
+                    type="text"
+                    id="postal-code"
+                    disabled={!isEditing}
+                    {...register("postalCode")}
+                    placeholder="Postal code"
+                    className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
+                      isEditing
+                        ? "bg-white border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
+                    }`}
+                  />
+                  {errors.postalCode && (
+                    <p className="text-red-500 text-xs mt-1">{errors.postalCode.message}</p>
+                  )}
+                </div>
+
+                {/* Street Address */}
+                <div className="md:col-span-3">
+                  <label htmlFor="address" className="block text-xs font-semibold text-gray-700 mb-1.5">
+                    Street Address
+                  </label>
+                  <input
+                    type="text"
+                    id="address"
+                    disabled={!isEditing}
+                    {...register("address")}
+                    placeholder="Enter street address"
+                    className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
+                      isEditing
+                        ? "bg-white border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
+                    }`}
+                  />
+                  {errors.address && (
+                    <p className="text-red-500 text-xs mt-1">{errors.address.message}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Bio Section */}
+            <div>
+              <label htmlFor="bio" className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                About Bio
+              </label>
+              <textarea
+                id="bio"
+                rows={3}
+                disabled={!isEditing}
+                {...register("bio")}
+                placeholder="Tell us a little bit about yourself..."
+                className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none resize-none ${
+                  isEditing
+                    ? "bg-white border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
+                }`}
+              />
+              {errors.bio && (
+                <p className="text-red-500 text-xs mt-1">{errors.bio.message}</p>
+              )}
+            </div>
           </div>
-        </div>
 
-        <hr className="border-gray-200" />
+          {/* Footer Action Bar */}
+          <div className="mt-8 pt-5 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+           
 
-        {/* Inputs Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* First Name */}
-          <div>
-            <label htmlFor="first-name" className="block text-sm font-semibold text-gray-700 mb-2">
-              First Name
-            </label>
-            <input
-              type="text"
-              id="first-name"
-              {...register("firstName")}
-              placeholder="Enter your first name"
-              className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-            {errors.firstName && (
-              <p className="text-red-500 text-sm mt-1">{errors.firstName.message}</p>
+            {isEditing && (
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm disabled:opacity-50 transition flex items-center justify-center gap-2"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving Changes...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3.5 h-3.5" /> Save Changes
+                  </>
+                )}
+              </button>
             )}
           </div>
-
-          {/* Last Name */}
-          <div>
-            <label htmlFor="last-name" className="block text-sm font-semibold text-gray-700 mb-2">
-              Last Name
-            </label>
-            <input
-              type="text"
-              id="last-name"
-              {...register("lastName")}
-              placeholder="Enter your last name"
-              className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-            {errors.lastName && (
-              <p className="text-red-500 text-sm mt-1">{errors.lastName.message}</p>
-            )}
-          </div>
-
-          {/* Email */}
-          <div>
-            <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
-              Email Address
-            </label>
-            <input
-              type="email"
-              id="email"
-              {...register("email")}
-              disabled
-              placeholder="N/A"
-              className="w-full p-2 border border-gray-300 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
-            />
-          </div>
-
-          {/* Phone */}
-          <div>
-            <label htmlFor="phone" className="block text-sm font-semibold text-gray-700 mb-2">
-              Phone Number
-            </label>
-            <input
-              type="tel"
-              id="phone"
-              {...register("phone")}
-              placeholder="Enter your phone number"
-              className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-            {errors.phone && (
-              <p className="text-red-500 text-sm mt-1">{errors.phone.message}</p>
-            )}
-          </div>
-
-          {/* Date of Birth */}
-          <div>
-            <label htmlFor="date-of-birth" className="block text-sm font-semibold text-gray-700 mb-2">
-              Date of Birth
-            </label>
-            <input
-              type="date"
-              id="date-of-birth"
-              {...register("dateOfBirth")}
-              className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-            {errors.dateOfBirth && (
-              <p className="text-red-500 text-sm mt-1">{errors.dateOfBirth.message}</p>
-            )}
-          </div>
-
-          {/* Country */}
-          <div>
-            <label htmlFor="country" className="block text-sm font-semibold text-gray-700 mb-2">
-              Country
-            </label>
-            <input
-              type="text"
-              id="country"
-              {...register("country")}
-              placeholder="Enter your country"
-              className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-            {errors.country && (
-              <p className="text-red-500 text-sm mt-1">{errors.country.message}</p>
-            )}
-          </div>
-
-          {/* City */}
-          <div>
-            <label htmlFor="city" className="block text-sm font-semibold text-gray-700 mb-2">
-              City
-            </label>
-            <input
-              type="text"
-              id="city"
-              {...register("city")}
-              placeholder="Enter your city"
-              className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-            {errors.city && (
-              <p className="text-red-500 text-sm mt-1">{errors.city.message}</p>
-            )}
-          </div>
-
-          {/* Postal Code */}
-          <div>
-            <label htmlFor="postal-code" className="block text-sm font-semibold text-gray-700 mb-2">
-              Postal Code
-            </label>
-            <input
-              type="text"
-              id="postal-code"
-              {...register("postalCode")}
-              placeholder="Enter postal code"
-              className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-            {errors.postalCode && (
-              <p className="text-red-500 text-sm mt-1">{errors.postalCode.message}</p>
-            )}
-          </div>
-
-          {/* Address */}
-          <div className="md:col-span-2">
-            <label htmlFor="address" className="block text-sm font-semibold text-gray-700 mb-2">
-              Address
-            </label>
-            <input
-              type="text"
-              id="address"
-              {...register("address")}
-              placeholder="Enter your street address"
-              className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-            {errors.address && (
-              <p className="text-red-500 text-sm mt-1">{errors.address.message}</p>
-            )}
-          </div>
-
-          {/* Bio */}
-          <div className="md:col-span-2">
-            <label htmlFor="bio" className="block text-sm font-semibold text-gray-700 mb-2">
-              Bio
-            </label>
-            <textarea
-              id="bio"
-              rows={4}
-              {...register("bio")}
-              placeholder="Tell us a little bit about yourself..."
-              className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-            />
-            {errors.bio && (
-              <p className="text-red-500 text-sm mt-1">{errors.bio.message}</p>
-            )}
-          </div>
-        </div>
-
-        {/* Footer info & Actions */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pt-4 gap-4">
-          <span className="text-xs text-gray-400">
-            Profile ID: {profile?.id}
-          </span>
-          <button
-            type="submit"
-            className="w-full sm:w-fit px-6 py-2 bg-primary rounded-lg text-white text-sm tracking-wider font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" /> Saving...
-              </>
-            ) : (
-              "Save changes"
-            )}
-          </button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
 };
