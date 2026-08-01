@@ -328,6 +328,40 @@ export async function cancelBooking(bookingId: string): Promise<CancelBookingRes
   return response.data;
 }
 
+// ----------------------------------------------------------------------
+// Stats Interfaces
+// ----------------------------------------------------------------------
 
+export interface EscrowHeldInfo {
+  amount: string;
+  currency: string;
+}
+
+export interface SenderDashboardStats {
+  pending_requests: number;
+  active_bookings: number;
+  completed_bookings: number;
+  total_escrow_held: EscrowHeldInfo;
+}
+
+export interface SenderDashboardStatsResponse {
+  success: boolean;
+  message: string;
+  data: SenderDashboardStats;
+}
+
+// ----------------------------------------------------------------------
+// Stats API Endpoint
+// ----------------------------------------------------------------------
+
+/**
+ * Fetch Sender Dashboard Statistics
+ */
+export async function getSenderDashboardStats(): Promise<SenderDashboardStatsResponse> {
+  const response = await axiosInstance.get<SenderDashboardStatsResponse>(
+    "/api/sender/booking-stats/"
+  );
+  return response.data;
+}
 
 
