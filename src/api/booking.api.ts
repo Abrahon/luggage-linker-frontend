@@ -125,6 +125,57 @@ export interface VerifyDeliveryResponse {
   delivered_at?: string;
 }
 
+export interface MyBookingItem {
+  id: string;
+  tracking_number: string;
+  package_title: string;
+  trip_title: string;
+  traveler_name: string;
+  traveler_email: string;
+  route: RouteInfo;
+  package_image: string | null;
+  status:
+    | "PENDING"
+    | "TRAVELER_ACCEPTED"
+    | "PAYMENT_PENDING"
+    | "CONFIRMED"
+    | "PICKED_UP"
+    | "IN_TRANSIT"
+    | "DELIVERED"
+    | "COMPLETED"
+    | "CANCELLED"
+    | string;
+  payment_status: "UNPAID" | "PAID" | "REFUNDED" | string;
+  escrow_status: "NOT_FUNDED" | "HELD" | "RELEASED" | "REFUNDED" | string;
+  currency: string;
+  agreed_reward: string;
+  created_date: string;
+  current_step: number;
+  can_pay: boolean;
+  can_track: boolean;
+  can_chat: boolean;
+  can_verify_delivery: boolean;
+  can_cancel: boolean;
+  can_review: boolean;
+  can_view_receipt: boolean;
+  show_progress: boolean;
+  show_payment_required: boolean;
+  show_delivery_verification: boolean;
+}
+
+export interface TimelineStep {
+  title: string;
+  status: string;
+  completed: boolean;
+  timestamp: string | null;
+}
+
+export interface TimelineResponse {
+  success: boolean;
+  message: string;
+  data: TimelineStep[];
+}
+
 // ----------------------------------------------------------------------
 // Booking & Delivery API Endpoints
 // ----------------------------------------------------------------------
@@ -249,6 +300,33 @@ export const deliveryApi = {
   },
 
 };
+
+export async function getMyBookings(page: number = 1): Promise<PaginatedResponse<MyBookingItem>> {
+  const response = await axiosInstance.get<PaginatedResponse<MyBookingItem>>(
+    `/api/sender/my-bookings/?page=${page}`
+  );
+  return response.data;
+}
+
+/**
+ * Get tracking timeline for a specific booking
+ */
+export async function getBookingTimeline(bookingId: string): Promise<TimelineResponse> {
+  const response = await axiosInstance.get<TimelineResponse>(
+    `/api/sender/bookings/${bookingId}/timeline/`
+  );
+  return response.data;
+}
+
+/**
+ * Cancel a booking
+ */
+export async function cancelBooking(bookingId: string): Promise<CancelBookingResponse> {
+  const response = await axiosInstance.post<CancelBookingResponse>(
+    `/api/sender/bookings/${bookingId}/cancel/`
+  );
+  return response.data;
+}
 
 
 
