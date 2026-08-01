@@ -12,11 +12,11 @@ export default function Page() {
         </p>
       </div>
 
-      {/* 1. Dashboard Stats Section at the Top */}
+      {/* 1. Dashboard Stats Cards */}
       <BookingDashboardOverview />
 
-      {/* 2. Bookings List Section Below */}
-      {/* <MyBookingsList /> */}
+      {/* 2. Filterable Bookings List with Cards Grid */}
+      <MyBookingsList />
     </main>
   );
 }

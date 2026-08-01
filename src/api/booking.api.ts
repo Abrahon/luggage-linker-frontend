@@ -321,13 +321,33 @@ export async function getBookingTimeline(bookingId: string): Promise<TimelineRes
 /**
  * Cancel a booking
  */
+// ----------------------------------------------------------------------
+// Cancel Booking Types
+// ----------------------------------------------------------------------
+
+export interface CancelBookingData {
+  booking_id: string;
+  tracking_number: string;
+  status: "CANCELLED" | string;
+}
+
+export interface CancelBookingResponse {
+  success: boolean;
+  message: string;
+  data: CancelBookingData;
+}
+
+
+/**
+ * Cancel a booking via POST
+ * Endpoint: /api/bookings/<uuid:pk>/cancel/
+ */
 export async function cancelBooking(bookingId: string): Promise<CancelBookingResponse> {
   const response = await axiosInstance.post<CancelBookingResponse>(
-    `/api/sender/bookings/${bookingId}/cancel/`
+    `/api/bookings/${bookingId}/cancel/`
   );
   return response.data;
 }
-
 // ----------------------------------------------------------------------
 // Stats Interfaces
 // ----------------------------------------------------------------------
