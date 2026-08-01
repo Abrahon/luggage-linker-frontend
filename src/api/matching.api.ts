@@ -1,4 +1,5 @@
-// matching.api.ts
+// src/api/matching.api.ts
+import axiosInstance from "@/api/axios";
 
 export interface MatchItem {
   id: string;
@@ -58,63 +59,29 @@ export interface CreateBookingPayload {
   images?: string[];
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
-
 /**
  * Fetch all match recommendations for current user packages
  */
 export async function getMyMatches(): Promise<MatchesApiResponse> {
-  const response = await fetch(`${API_BASE_URL}/my-matches/`, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      // Include authorization token if required:
-      // "Authorization": `Bearer ${token}`
-    },
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch matches");
-  }
-
-  return response.json();
+  // Added /api/ prefix
+  const response = await axiosInstance.get<MatchesApiResponse>("/api/my-matches/");
+  return response.data;
 }
 
 /**
  * Fetch detailed match data by ID
  */
 export async function getMatchDetails(matchId: string): Promise<MatchDetailApiResponse> {
-  const response = await fetch(`${API_BASE_URL}/matches/${matchId}/`, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch match details");
-  }
-
-  return response.json();
+  // Added /api/ prefix
+  const response = await axiosInstance.get<MatchDetailApiResponse>(`/api/matches/${matchId}/`);
+  return response.data;
 }
 
 /**
  * Send booking request to traveler based on match recommendation
  */
 export async function sendBookingRequest(payload: CreateBookingPayload) {
-  const response = await fetch(`${API_BASE_URL}/bookings/create/`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to submit booking request");
-  }
-
-  return response.json();
+  // Added /api/ prefix
+  const response = await axiosInstance.post("/api/bookings/create/", payload);
+  return response.data;
 }
