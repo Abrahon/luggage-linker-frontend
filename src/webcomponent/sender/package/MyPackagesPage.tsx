@@ -12,6 +12,7 @@ import { PackageTable } from "./PackageTable";
 import { EmptyState } from "../package/EmptyState";
 import { DeleteModal } from "../package/DeleteModal";
 import { PackageFormModal } from "../package/PackageFormModal";
+import { PackageStatsCards } from "../package/PackagesStatus";
 
 // ✅ Correct Default Import
 
@@ -155,58 +156,42 @@ export default function MyPackagesPage() {
 
   return (
     <div className="w-full min-h-screen bg-slate-50/50 py-4 sm:py-8 px-3 sm:px-6 lg:px-8 antialiased text-slate-800">
-      <div className="w-full max-w-7xl mx-auto space-y-6">
-        
-        {/* Header Section */}
-        <div className="w-full flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-5 border-b border-slate-200">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-              My Packages
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              Manage, track, and update all your package listings seamlessly.
-            </p>
-          </div>
-          <div className="flex items-center gap-2.5 w-full sm:w-auto">
-            <button
-              onClick={fetchPackages}
-              className="p-2.5 border border-slate-200 bg-white rounded-xl text-slate-600 hover:bg-slate-50 transition cursor-pointer"
-              title="Refresh Packages"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading || isFetchingDetail ? "animate-spin text-amber-500" : ""}`} />
-            </button>
-            <button
-              onClick={handleOpenCreate}
-              className="flex-1 sm:flex-none px-5 py-2.5 bg-amber-500 hover:bg-amber-600 active:scale-98 text-slate-900 font-extrabold text-xs sm:text-sm rounded-xl shadow-2xs transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Plus className="w-4 h-4 stroke-[3]" /> Create Package
-            </button>
-          </div>
-        </div>
-
-        {/* Dynamic Stats Grid */}
-        <div className="w-full grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4">
-          {[
-            { label: "Total", count: totalCount, border: "border-slate-200", text: "text-slate-900" },
-            { label: "Draft", count: draftCount, border: "border-amber-200 bg-amber-50/30", text: "text-amber-700" },
-            { label: "Published", count: publishedCount, border: "border-blue-200 bg-blue-50/30", text: "text-blue-700" },
-            { label: "Matched", count: matchedCount, border: "border-purple-200 bg-purple-50/30", text: "text-purple-700" },
-            { label: "Booked", count: bookedCount, border: "border-orange-200 bg-orange-50/30", text: "text-orange-700" },
-            { label: "Delivered", count: deliveredCount, border: "border-emerald-200 bg-emerald-50/30", text: "text-emerald-700" },
-          ].map((stat, idx) => (
-            <div
-              key={idx}
-              className={`w-full p-3.5 sm:p-4 border rounded-2xl bg-white shadow-2xs flex flex-col justify-between ${stat.border}`}
-            >
-              <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
-                {stat.label}
-              </span>
-              <span className={`text-xl sm:text-2xl font-black mt-1.5 ${stat.text}`}>
-                {stat.count}
-              </span>
+          <div className="w-full space-y-6 px-4 sm:px-6 lg:px-1">
+            
+            {/* Header Section */}
+            <div className="w-full flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-5 border-b border-slate-200">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                  My Packages
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                  Manage, track, and update all your package listings seamlessly.
+                </p>
+              </div>
+              <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                <button
+                  onClick={fetchPackages}
+                  className="p-2.5 border border-slate-200 bg-white rounded-xl text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+                  title="Refresh Packages"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loading || isFetchingDetail ? "animate-spin text-amber-500" : ""}`} />
+                </button>
+                <button
+                  onClick={handleOpenCreate}
+                  className="flex-1 sm:flex-none px-5 py-2.5 bg-amber-500 hover:bg-amber-600 active:scale-98 text-slate-900 font-extrabold text-xs sm:text-sm rounded-xl shadow-2xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 stroke-[3]" /> Create Package
+                </button>
+              </div>
             </div>
-          ))}
-        </div>
+
+        {/* Dynamic Stats Grid (Integrated live from API) */}
+        <PackageStatsCards 
+          onStatClick={(status) => {
+            // Optional: Connect this callback to filter your packages list table by status
+            console.log("Selected status filter:", status);
+          }}
+        />
 
         {/* Operations & Filtering Controls */}
         <div className="w-full bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-col md:flex-row gap-3.5 items-center justify-between">

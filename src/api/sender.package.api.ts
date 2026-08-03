@@ -38,6 +38,28 @@ export interface PackageImageItem {
   created_at?: string;
 }
 
+export interface PackageDashboardStats {
+  total: number;
+  draft: number;
+  published: number;
+  matched: number;
+  booked: number;
+  delivered: number;
+}
+
+export interface PackageDashboardStatsResponse {
+  success: boolean;
+  message: string;
+  data: PackageDashboardStats;
+}
+
+export const getPackageDashboardStats = async (): Promise<PackageDashboardStatsResponse> => {
+  const response = await axiosInstance.get<PackageDashboardStatsResponse>(
+    "/api/package/dashboard-stats/"
+  );
+  return response.data;
+};
+
 export interface APIPackageItem {
   id: string;
   sender: string;
