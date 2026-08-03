@@ -54,7 +54,7 @@ export interface PaymentItem {
   date: string;
 }
 
-// Status options array with "all" value (fixes Radix UI crash)
+// Status options array with "all" value
 const paymentStatusOptions = [
   { label: "All", value: "all" },
   { label: "Pending", value: "PENDING" },
@@ -86,6 +86,16 @@ export const Payment = () => {
 
   const PAGE_SIZE = 10;
 
+  // Cleanup effect to guarantee body pointer-events never get stuck
+  useEffect(() => {
+    if (!selectedPayment) {
+      const timer = setTimeout(() => {
+        document.body.style.pointerEvents = "";
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedPayment]);
+
   const fetchStats = async () => {
     try {
       const data = await getAdminPaymentStatsApi();
@@ -104,21 +114,23 @@ export const Payment = () => {
         page,
       });
 
-      const formattedResults: PaymentItem[] = (data.results || []).map((item: BackendPaymentItem) => ({
-        paymentId: item.id,
-        bookingId: item.booking_id,
-        senderName: item.sender,
-        travelerName: item.traveler,
-        amount: parseFloat(item.amount) || 0,
-        platformFee: parseFloat(item.platform_fee) || 0,
-        escrowStatus: getStatusLabel(item.escrow_status),
-        rawStatus: item.escrow_status,
-        date: new Date(item.created_at).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        }),
-      }));
+      const formattedResults: PaymentItem[] = (data.results || []).map(
+        (item: BackendPaymentItem) => ({
+          paymentId: item.id,
+          bookingId: item.booking_id,
+          senderName: item.sender,
+          travelerName: item.traveler,
+          amount: parseFloat(item.amount) || 0,
+          platformFee: parseFloat(item.platform_fee) || 0,
+          escrowStatus: getStatusLabel(item.escrow_status),
+          rawStatus: item.escrow_status,
+          date: new Date(item.created_at).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          }),
+        })
+      );
 
       setPayments(formattedResults);
       setTotalCount(data.count || 0);
@@ -142,8 +154,22 @@ export const Payment = () => {
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE) || 1;
 
-  const handleViewInvoice = (paymentId: string) => {
-    alert(`Generating system billing invoice view for transaction: ${paymentId}`);
+  const handleOpenViewModal = (payment: PaymentItem, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Delay setting selected payment slightly to allow dropdown menu to clean up pointer events properly
+    setTimeout(() => {
+      setSelectedPayment(payment);
+    }, 50);
+  };
+
+  const handleViewInvoice = (paymentId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setTimeout(() => {
+      alert(`Generating system billing invoice view for transaction: ${paymentId}`);
+      document.body.style.pointerEvents = "";
+    }, 50);
   };
 
   const formatCurrency = (val?: string | number) => {
@@ -277,7 +303,7 @@ export const Payment = () => {
                       <DropdownMenuContent align="end" className="w-48 bg-white shadow-md rounded-lg border border-gray-100 z-50">
                         <DropdownMenuItem 
                           className="cursor-pointer flex items-center gap-2 text-gray-700 px-3 py-2 hover:bg-gray-50" 
-                          onClick={() => setSelectedPayment(p)}
+                          onClick={(e) => handleOpenViewModal(p, e)}
                         >
                           <Eye className="w-4 h-4 text-gray-400" />
                           <span>View Payment</span>
@@ -287,7 +313,7 @@ export const Payment = () => {
                         
                         <DropdownMenuItem 
                           className="cursor-pointer flex items-center gap-2 text-gray-700 px-3 py-2 hover:bg-gray-50" 
-                          onClick={() => handleViewInvoice(p.paymentId)}
+                          onClick={(e) => handleViewInvoice(p.paymentId, e)}
                         >
                           <FileText className="w-4 h-4 text-gray-400" />
                           <span>View Invoice</span>
@@ -334,7 +360,14 @@ export const Payment = () => {
       )}
 
       {/* Detail Dialog */}
-      <Dialog open={!!selectedPayment} onOpenChange={() => setSelectedPayment(null)}>
+      <Dialog 
+        open={!!selectedPayment} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedPayment(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-md w-full bg-white font-sans">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-gray-900">Transaction Summary</DialogTitle>

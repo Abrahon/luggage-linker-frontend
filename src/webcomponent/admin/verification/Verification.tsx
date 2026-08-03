@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Swal from "sweetalert2";
 import {
   getAdminKYCListApi,
   getAdminKYCDetailApi,
@@ -83,7 +84,12 @@ export const Verification = () => {
       setSelectedRecord(detail);
     } catch (error) {
       console.error("Failed to fetch KYC details:", error);
-      alert("Could not load details for this record.");
+      Swal.fire({
+        icon: "error",
+        title: "Error Loading Details",
+        text: "Could not load verification details for this record.",
+        confirmButtonColor: "#2563eb",
+      });
     } finally {
       setDetailLoading(false);
     }
@@ -93,15 +99,44 @@ export const Verification = () => {
   const handleApprove = async () => {
     if (!selectedRecord) return;
 
+    // Cache record ID and close Shadcn Dialog first to unlock pointer events & focus
+    const recordId = selectedRecord.id;
+    setSelectedRecord(null);
+
+    const confirmResult = await Swal.fire({
+      title: "Approve Verification?",
+      text: "Are you sure you want to approve this user's KYC verification?",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#16a34a",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, Approve",
+      cancelButtonText: "Cancel",
+    });
+
+    if (!confirmResult.isConfirmed) return;
+
     try {
       setActionLoading(true);
-      const response = await approveAdminKYCApi(selectedRecord.id);
-      alert(response.message || "KYC application approved successfully.");
-      setSelectedRecord(null);
+      const response = await approveAdminKYCApi(recordId);
+
+      await Swal.fire({
+        icon: "success",
+        title: "Approved!",
+        text: response.message || "KYC application approved successfully.",
+        confirmButtonColor: "#16a34a",
+        timer: 3000,
+      });
+
       fetchKYCRecords();
     } catch (error) {
       console.error("Failed to approve application:", error);
-      alert("Error approving application.");
+      Swal.fire({
+        icon: "error",
+        title: "Approval Failed",
+        text: "An error occurred while approving the application. Please try again.",
+        confirmButtonColor: "#2563eb",
+      });
     } finally {
       setActionLoading(false);
     }
@@ -111,18 +146,50 @@ export const Verification = () => {
   const handleReject = async () => {
     if (!selectedRecord) return;
 
-    const reason = prompt("Enter rejection reason:");
-    if (!reason) return; // Cancel if no reason provided
+    // Cache record ID and close Shadcn Dialog first to unlock pointer events & focus
+    const recordId = selectedRecord.id;
+    setSelectedRecord(null);
+
+    const { value: reason, isDismissed } = await Swal.fire({
+      title: "Reject KYC Application",
+      input: "textarea",
+      inputLabel: "Reason for Rejection",
+      inputPlaceholder: "Type your rejection reason here...",
+      showCancelButton: true,
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Reject Application",
+      cancelButtonText: "Cancel",
+      inputValidator: (value) => {
+        if (!value.trim()) {
+          return "Please provide a reason for rejection.";
+        }
+      },
+    });
+
+    if (isDismissed || !reason) return;
 
     try {
       setActionLoading(true);
-      const response = await rejectAdminKYCApi(selectedRecord.id, reason);
-      alert(response.message || "KYC application rejected successfully.");
-      setSelectedRecord(null);
+      const response = await rejectAdminKYCApi(recordId, reason);
+
+      await Swal.fire({
+        icon: "success",
+        title: "Rejected",
+        text: response.message || "KYC application rejected successfully.",
+        confirmButtonColor: "#dc2626",
+        timer: 3000,
+      });
+
       fetchKYCRecords();
     } catch (error) {
       console.error("Failed to reject application:", error);
-      alert("Error rejecting application.");
+      Swal.fire({
+        icon: "error",
+        title: "Rejection Failed",
+        text: "An error occurred while rejecting the application. Please try again.",
+        confirmButtonColor: "#2563eb",
+      });
     } finally {
       setActionLoading(false);
     }

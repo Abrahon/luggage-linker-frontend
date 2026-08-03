@@ -204,7 +204,7 @@ export const Wallet = () => {
   };
 
   return (
-    <div className="flex flex-col gap-8 py-12 md:px-6 px-4 max-w-7xl mx-auto w-full">
+    <div className="flex flex-col gap-8 py-8 md:px-6 px-4 w-full max-w-none">
       <HeadingSection
         heading="Withdrawal Management"
         subheading="Monitor traveler withdrawal requests, verify payout routes, and process pending requests"
