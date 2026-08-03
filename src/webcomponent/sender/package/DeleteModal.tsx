@@ -1,17 +1,26 @@
+"use client";
+
 import React from "react";
+import { Loader2 } from "lucide-react";
 
 interface DeleteModalProps {
   isOpen: boolean;
+  isDeleting?: boolean;
   onClose: () => void;
   onConfirm: () => void;
 }
 
-export const DeleteModal: React.FC<DeleteModalProps> = ({ isOpen, onClose, onConfirm }) => {
+export const DeleteModal: React.FC<DeleteModalProps> = ({
+  isOpen,
+  isDeleting = false,
+  onClose,
+  onConfirm,
+}) => {
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
-      {/* Dimmed Backdrop Overlay */}
+      {/* Backdrop */}
       <div
         className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity"
         onClick={onClose}
@@ -23,19 +32,22 @@ export const DeleteModal: React.FC<DeleteModalProps> = ({ isOpen, onClose, onCon
           ⚠️ Delete Package?
         </h3>
         <p className="text-slate-500 text-xs sm:text-sm mt-2 leading-relaxed">
-          This action cannot be undone. All listings, data, and active traveler matches associated with this item will be permanently removed.
+          This action cannot be undone. All listings, data, and active traveler matches associated with this item will be permanently removed from the server.
         </p>
         <div className="w-full flex flex-col sm:flex-row gap-2.5 justify-end mt-6">
           <button
             onClick={onClose}
-            className="w-full sm:w-auto px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-semibold rounded-xl transition-colors cursor-pointer"
+            disabled={isDeleting}
+            className="w-full sm:w-auto px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-semibold rounded-xl transition-colors cursor-pointer disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className="w-full sm:w-auto px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-2xs transition-colors cursor-pointer"
+            disabled={isDeleting}
+            className="w-full sm:w-auto px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-2xs transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
           >
+            {isDeleting && <Loader2 className="w-4 h-4 animate-spin" />}
             Delete
           </button>
         </div>
