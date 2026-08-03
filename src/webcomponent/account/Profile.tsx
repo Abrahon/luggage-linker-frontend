@@ -121,7 +121,7 @@ export const Profile = () => {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-[500px]">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
       </div>
     );
   }
@@ -149,8 +149,8 @@ export const Profile = () => {
     <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6">
       {/* Container Box */}
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-        {/* Banner Section */}
-        <div className="h-32 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 relative" />
+        {/* Banner Section - Amber Gradient */}
+        <div className="h-32 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 relative" />
 
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 sm:p-8 -mt-16">
           {/* Header Bar */}
@@ -226,7 +226,7 @@ export const Profile = () => {
               <button
                 type="button"
                 onClick={() => setIsEditing(true)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition flex items-center gap-2 self-stretch sm:self-auto justify-center"
+                className="px-4 py-2 bg-amber-400 hover:bg-amber-500 text-slate-900 font-semibold rounded-xl text-xs shadow-sm transition flex items-center gap-2 self-stretch sm:self-auto justify-center cursor-pointer"
               >
                 <Edit3 className="w-3.5 h-3.5" /> Edit Profile
               </button>
@@ -235,7 +235,7 @@ export const Profile = () => {
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="flex-1 sm:flex-none px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5"
+                  className="flex-1 sm:flex-none px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" /> Cancel
                 </button>
@@ -280,7 +280,7 @@ export const Profile = () => {
                     placeholder="Enter first name"
                     className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
                       isEditing
-                        ? "bg-white border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
                         : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
                     }`}
                   />
@@ -302,7 +302,7 @@ export const Profile = () => {
                     placeholder="Enter last name"
                     className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
                       isEditing
-                        ? "bg-white border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
                         : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
                     }`}
                   />
@@ -338,7 +338,7 @@ export const Profile = () => {
                     placeholder="Enter phone number"
                     className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
                       isEditing
-                        ? "bg-white border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
                         : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
                     }`}
                   />
@@ -359,7 +359,7 @@ export const Profile = () => {
                     {...register("dateOfBirth")}
                     className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
                       isEditing
-                        ? "bg-white border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
                         : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
                     }`}
                   />
@@ -390,7 +390,7 @@ export const Profile = () => {
                     placeholder="Enter country"
                     className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
                       isEditing
-                        ? "bg-white border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
                         : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
                     }`}
                   />
@@ -412,7 +412,7 @@ export const Profile = () => {
                     placeholder="Enter city"
                     className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
                       isEditing
-                        ? "bg-white border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
                         : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
                     }`}
                   />
@@ -434,7 +434,7 @@ export const Profile = () => {
                     placeholder="Postal code"
                     className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
                       isEditing
-                        ? "bg-white border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
                         : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
                     }`}
                   />
@@ -456,7 +456,7 @@ export const Profile = () => {
                     placeholder="Enter street address"
                     className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
                       isEditing
-                        ? "bg-white border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
                         : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
                     }`}
                   />
@@ -480,7 +480,7 @@ export const Profile = () => {
                 placeholder="Tell us a little bit about yourself..."
                 className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none resize-none ${
                   isEditing
-                    ? "bg-white border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
                     : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
                 }`}
               />
@@ -491,14 +491,12 @@ export const Profile = () => {
           </div>
 
           {/* Footer Action Bar */}
-          <div className="mt-8 pt-5 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
-           
-
+          <div className="mt-8 pt-5 border-t border-gray-100 flex flex-col sm:flex-row justify-end items-center gap-4">
             {isEditing && (
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm disabled:opacity-50 transition flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-6 py-2.5 bg-amber-400 hover:bg-amber-500 text-slate-900 rounded-xl text-xs font-semibold shadow-sm disabled:opacity-50 transition flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isSubmitting ? (
                   <>

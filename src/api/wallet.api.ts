@@ -1,4 +1,4 @@
-import axiosInstance from "@/api/axios"; // Adjust this relative import path if needed (e.g. "@/lib/axios" or "@/src/api/axios")
+import axiosInstance from "@/api/axios";
 
 // --- Types based on Backend DRF Responses ---
 
@@ -86,22 +86,44 @@ export interface AdminWithdrawalStatsResponse {
   message: string;
   data: AdminWithdrawalStats;
 }
+
 export interface WithdrawalActionResponse {
   success: boolean;
   message: string;
   data: WithdrawalDetailResponse;
 }
 
+export interface TravelerWalletCardData {
+  available_balance: string | number;
+  held_in_escrow: number;
+  pending_payout: number;
+  currency: string;
+  card_details: {
+    card_number_masked: string;
+    card_number_full: string;
+    card_holder_name: string;
+    expiry_date: string;
+    cvv: string;
+  };
+  full_name: string;
+}
+
+export interface TravelerWalletCardResponse {
+  success: boolean;
+  message: string;
+  data: TravelerWalletCardData;
+}
+
+// --- API Functions ---
 
 export const WalletApi = {
-
-
-    getStats: async (): Promise<AdminWithdrawalStatsResponse> => {
+  getStats: async (): Promise<AdminWithdrawalStatsResponse> => {
     const response = await axiosInstance.get<AdminWithdrawalStatsResponse>(
       "/api/admin/withdrawals/stats/"
     );
     return response.data;
   },
+
   /**
    * Fetch paginated & filtered withdrawal requests list
    * GET /api/admin/withdrawals/
@@ -128,7 +150,6 @@ export const WalletApi = {
     return response.data;
   },
 
-
   approveWithdrawal: async (id: string, adminNote?: string): Promise<WithdrawalActionResponse> => {
     const response = await axiosInstance.post<WithdrawalActionResponse>(
       `/api/admin/withdrawals/${id}/approve/`,
@@ -148,4 +169,15 @@ export const WalletApi = {
     );
     return response.data;
   },
+};
+
+/**
+ * Fetch Traveler Wallet Card details
+ * GET /api/traveler/wallet/card/
+ */
+export const getTravelerWalletCard = async (): Promise<TravelerWalletCardResponse> => {
+  const response = await axiosInstance.get<TravelerWalletCardResponse>(
+    "/api/traveler/wallet/card/"
+  );
+  return response.data;
 };

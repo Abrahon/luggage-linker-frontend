@@ -176,6 +176,25 @@ export interface TimelineResponse {
   data: TimelineStep[];
 }
 
+export interface RawBooking {
+  id: string;
+  tracking_number: string;
+  package_title?: string;
+  package_image?: string;
+  status: string;
+  created_at?: string;
+  sender_name?: string;
+  sender_email?: string;
+  agreed_weight_kg?: string;
+  agreed_reward?: string;
+  route?: {
+    from_city?: string;
+    from_country?: string;
+    to_city?: string;
+    to_country?: string;
+  };
+  // add any other fields returned by your API
+}
 // ----------------------------------------------------------------------
 // Booking & Delivery API Endpoints
 // ----------------------------------------------------------------------
