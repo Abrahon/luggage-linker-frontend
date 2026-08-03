@@ -72,3 +72,71 @@ export const getAdminPaymentsApi = async (
   });
   return response.data;
 };
+
+
+// --- Enums / Union Types matching Backend Models ---
+export type TransactionType =
+  | "ESCROW_HOLD"
+  | "ESCROW_RELEASE"
+  | "WITHDRAWAL"
+  | "WITHDRAWAL_CANCEL"
+  | "REFUND"
+  | "ADJUSTMENT";
+
+export type TransactionStatus = "PENDING" | "COMPLETED" | "FAILED";
+
+// --- API Response Interfaces ---
+export interface PaymentSummaryData {
+  total_paid: string;
+  escrow_held: string;
+  released: string;
+  refunded: string;
+}
+
+export interface PaymentSummaryResponse {
+  success: boolean;
+  message: string;
+  data: PaymentSummaryData;
+}
+
+export interface PaymentHistoryItem {
+  id: string;
+  tracking_number: string;
+  package_title: string;
+  transaction_type: TransactionType;
+  amount: string;
+  currency: string;
+  transaction_status: TransactionStatus;
+  booking_status: string;
+  description: string;
+  date: string;
+}
+
+export interface PaymentHistoryResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: PaymentHistoryItem[];
+}
+
+// --- API Calls ---
+
+/**
+ * Fetch Sender Payment Summary Stats
+ */
+export const getSenderPaymentSummary = async (): Promise<PaymentSummaryResponse> => {
+  const response = await axiosInstance.get<PaymentSummaryResponse>(
+    "/api/sender/payment-summary/"
+  );
+  return response.data;
+};
+
+/**
+ * Fetch Sender Payment History List
+ */
+export const getSenderPaymentHistory = async (): Promise<PaymentHistoryResponse> => {
+  const response = await axiosInstance.get<PaymentHistoryResponse>(
+    "/api/sender/payment-history/"
+  );
+  return response.data;
+};
