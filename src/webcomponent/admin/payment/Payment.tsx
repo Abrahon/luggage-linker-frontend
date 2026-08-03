@@ -152,14 +152,14 @@ export const Payment = () => {
   };
 
   return (
-    <div className="flex flex-col gap-8 py-16 md:px-6 px-4 max-w-7xl mx-auto w-full">
+    <div className="flex flex-col gap-8 py-8 md:px-6 px-4 w-full max-w-none">
       <HeadingSection
         heading="Payment Management"
         subheading="Monitor system transactions, platform revenue, and secure escrow accounts"
       />
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 w-full">
         {[
           { label: "Total Transactions", value: stats?.total_transactions ?? 0, color: "border-l-blue-500" },
           { label: "Escrow Balance", value: formatCurrency(stats?.escrow_balance), color: "border-l-indigo-500" },
@@ -168,7 +168,7 @@ export const Payment = () => {
           { label: "Refund Amount", value: formatCurrency(stats?.refund_amount), color: "border-l-rose-500" },
           { label: "Platform Revenue", value: formatCurrency(stats?.platform_revenue), color: "border-l-purple-500" },
         ].map((card, idx) => (
-          <div key={idx} className={cn("bg-white p-4 rounded-xl border border-gray-100 shadow-sm border-l-4", card.color)}>
+          <div key={idx} className={cn("bg-white p-4 rounded-xl border border-gray-100 shadow-sm border-l-4 w-full", card.color)}>
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">{card.label}</p>
             <p className="text-xl font-bold text-gray-900 mt-1">{card.value}</p>
           </div>
@@ -176,7 +176,7 @@ export const Payment = () => {
       </div>
 
       {/* Search & Select Controls */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-2">
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-2 w-full">
         <div className="relative w-full md:w-1/3">
           <Input
             placeholder="Search by email or Booking ID..."
@@ -209,8 +209,8 @@ export const Payment = () => {
       </div>
 
       {/* Payments Table */}
-      <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-visible">
-        <Table>
+      <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-visible w-full">
+        <Table className="w-full">
           <TableHeader className="bg-gray-50">
             <TableRow>
               <TableHead className="font-semibold text-gray-700">Payment ID</TableHead>
@@ -243,10 +243,10 @@ export const Payment = () => {
                   <TableCell className="text-gray-600 font-mono text-xs" title={p.bookingId}>
                     {p.bookingId.slice(0, 8)}...
                   </TableCell>
-                  <TableCell className="text-gray-700 max-w-[150px] truncate" title={p.senderName}>
+                  <TableCell className="text-gray-700 max-w-[200px] truncate" title={p.senderName}>
                     {p.senderName}
                   </TableCell>
-                  <TableCell className="text-gray-700 max-w-[150px] truncate" title={p.travelerName}>
+                  <TableCell className="text-gray-700 max-w-[200px] truncate" title={p.travelerName}>
                     {p.travelerName}
                   </TableCell>
                   <TableCell className="font-medium text-gray-900">${p.amount.toFixed(2)}</TableCell>
@@ -310,7 +310,7 @@ export const Payment = () => {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex justify-end items-center gap-3 mt-2">
+        <div className="flex justify-end items-center gap-3 mt-2 w-full">
           <Button
             variant="outline"
             size="sm"

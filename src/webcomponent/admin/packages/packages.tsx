@@ -32,6 +32,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -145,24 +146,31 @@ export const Packages = () => {
     }
   };
 
-  // Handle Approve / Reject Package
-  const handleReviewPackage = async (approve: boolean) => {
-    if (!reviewingPackage) return;
+  // Handle Approve / Reject Package via PATCH API
+  const handleReviewPackage = async (
+    targetPackage: AdminPackage | null,
+    approve: boolean
+  ) => {
+    if (!targetPackage) return;
 
     setIsSubmittingReview(true);
     setReviewError(null);
 
     try {
-      const response = await reviewAdminPackageApi(reviewingPackage.id, approve);
+      const response = await reviewAdminPackageApi(targetPackage.id, approve);
 
       // Update package state in local table list
       setPackages((prev) =>
         prev.map((pkg) =>
-          pkg.id === reviewingPackage.id
+          pkg.id === targetPackage.id
             ? {
                 ...pkg,
-                verification_status: response.data.verification_status,
-                status: response.data.status,
+                verification_status:
+                  response.data?.verification_status ||
+                  (approve ? "VERIFIED" : "REJECTED"),
+                status:
+                  response.data?.status ||
+                  (approve ? "PUBLISHED" : pkg.status),
               }
             : pkg
         )
@@ -170,7 +178,7 @@ export const Packages = () => {
 
       setSuccessMessage(
         response.message ||
-          `Package was successfully ${approve ? "verified & published" : "rejected"}.`
+          `Package was successfully ${approve ? "approved & published" : "rejected"}.`
       );
       setReviewingPackage(null);
     } catch (err: any) {
@@ -245,10 +253,8 @@ export const Packages = () => {
   const totalPages = Math.ceil(totalCount / rowsPerPage) || 1;
 
   return (
-    <div className="flex flex-col gap-6 py-8 md:px-6 px-4">
-      <HeadingSection
-        heading="Package Management"
-      />
+    <div className="flex flex-col gap-6 py-8 md:px-6 px-4 w-full">
+      <HeadingSection heading="Package Management" />
 
       {/* Success Notification */}
       {successMessage && (
@@ -278,7 +284,7 @@ export const Packages = () => {
 
       {/* Search & Filter Section */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* 1. Search */}
+        {/* Search */}
         <div className="w-full">
           <Input
             placeholder="Search package title or sender email..."
@@ -290,7 +296,7 @@ export const Packages = () => {
           />
         </div>
 
-        {/* 2. Status Filter */}
+        {/* Status Filter */}
         <Select
           value={statusFilter}
           onValueChange={(v) => {
@@ -298,7 +304,7 @@ export const Packages = () => {
             setPage(1);
           }}
         >
-          <SelectTrigger>
+          <SelectTrigger className="bg-white">
             <SelectValue placeholder="All Status" />
           </SelectTrigger>
           <SelectContent>
@@ -314,7 +320,7 @@ export const Packages = () => {
           </SelectContent>
         </Select>
 
-        {/* 3. Verification Filter */}
+        {/* Verification Filter */}
         <Select
           value={verificationFilter}
           onValueChange={(v) => {
@@ -322,7 +328,7 @@ export const Packages = () => {
             setPage(1);
           }}
         >
-          <SelectTrigger>
+          <SelectTrigger className="bg-white">
             <SelectValue placeholder="All Verification" />
           </SelectTrigger>
           <SelectContent>
@@ -334,7 +340,7 @@ export const Packages = () => {
           </SelectContent>
         </Select>
 
-        {/* 4. Category Filter */}
+        {/* Category Filter */}
         <Select
           value={categoryFilter}
           onValueChange={(v) => {
@@ -342,7 +348,7 @@ export const Packages = () => {
             setPage(1);
           }}
         >
-          <SelectTrigger>
+          <SelectTrigger className="bg-white">
             <SelectValue placeholder="All Categories" />
           </SelectTrigger>
           <SelectContent>
@@ -392,7 +398,9 @@ export const Packages = () => {
               </TableRow>
             ) : (
               packages.map((pkg) => {
-                const primaryImage = pkg.images?.find((img) => img.is_primary)?.image || pkg.images?.[0]?.image;
+                const primaryImage =
+                  pkg.images?.find((img) => img.is_primary)?.image ||
+                  pkg.images?.[0]?.image;
 
                 return (
                   <TableRow key={pkg.id}>
@@ -466,6 +474,7 @@ export const Packages = () => {
 
                     <TableCell>{getStatusBadge(pkg.status)}</TableCell>
 
+                    {/* 3-Dot Dropdown Actions */}
                     <TableCell className="text-right">
                       <DropdownMenu modal={false}>
                         <DropdownMenuTrigger asChild>
@@ -473,7 +482,7 @@ export const Packages = () => {
                             <MoreHorizontal className="h-4 w-4 text-slate-600" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="bg-white min-w-[150px]">
+                        <DropdownMenuContent align="end" className="bg-white min-w-[170px]">
                           <DropdownMenuItem
                             onSelect={(e) => {
                               e.preventDefault();
@@ -485,17 +494,42 @@ export const Packages = () => {
                             <span>View Details</span>
                           </DropdownMenuItem>
 
+                          <DropdownMenuItem
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              setTimeout(() => setReviewingPackage(pkg), 50);
+                            }}
+                            className="cursor-pointer flex items-center gap-2"
+                          >
+                            <ShieldCheck className="h-4 w-4 text-indigo-600" />
+                            <span>Review Modal</span>
+                          </DropdownMenuItem>
+
                           {pkg.verification_status === "PENDING" && (
-                            <DropdownMenuItem
-                              onSelect={(e) => {
-                                e.preventDefault();
-                                setTimeout(() => setReviewingPackage(pkg), 50);
-                              }}
-                              className="cursor-pointer text-emerald-600 focus:text-emerald-600 flex items-center gap-2"
-                            >
-                              <ShieldCheck className="h-4 w-4" />
-                              <span>Review Package</span>
-                            </DropdownMenuItem>
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onSelect={(e) => {
+                                  e.preventDefault();
+                                  handleReviewPackage(pkg, true);
+                                }}
+                                className="cursor-pointer text-emerald-600 focus:text-emerald-600 flex items-center gap-2"
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                                <span>Approve Package</span>
+                              </DropdownMenuItem>
+
+                              <DropdownMenuItem
+                                onSelect={(e) => {
+                                  e.preventDefault();
+                                  handleReviewPackage(pkg, false);
+                                }}
+                                className="cursor-pointer text-rose-600 focus:text-rose-600 flex items-center gap-2"
+                              >
+                                <XCircle className="h-4 w-4" />
+                                <span>Reject Package</span>
+                              </DropdownMenuItem>
+                            </>
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -704,7 +738,7 @@ export const Packages = () => {
         </DialogContent>
       </Dialog>
 
-      {/* ADMIN REVIEW REVIEW / APPROVAL DIALOG */}
+      {/* ADMIN REVIEW / APPROVAL DIALOG */}
       <Dialog
         open={!!reviewingPackage}
         onOpenChange={(open) => {
@@ -745,14 +779,14 @@ export const Packages = () => {
             </Button>
             <Button
               variant="destructive"
-              onClick={() => handleReviewPackage(false)}
+              onClick={() => handleReviewPackage(reviewingPackage, false)}
               disabled={isSubmittingReview}
             >
               {isSubmittingReview ? <Loader2 className="animate-spin h-4 w-4" /> : "Reject"}
             </Button>
             <Button
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
-              onClick={() => handleReviewPackage(true)}
+              onClick={() => handleReviewPackage(reviewingPackage, true)}
               disabled={isSubmittingReview}
             >
               {isSubmittingReview ? (
