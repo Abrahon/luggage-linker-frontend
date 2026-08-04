@@ -2,11 +2,15 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import {
   Bell,
   User,
@@ -23,9 +27,8 @@ import {
   Star,
   MessageSquare,
   Info,
+  Menu,
 } from "lucide-react";
-import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
 import { getUserRole, logout } from "@/lib/auth";
 import {
   getNotifications,
@@ -36,6 +39,187 @@ import {
 import { useProfile } from "@/hooks/useProfile";
 import { stringToColor } from "@/lib/stringToColor";
 
+/* ==========================================================================
+   1. PUBLIC NAVBAR (Landing Page / Home Page)
+   ========================================================================== */
+export const Navbar = () => {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+
+  // Helper function to verify token or user role state
+  const checkAuth = useCallback(() => {
+    if (typeof window !== "undefined") {
+      // Check via your auth utility first, then fallback to storage/cookies
+      const role = getUserRole();
+      const token =
+        localStorage.getItem("access_token") ||
+        localStorage.getItem("token") ||
+        document.cookie.includes("access_token") ||
+        document.cookie.includes("token");
+
+      setIsAuthenticated(!!role || !!token);
+    }
+  }, []);
+
+  // Re-verify auth on mount and path changes
+  useEffect(() => {
+    checkAuth();
+
+    window.addEventListener("storage", checkAuth);
+    window.addEventListener("focus", checkAuth);
+
+    return () => {
+      window.removeEventListener("storage", checkAuth);
+      window.removeEventListener("focus", checkAuth);
+    };
+  }, [pathname, checkAuth]);
+
+  const handleContactClick = () => {
+    router.push("/contact-us");
+    setOpen(false);
+  };
+
+  const handleTripsClick = () => {
+    router.push("/trips");
+    setOpen(false);
+  };
+
+  const handleLogout = () => {
+    logout(); // Uses centralized logout function from @/lib/auth
+    setIsAuthenticated(false);
+    setOpen(false);
+  };
+
+  return (
+    <nav className="fixed top-0 left-0 w-full z-40 h-20 backdrop-blur-[30px] bg-white/10 border-b border-white/10 font-montserrat">
+      <div className="flex justify-between items-center p-4 h-full">
+        {/* Left: Logo */}
+        <Link href="/" className="flex justify-start gap-2">
+          <Image
+            src="/logo.svg"
+            alt="Logo"
+            width={120}
+            height={40}
+            className="w-auto h-14"
+          />
+        </Link>
+
+        {/* Desktop Menu */}
+        <div className="hidden md:flex items-center gap-6">
+          <button
+            onClick={handleContactClick}
+            className="text-white bg-transparent hover:text-yellow-300 transition-colors font-medium"
+          >
+            Contact Us
+          </button>
+
+          {/* Private Route: Visible only when authenticated */}
+          {isAuthenticated && (
+            <button
+              onClick={handleTripsClick}
+              className="text-white bg-transparent hover:text-yellow-300 transition-colors font-medium"
+            >
+              Trips
+            </button>
+          )}
+
+          {!isAuthenticated ? (
+            <>
+              <Button variant="outline_white" onClick={() => router.push("/login")}>
+                Login
+              </Button>
+
+              <Button onClick={() => router.push("/choose-user")}>Signup</Button>
+            </>
+          ) : (
+            <Button variant="destructive" onClick={handleLogout}>
+              Logout
+            </Button>
+          )}
+        </div>
+
+        {/* Mobile Menu */}
+        <div className="md:hidden">
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <button className="text-black">
+                <Menu className="w-6 h-6 text-white" />
+              </button>
+            </DialogTrigger>
+            <DialogContent className="bg-black/90 text-white border border-white/20 max-w-[90%] rounded-2xl p-6">
+              <div className="flex justify-between items-center mb-4">
+                <Image
+                  src="/logo.svg"
+                  alt="Logo"
+                  width={80}
+                  height={40}
+                  className="w-auto h-10"
+                />
+              </div>
+
+              <div className="flex flex-col gap-4 text-lg">
+                <button
+                  onClick={handleContactClick}
+                  className="text-white hover:text-yellow-300 transition-colors text-left font-medium"
+                >
+                  Contact Us
+                </button>
+
+                {isAuthenticated && (
+                  <button
+                    onClick={handleTripsClick}
+                    className="text-white hover:text-yellow-300 transition-colors text-left font-medium"
+                  >
+                    Trips
+                  </button>
+                )}
+
+                {!isAuthenticated ? (
+                  <>
+                    <Button
+                      variant="outline_white"
+                      className="w-full"
+                      onClick={() => {
+                        router.push("/login");
+                        setOpen(false);
+                      }}
+                    >
+                      Login
+                    </Button>
+
+                    <Button
+                      className="w-full"
+                      onClick={() => {
+                        router.push("/choose-user");
+                        setOpen(false);
+                      }}
+                    >
+                      Signup
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="destructive"
+                    className="w-full"
+                    onClick={handleLogout}
+                  >
+                    Logout
+                  </Button>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+    </nav>
+  );
+};
+
+/* ==========================================================================
+   2. DASHBOARD NAVBAR (Authenticated App/Dashboard Area)
+   ========================================================================== */
 export const NavBar = () => {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -48,7 +232,6 @@ export const NavBar = () => {
   const router = useRouter();
   const role = getUserRole();
 
-  // Fetch notifications from API
   const fetchNotifications = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -67,7 +250,6 @@ export const NavBar = () => {
     fetchNotifications();
   }, [fetchNotifications]);
 
-  // Mark all notifications as read
   const handleMarkAllAsRead = async () => {
     try {
       setIsMarkingRead(true);
@@ -84,17 +266,14 @@ export const NavBar = () => {
     }
   };
 
-  // Helper: Unread Count
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
-  // Helper: YouTube-style badge count formatter (e.g., 9+ or 99+)
   const formatBadgeCount = (count: number) => {
     if (count > 99) return "99+";
     if (count > 9) return "9+";
     return count.toString();
   };
 
-  // Helper: Role & Type Icon Mapper
   const renderNotificationIcon = (type: NotificationTypeEnum, title: string) => {
     if (
       title.toLowerCase().includes("dispute") ||
@@ -127,7 +306,6 @@ export const NavBar = () => {
     }
   };
 
-  // Helper: Relative Time Formatter
   const formatTimeAgo = (dateStr: string) => {
     try {
       const date = new Date(dateStr);
@@ -153,7 +331,6 @@ export const NavBar = () => {
     }
   };
 
-  // Helper to resolve profile image URL
   const getProfilePictureUrl = (
     url: string | null | undefined
   ): string | null => {
@@ -167,7 +344,6 @@ export const NavBar = () => {
 
   return (
     <nav className="w-full flex justify-between items-center py-4 px-6 bg-white shadow-sm border-b">
-      {/* Left side */}
       <div className="flex flex-col">
         <h2 className="text-2xl font-semibold text-gray-900">
           Welcome back!
@@ -177,9 +353,7 @@ export const NavBar = () => {
         </p>
       </div>
 
-      {/* Right side */}
       <div className="flex items-center gap-6">
-        {/* Notifications Popover */}
         {pathname !== "/profile" && pathname !== "/security" && (
           <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
             <PopoverTrigger asChild>
@@ -189,8 +363,6 @@ export const NavBar = () => {
                 aria-label="Notifications"
               >
                 <Bell className="w-6 h-6 text-gray-700" />
-
-                {/* Visible YouTube-Style Red Badge */}
                 {unreadCount > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 bg-red-600 text-white text-[10px] font-bold rounded-full border-2 border-white shadow-sm leading-none select-none z-10">
                     {formatBadgeCount(unreadCount)}
@@ -204,7 +376,6 @@ export const NavBar = () => {
                 className="w-80 md:w-96 p-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden"
                 align="end"
               >
-                {/* Popover Header */}
                 <div className="p-3 px-4 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <h3 className="font-bold text-sm text-gray-900">
@@ -232,7 +403,6 @@ export const NavBar = () => {
                   )}
                 </div>
 
-                {/* Popover List Body */}
                 <div className="flex flex-col max-h-80 overflow-y-auto divide-y divide-gray-100">
                   {isLoading ? (
                     <div className="p-6 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
@@ -278,7 +448,6 @@ export const NavBar = () => {
           </Popover>
         )}
 
-        {/* User Menu Popover */}
         <Popover open={userMenuOpen} onOpenChange={setUserMenuOpen}>
           <PopoverTrigger asChild>
             <button

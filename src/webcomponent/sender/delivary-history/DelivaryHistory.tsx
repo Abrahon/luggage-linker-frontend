@@ -10,6 +10,7 @@ import {
   DeliveryStatus,
   TimelineStepItem,
 } from "@/api/delivery.api";
+
 import {
   Search,
   Package,
@@ -28,8 +29,13 @@ import {
   X,
   Filter,
   ChevronDown,
+  Star,
+  MessageSquare,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getBookingReview, ReviewData } from "@/api/reviews.api";
+import { LeaveReviewModal } from "./ReviewModal"; // Imported from the same folder
 
 // Date Formatter: "2026-07-04T07:58:44" -> "04 Jul 2026 • 07:58 AM"
 const formatTimelineDate = (isoString: string | null) => {
@@ -50,6 +56,21 @@ const formatTimelineDate = (isoString: string | null) => {
     return `${day} ${month} ${year} • ${time}`;
   } catch {
     return null;
+  }
+};
+
+const formatDateShort = (isoString: string | null) => {
+  if (!isoString) return "N/A";
+  try {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return isoString;
+    return date.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return isoString;
   }
 };
 
@@ -111,9 +132,15 @@ export const DelivaryHistory: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
+  // Timeline Modal State
   const [selectedBooking, setSelectedBooking] = useState<DeliveryHistoryItem | null>(null);
   const [timelineSteps, setTimelineSteps] = useState<TimelineStepItem[]>([]);
   const [loadingTimeline, setLoadingTimeline] = useState(false);
+
+  // Review State inside Modal
+  const [existingReview, setExistingReview] = useState<ReviewData | null>(null);
+  const [loadingReview, setLoadingReview] = useState(false);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -151,22 +178,40 @@ export const DelivaryHistory: React.FC = () => {
     }
   }, []);
 
+  // Fetch Timeline and Existing Review when Modal Opens
   const handleOpenTimeline = async (booking: DeliveryHistoryItem) => {
     setSelectedBooking(booking);
     setTimelineSteps([]);
+    setExistingReview(null);
     setLoadingTimeline(true);
+    setLoadingReview(true);
 
+    // Fetch Timeline Steps
     try {
       const res = await getDeliveryTimeline(booking.id);
-      if (res.success && Array.isArray(res.data)) {
+      if (res?.success && Array.isArray(res.data)) {
         setTimelineSteps(res.data);
-      } else {
-        setTimelineSteps([]);
       }
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Failed to load timeline steps.");
     } finally {
       setLoadingTimeline(false);
+    }
+
+    // Fetch Existing Review
+    try {
+      const res = await getBookingReview(booking.id);
+      if (res?.success && res.data) {
+        setExistingReview(res.data);
+      } else if (Array.isArray(res) && res.length > 0) {
+        setExistingReview(res[0]);
+      } else if (res?.id) {
+        setExistingReview(res);
+      }
+    } catch {
+      setExistingReview(null);
+    } finally {
+      setLoadingReview(false);
     }
   };
 
@@ -198,7 +243,6 @@ export const DelivaryHistory: React.FC = () => {
 
         {/* Search & Filter Dropdown Container */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* Search Input */}
           <div className="relative flex-1 sm:w-64">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
@@ -213,7 +257,6 @@ export const DelivaryHistory: React.FC = () => {
             />
           </div>
 
-          {/* Filter Status Dropdown Button */}
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setIsDropdownOpen((prev) => !prev)}
@@ -228,7 +271,6 @@ export const DelivaryHistory: React.FC = () => {
               />
             </button>
 
-            {/* Dropdown Menu */}
             {isDropdownOpen && (
               <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-slate-100 bg-white p-1.5 shadow-xl z-30 space-y-0.5">
                 {FILTER_OPTIONS.map((option) => {
@@ -406,12 +448,12 @@ export const DelivaryHistory: React.FC = () => {
                   </div>
                 </div>
 
-              <button
-                onClick={() => handleOpenTimeline(item)}
-                className="w-full py-2.5 bg-amber-400 hover:bg-amber-500 active:bg-amber-600 text-slate-900 font-extrabold rounded-xl text-xs transition-colors cursor-pointer shadow-2xs hover:shadow-xs"
-              >
-                Track Package
-              </button>
+                <button
+                  onClick={() => handleOpenTimeline(item)}
+                  className="w-full py-2.5 bg-amber-400 hover:bg-amber-500 active:bg-amber-600 text-slate-900 font-extrabold rounded-xl text-xs transition-colors cursor-pointer shadow-2xs hover:shadow-xs"
+                >
+                  Track Package
+                </button>
               </div>
             ))}
           </div>
@@ -443,10 +485,11 @@ export const DelivaryHistory: React.FC = () => {
         </>
       )}
 
-      {/* DYNAMIC TIMELINE MODAL */}
+      {/* DYNAMIC TIMELINE & REVIEW MODAL */}
       {selectedBooking && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 shadow-xl space-y-6 relative max-h-[90vh] overflow-y-auto">
+            {/* Modal Top Nav */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <button
                 onClick={() => setSelectedBooking(null)}
@@ -462,6 +505,7 @@ export const DelivaryHistory: React.FC = () => {
               </button>
             </div>
 
+            {/* Package Brief Card */}
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
               <div className="font-extrabold text-slate-900 text-sm">
                 📦 {selectedBooking.package_title}
@@ -481,6 +525,7 @@ export const DelivaryHistory: React.FC = () => {
               </div>
             </div>
 
+            {/* TIMELINE SECTION */}
             <div className="space-y-4">
               <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
                 Timeline Progress
@@ -542,8 +587,145 @@ export const DelivaryHistory: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {/* DELIVERY SUMMARY SECTION */}
+            <div className="border-t border-slate-200 pt-5 space-y-3">
+              <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
+                Delivery Summary
+              </h3>
+
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 divide-y divide-slate-200/60 text-xs">
+                <div className="pb-2.5 flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Delivered On</span>
+                  <span className="font-bold text-slate-900">
+                    {selectedBooking.completed_date
+                      ? formatDateShort(selectedBooking.completed_date)
+                      : "N/A"}
+                  </span>
+                </div>
+
+                <div className="py-2.5 flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Traveler</span>
+                  <span className="font-bold text-slate-900">
+                    {selectedBooking.traveler_name || "N/A"}
+                  </span>
+                </div>
+
+                <div className="pt-2.5 flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Tracking Number</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    #{selectedBooking.tracking_number}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* REVIEW SECTION */}
+            <div className="border-t border-slate-200 pt-5 space-y-3">
+              {loadingReview ? (
+                <div className="py-4 flex items-center justify-center text-slate-400 gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+                  <span className="text-xs font-medium">Checking reviews...</span>
+                </div>
+              ) : existingReview ? (
+                /* ALREADY REVIEWED DISPLAY */
+                <div className="bg-amber-50/50 border border-amber-200/60 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-extrabold text-slate-900">Your Review</h4>
+                      <p className="text-[10px] text-slate-400 font-semibold">
+                        You reviewed this traveler
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={`w-3.5 h-3.5 ${
+                              star <= existingReview.rating
+                                ? "text-amber-500 fill-amber-500"
+                                : "text-slate-200"
+                            }`}
+                          />
+                        ))}
+                        <span className="text-xs font-black text-slate-800 ml-1">
+                          {existingReview.rating}.0
+                        </span>
+                      </div>
+                      
+                      {/* Edit button to trigger edit review */}
+                      <button
+                        onClick={() => setIsReviewModalOpen(true)}
+                        className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-amber-100/60 transition cursor-pointer"
+                        title="Edit Review"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-700 italic bg-white/80 p-3 rounded-xl border border-amber-100">
+                    "{existingReview.comment}"
+                  </p>
+
+                  <div className="flex items-center justify-between text-[10px] font-bold text-emerald-700 pt-1">
+                    <span className="flex items-center gap-1">
+                      <Check className="w-3 h-3 stroke-[3]" /> Review Submitted
+                    </span>
+                    {existingReview.created_at && (
+                      <span className="text-slate-400 font-normal">
+                        Submitted: {formatDateShort(existingReview.created_at)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ) : selectedBooking.status === "COMPLETED" ? (
+                /* NOT REVIEWED YET PROMPT (ONLY FOR COMPLETED DELIVERIES) */
+                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-3 text-center">
+                  <h4 className="text-xs font-extrabold text-slate-900">Rate Your Traveler</h4>
+
+                  <div className="flex items-center justify-center gap-1 text-amber-400">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star key={star} className="w-5 h-5 fill-amber-400" />
+                    ))}
+                  </div>
+
+                  <p className="text-xs text-slate-500">
+                    Share your experience with this traveler.
+                  </p>
+
+                  <button
+                    onClick={() => setIsReviewModalOpen(true)}
+                    className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" /> Leave Review
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
+      )}
+
+      {/* STANDALONE LEAVE/EDIT REVIEW MODAL COMPONENT */}
+      {selectedBooking && (
+        <LeaveReviewModal
+          isOpen={isReviewModalOpen}
+          onClose={() => setIsReviewModalOpen(false)}
+          booking={{
+            id: selectedBooking.id,
+            traveler: (selectedBooking as any).traveler_id || (selectedBooking as any).traveler || "",
+            travelerName: selectedBooking.traveler_name,
+            packageTitle: selectedBooking.package_title,
+          }}
+          existingReview={existingReview}
+          onSuccess={(savedReview) => {
+            setExistingReview(savedReview);
+            setIsReviewModalOpen(false);
+          }}
+        />
       )}
     </section>
   );

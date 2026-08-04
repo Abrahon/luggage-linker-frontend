@@ -1,87 +1,3 @@
-
-
-// import axiosInstance from "./axios";
-
-
-// export interface BackendTrip {
-//   id: string;
-//   traveler_email: string;
-//   title: string;
-//   description: string;
-//   from_country: string;
-//   from_city: string;
-//   to_country: string;
-//   to_city: string;
-//   departure_date: string;
-//   arrival_date: string;
-//   max_weight_kg: string;
-//   available_weight_kg: string;
-//   reward_per_kg: string;
-//   currency: string;
-//   status: string; // e.g., "PLANNED", "CANCELLED", "COMPLETED", "IN_TRANSIT"
-//   is_active: boolean;
-//   is_public: boolean;
-//   created_at: string;
-//   updated_at: string;
-// }
-
-// export interface TripsListApiResponse {
-//   message?: string;
-//   count?: number;
-//   results?: BackendTrip[];
-//   data?: BackendTrip[];
-// }
-
-// export interface TripDetailApiResponse {
-//   message: string;
-//   data: BackendTrip;
-// }
-
-// export interface CancelTripApiResponse {
-//   message: string;
-//   data: {
-//     trip_id: string;
-//     status: string;
-//   };
-// }
-
-
-
-
-// // Cancel trip API call
-// // Fetch trips with optional search and status query parameters
-// export const getAdminTripsApi = async (params?: {
-//   status?: string;
-//   search?: string;
-// }) => {
-//   const response = await axiosInstance.get("/api/admin/trips/", { params });
-//   return response.data;
-// };
-
-// // Fetch single trip details
-// export const getAdminTripDetailApi = async (
-//   tripId: string
-// ): Promise<TripDetailApiResponse> => {
-//   const response = await axiosInstance.get(`/api/admin/trips/${tripId}/`);
-//   return response.data;
-// };
-
-
-
-// // Cancel trip with reason payload using PATCH method
-// export const cancelAdminTripApi = async (
-//   tripId: string,
-//   data: { reason: string }
-// ): Promise<CancelTripApiResponse> => {
-//   // If interceptors return data directly:
-//   const response = await axiosInstance.patch<any, CancelTripApiResponse>(
-//     `/api/admin/trips/${tripId}/cancel/`,
-//     data
-//   );
-//   return response; // Not response.data if interceptor already unpacked it
-// };
-
-
 import axiosInstance from "./axios";
 
 // ==========================================
@@ -153,12 +69,59 @@ export interface CancelTripApiResponse {
   };
 }
 
+export interface FetchPublicTripsParams {
+  from_city?: string;
+  to_city?: string;
+  departure_date?: string;
+}
+
+// ==========================================
+// Public Trip APIs (New)
+// ==========================================
+
+/**
+ * Fetch all public trips (supports optional search query parameters)
+ * GET /api/trips/
+ */
+export const getPublicTripsApi = async (
+  params?: FetchPublicTripsParams
+): Promise<BackendTrip[]> => {
+  const response = await axiosInstance.get<TripsListApiResponse>(`/api/trips/`, {
+    params,
+  });
+
+  const rawData = response.data;
+
+  if (rawData && Array.isArray(rawData.data)) {
+    return rawData.data;
+  }
+
+  if (rawData && Array.isArray(rawData.results)) {
+    return rawData.results;
+  }
+
+  return [];
+};
+
+/**
+ * Fetch detailed view of a single trip by ID
+ * GET /api/trip/{id}/
+ */
+export const getTripDetailApi = async (
+  tripId: string
+): Promise<TripDetailApiResponse> => {
+  const response = await axiosInstance.get<TripDetailApiResponse>(
+    `/api/trip/${tripId}/`
+  );
+  return response.data;
+};
+
 // ==========================================
 // User Trip APIs (Core Endpoints)
 // ==========================================
 
 /**
- * 1. Fetch User's Trips: GET /api/my-trips/
+ * Fetch User's Trips: GET /api/my-trips/
  * Safely handles both `.data` and `.results` array responses.
  */
 export const getMyTrips = async (): Promise<BackendTrip[]> => {
@@ -179,7 +142,6 @@ export const getMyTrips = async (): Promise<BackendTrip[]> => {
   return [];
 };
 
-
 export const createTrip = async (payload: CreateTripPayload) => {
   const maxWeight = Number(payload.max_weight_kg) || 0;
 
@@ -197,19 +159,6 @@ export const createTrip = async (payload: CreateTripPayload) => {
   const response = await axiosInstance.post(`/api/trips/`, formattedPayload);
   return response.data;
 };
-
-/**
- * 3. Trip Details: GET /api/trip/{id}/
- */
-export const getTripDetailApi = async (
-  tripId: string
-): Promise<TripDetailApiResponse> => {
-  const response = await axiosInstance.get<TripDetailApiResponse>(
-    `/api/trip/${tripId}/`
-  );
-  return response.data;
-};
-
 
 export const updateTripApi = async (
   tripId: string,

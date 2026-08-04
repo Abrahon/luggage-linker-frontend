@@ -4,351 +4,381 @@ import { useState } from "react";
 import {
   ArrowRight,
   BadgeCheck,
-  Clock3,
-  Compass,
-  Headphones,
+  Building2,
+  CheckCircle2,
+  Clock,
+  HelpCircle,
+  LifeBuoy,
+  Loader2,
   Mail,
+  MessageSquare,
   PackageCheck,
+  Phone,
   Plane,
-  Send,
+  Search,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
 
-const highlights = [
-  {
-    title: "Booking Assistance",
-    description:
-      "Need help creating or managing your luggage shipment? Our support team is here to help.",
-    icon: PackageCheck,
-  },
-  {
-    title: "Shipment Tracking",
-    description:
-      "Questions about your shipment status or delivery updates? We're happy to assist.",
-    icon: Compass,
-  },
-  {
-    title: "Payment Support",
-    description:
-      "Need help with payments, invoices, or refunds? Our specialists are ready to help.",
-    icon: BadgeCheck,
-  },
-  {
-    title: "Business Partnerships",
-    description:
-      "Interested in partnering with LuggageLinker? We'd love to hear from you.",
-    icon: Plane,
-  },
+// Support Categories for Form
+const inquiryTypes = [
+  { id: "tracking", label: "Shipment Tracking", icon: PackageCheck },
+  { id: "booking", label: "Booking Assistance", icon: Plane },
+  { id: "billing", label: "Payments & Refunds", icon: BadgeCheck },
+  { id: "business", label: "Partnerships", icon: Building2 },
 ];
 
-const infoCards = [
+const faqs = [
   {
-    title: "Fast Response",
-    description:
-      "We typically respond to all inquiries within 24 business hours.",
-    icon: Send,
+    q: "How can I track my luggage in real-time?",
+    a: "Enter your Booking Reference ID (e.g., LL-8921) into the search bar at the top of this page or visit the Tracking Portal in your dashboard.",
   },
   {
-    title: "Support Hours",
-    description: "Monday – Friday\n9:00 AM – 6:00 PM",
-    icon: Clock3,
+    q: "What happens if my shipment is delayed?",
+    a: "Our 24/7 concierge continuously monitors active routes. If a delay occurs, you will receive real-time SMS & email notifications along with an updated delivery estimate.",
   },
   {
-    title: "Email Support",
-    description: "support@luggagelinker.com",
-    icon: Mail,
+    q: "Can I modify my pickup address after booking?",
+    a: "Yes! Address changes can be requested up to 12 hours prior to scheduled pickup directly through your account dashboard or by contacting us below.",
   },
 ];
 
 export const ContactUs = () => {
+  const [selectedCategory, setSelectedCategory] = useState("tracking");
+  const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [activeFaq, setActiveFaq] = useState<number | null>(0);
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    bookingRef: "",
     message: "",
   });
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
+
+    // Simulate API submission
+    await new Promise((res) => setTimeout(res, 1200));
+
+    setLoading(false);
     setSubmitted(true);
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.12),_transparent_28%),linear-gradient(135deg,#f8fbff_0%,#ffffff_45%,#f8fbff_100%)] px-4 py-10 text-slate-900 sm:px-6 lg:px-8">
-      <div className="mx-auto flex max-w-7xl flex-col gap-8">
-        <section className="overflow-hidden rounded-[36px] border border-slate-200/80 bg-white/80 p-6 shadow-[0_25px_80px_-30px_rgba(15,23,42,0.35)] backdrop-blur-md md:p-8 lg:p-12">
-          <div className="grid items-center gap-10 lg:grid-cols-[0.95fr_1.05fr]">
-            <div className="max-w-2xl animate-[fadeInUp_0.7s_ease-out]">
-              <div className="mb-5 inline-flex items-center rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700">
-                <Headphones className="mr-2 h-4 w-4" />
-                Premium support for every shipment
-              </div>
-              <h1 className="text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
-                Contact Us
-              </h1>
-              <p className="mt-5 text-lg leading-8 text-slate-600 sm:text-xl">
-                Have a question about your shipment, booking, or account? We're
-                here to help. Send us a message and our support team will get
-                back to you as soon as possible.
-              </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <div className="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white">
-                  24/7 concierge support
-                </div>
-                <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700">
-                  Trusted by frequent travelers
-                </div>
-              </div>
-            </div>
+    <div className="min-h-screen bg-slate-50/50 text-slate-900 font-sans selection:bg-blue-500 selection:text-white">
+      {/* Background Decor */}
+      <div className="absolute inset-0 -z-10 overflow-hidden">
+        <div className="absolute -top-[20%] left-1/2 -translate-x-1/2 w-[1000px] h-[450px] bg-gradient-to-tr from-blue-400/15 via-indigo-300/15 to-transparent blur-3xl rounded-full" />
+      </div>
 
-            <div className="relative hidden lg:block animate-[fadeInUp_0.9s_ease-out]">
-              <div className="absolute inset-0 rounded-[30px] bg-gradient-to-br from-blue-500/20 via-cyan-400/10 to-transparent blur-3xl" />
-              <div className="relative rounded-[30px] border border-slate-200 bg-slate-950 p-6 shadow-2xl">
-                <div className="rounded-[24px] bg-gradient-to-br from-blue-500 to-cyan-400 p-6">
-                  <div className="flex items-center justify-between rounded-2xl bg-white/90 p-4 shadow-sm">
-                    <div>
-                      <p className="text-sm font-medium text-slate-500">
-                        Live tracking
-                      </p>
-                      <p className="text-lg font-semibold text-slate-900">
-                        LuggageLinker
-                      </p>
-                    </div>
-                    <div className="rounded-full bg-blue-100 p-3 text-blue-700">
-                      <PackageCheck className="h-6 w-6" />
-                    </div>
-                  </div>
-
-                  <div className="mt-6 grid gap-3">
-                    <div className="rounded-2xl border border-white/40 bg-white/75 p-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-slate-700">
-                          Priority shipment
-                        </span>
-                        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                          On route
-                        </span>
-                      </div>
-                      <div className="mt-3 h-2 rounded-full bg-slate-200">
-                        <div className="h-2 w-3/4 rounded-full bg-blue-600" />
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between rounded-2xl border border-white/40 bg-white/75 p-4">
-                      <div>
-                        <p className="text-sm font-medium text-slate-700">
-                          Secure handling
-                        </p>
-                        <p className="text-sm text-slate-500">
-                          24/7 monitoring
-                        </p>
-                      </div>
-                      <div className="rounded-full bg-slate-900 p-3 text-white">
-                        <ShieldCheck className="h-5 w-5" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        
+        {/* HERO SECTION */}
+        <div className="text-center max-w-3xl mx-auto mb-16">
+          <div className="inline-flex items-center gap-2 rounded-full border border-blue-200/80 bg-blue-50/80 px-4 py-1.5 text-xs sm:text-sm font-semibold text-blue-700 shadow-sm backdrop-blur-md mb-6">
+            <Sparkles className="h-4 w-4 text-blue-600 animate-pulse" />
+            LuggageLinker Concierge Support
           </div>
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-          <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white p-7 shadow-[0_18px_70px_-28px_rgba(15,23,42,0.35)] transition duration-300 hover:-translate-y-1 sm:p-8 lg:p-10">
-            <div className="mb-6 flex items-center gap-3">
-              <div className="rounded-2xl bg-blue-50 p-3 text-blue-700">
-                <Sparkles className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-blue-600">
-                  About LuggageLinker
-                </p>
-                <h2 className="text-2xl font-semibold text-slate-900">
-                  Travel lighter with a team that supports every step
-                </h2>
-              </div>
-            </div>
-
-            <p className="text-base leading-8 text-slate-600">
-              LuggageLinker makes luggage shipping simple, secure and
-              stress-free. Whether you are flying internationally, relocating,
-              or sending bags ahead of time, our dedicated team helps you plan,
-              track and deliver with confidence.
-            </p>
-
-            <div className="mt-8 space-y-4">
-              {highlights.map((item, index) => {
-                const Icon = item.icon;
-                return (
-                  <div
-                    key={item.title}
-                    className="group flex items-start gap-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 transition duration-300 hover:border-blue-200 hover:bg-white"
-                    style={{ animationDelay: `${index * 70}ms` }}
-                  >
-                    <div className="mt-0.5 rounded-2xl bg-white p-2 text-blue-700 shadow-sm">
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-slate-900">
-                        {item.title}
-                      </h3>
-                      <p className="mt-1 text-sm leading-7 text-slate-600">
-                        {item.description}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="rounded-[32px] border border-slate-200 bg-white p-7 shadow-[0_18px_70px_-28px_rgba(15,23,42,0.35)] transition duration-300 hover:-translate-y-1 sm:p-8 lg:p-10">
-            <div className="mb-6">
-              <h2 className="text-2xl font-semibold text-slate-900">
-                Send us a Message
-              </h2>
-              <p className="mt-2 text-sm leading-7 text-slate-600 sm:text-base">
-                We'd love to hear from you. Fill out the form below and we'll
-                respond as quickly as possible.
-              </p>
-            </div>
-
-            <form className="space-y-5" onSubmit={handleSubmit}>
-              <div>
-                <label
-                  htmlFor="name"
-                  className="mb-2 block text-sm font-medium text-slate-700"
-                >
-                  Full Name
-                </label>
-                <input
-                  id="name"
-                  name="name"
-                  type="text"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                  placeholder="Alex Morgan"
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="email"
-                  className="mb-2 block text-sm font-medium text-slate-700"
-                >
-                  Email Address
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                  placeholder="alex@email.com"
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="message"
-                  className="mb-2 block text-sm font-medium text-slate-700"
-                >
-                  Message
-                </label>
-                <textarea
-                  id="message"
-                  name="message"
-                  rows={5}
-                  value={formData.message}
-                  onChange={handleChange}
-                  required
-                  placeholder="Tell us how we can help..."
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="inline-flex items-center justify-center rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition duration-300 hover:bg-blue-600"
-              >
-                Send Message
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </button>
-
-              {submitted && (
-                <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                  Thanks! Your message has been received and our team will reach
-                  out shortly.
-                </p>
-              )}
-            </form>
-          </div>
-        </section>
-
-        <section className="grid gap-4 md:grid-cols-3">
-          {infoCards.map((card) => {
-            const Icon = card.icon;
-            return (
-              <div
-                key={card.title}
-                className="rounded-[24px] border border-slate-200 bg-white/90 p-6 shadow-[0_12px_40px_-24px_rgba(15,23,42,0.3)] transition duration-300 hover:-translate-y-1"
-              >
-                <div className="mb-4 inline-flex rounded-2xl bg-slate-100 p-3 text-slate-700">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <h3 className="text-lg font-semibold text-slate-900">
-                  {card.title}
-                </h3>
-                <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-600">
-                  {card.description}
-                </p>
-              </div>
-            );
-          })}
-        </section>
-
-        <section className="rounded-[28px] border border-slate-200 bg-gradient-to-r from-slate-900 via-slate-800 to-blue-950 p-8 text-white shadow-[0_20px_70px_-28px_rgba(15,23,42,0.45)] sm:p-10">
-          <div className="max-w-3xl">
-            <h2 className="text-2xl font-semibold sm:text-3xl">
-              Your Privacy Matters
-            </h2>
-            <p className="mt-3 text-base leading-8 text-slate-300 sm:text-lg">
-              Your information is secure and will only be used to respond to
-              your inquiry. We respect your privacy and never share your
-              personal information with third parties.
-            </p>
-          </div>
-        </section>
-
-        <section className="rounded-[28px] border border-blue-100 bg-blue-50/70 p-8 text-center shadow-[0_16px_55px_-26px_rgba(37,99,235,0.35)] sm:p-10">
-          <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl">
-            Need More Help?
-          </h2>
-          <p className="mx-auto mt-3 max-w-2xl text-base leading-8 text-slate-600 sm:text-lg">
-            Whether you need assistance with bookings, tracking, payments, or
-            general inquiries, our dedicated support team is always ready to
-            help.
+          <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl text-slate-900">
+            How can we help with your journey?
+          </h1>
+          <p className="mt-4 text-lg text-slate-600 leading-relaxed">
+            Have questions regarding your shipment, rates, or active delivery? 
+            Our global support specialists are here 24/7 to keep you moving stress-free.
           </p>
-          <a
-            href="mailto:support@luggagelinker.com"
-            className="mt-6 inline-flex items-center justify-center rounded-full bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition duration-300 hover:bg-blue-700"
-          >
-            Contact Support
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </a>
-        </section>
+
+          {/* Quick Tracking Search Bar */}
+          <div className="mt-8 relative max-w-xl mx-auto">
+            <div className="relative flex items-center">
+              <Search className="absolute left-4 h-5 w-5 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Have a tracking ID? Search status (e.g. LL-98213)..."
+                className="w-full rounded-2xl border border-slate-200 bg-white py-3.5 pl-12 pr-28 text-sm text-slate-900 shadow-xl shadow-slate-200/40 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+              />
+              <button 
+                type="button" 
+                className="absolute right-2 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-md hover:bg-blue-700 transition"
+              >
+                Track
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* MAIN INTERACTIVE SECTION */}
+        <div className="grid gap-8 lg:grid-cols-12 items-start">
+          
+          {/* LEFT SIDE: DIRECT CONTACT CHANNELS & HIGHLIGHTS */}
+          <div className="lg:col-span-5 flex flex-col gap-6">
+            
+            {/* Quick Contact Info Card */}
+            <div className="rounded-3xl border border-slate-200/80 bg-white p-6 sm:p-8 shadow-sm">
+              <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+                <LifeBuoy className="h-5 w-5 text-blue-600" /> Direct Channels
+              </h2>
+
+              <div className="space-y-6">
+                <div className="flex items-start gap-4">
+                  <div className="rounded-2xl bg-blue-50 p-3 text-blue-600 shrink-0">
+                    <Mail className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                      Email Concierge
+                    </p>
+                    <a
+                      href="mailto:support@luggagelinker.com"
+                      className="text-base font-semibold text-slate-900 hover:text-blue-600 transition"
+                    >
+                      support@luggagelinker.com
+                    </a>
+                    <p className="text-xs text-slate-500 mt-0.5">Average reply time: &lt; 2 hours</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4">
+                  <div className="rounded-2xl bg-indigo-50 p-3 text-indigo-600 shrink-0">
+                    <Phone className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                      Phone Line
+                    </p>
+                    <p className="text-base font-semibold text-slate-900">
+                      +1 (800) 584-4243
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">Mon–Fri, 9:00 AM – 6:00 PM EST</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4">
+                  <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-600 shrink-0">
+                    <Clock className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                      Emergency Support
+                    </p>
+                    <p className="text-base font-semibold text-slate-900">
+                      24/7 Active Transit Monitoring
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">Automated dispatch team always on duty</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Trust Banner */}
+            <div className="rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-600 to-indigo-700 p-6 sm:p-8 text-white shadow-xl shadow-blue-500/10">
+              <div className="flex items-center gap-2 text-blue-200 text-xs font-bold uppercase tracking-wider mb-2">
+                <ShieldCheck className="h-4 w-4" /> Luggage Security Promise
+              </div>
+              <h3 className="text-xl font-bold">Safe & On-Time Arrival Guarantee</h3>
+              <p className="mt-2 text-sm text-blue-100 leading-relaxed">
+                Every shipment linked through our platform includes $1,000 complimentary protection coverage and real-time GPS check-ins.
+              </p>
+            </div>
+          </div>
+
+          {/* RIGHT SIDE: DYNAMIC FORM */}
+          <div className="lg:col-span-7">
+            <div className="rounded-3xl border border-slate-200/80 bg-white p-6 sm:p-10 shadow-xl shadow-slate-200/50">
+              
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-slate-900">Send Us a Message</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Select a category to help us route your request to the right team.
+                </p>
+              </div>
+
+              {/* Inquiry Category Selector */}
+              <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {inquiryTypes.map((cat) => {
+                  const Icon = cat.icon;
+                  const isSelected = selectedCategory === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setSelectedCategory(cat.id)}
+                      className={`flex flex-col items-center justify-center rounded-2xl border p-3.5 text-center transition-all ${
+                        isSelected
+                          ? "border-blue-600 bg-blue-50/60 text-blue-700 shadow-sm ring-2 ring-blue-500/20"
+                          : "border-slate-200 bg-slate-50/50 text-slate-600 hover:border-slate-300 hover:bg-white"
+                      }`}
+                    >
+                      <Icon className={`h-5 w-5 mb-1.5 ${isSelected ? "text-blue-600" : "text-slate-400"}`} />
+                      <span className="text-xs font-semibold leading-tight">{cat.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {submitted ? (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-8 text-center animate-in fade-in zoom-in duration-300">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 mb-4">
+                    <CheckCircle2 className="h-8 w-8" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900">Message Received!</h3>
+                  <p className="mt-2 text-sm text-slate-600 max-w-md mx-auto">
+                    Thank you for contacting LuggageLinker. A support manager will review your inquiry and get back to you shortly.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubmitted(false);
+                      setFormData({ name: "", email: "", bookingRef: "", message: "" });
+                    }}
+                    className="mt-6 rounded-xl bg-slate-900 px-6 py-2.5 text-xs font-semibold text-white hover:bg-blue-600 transition"
+                  >
+                    Send Another Inquiry
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="name" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                        Full Name
+                      </label>
+                      <input
+                        id="name"
+                        name="name"
+                        type="text"
+                        required
+                        value={formData.name}
+                        onChange={handleChange}
+                        placeholder="Alex Morgan"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="email" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                        Email Address
+                      </label>
+                      <input
+                        id="email"
+                        name="email"
+                        type="email"
+                        required
+                        value={formData.email}
+                        onChange={handleChange}
+                        placeholder="alex@example.com"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="bookingRef" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                      Booking Reference ID <span className="text-slate-400 font-normal">(Optional)</span>
+                    </label>
+                    <input
+                      id="bookingRef"
+                      name="bookingRef"
+                      type="text"
+                      value={formData.bookingRef}
+                      onChange={handleChange}
+                      placeholder="e.g. LL-89214"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="message" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                      How can we help?
+                    </label>
+                    <textarea
+                      id="message"
+                      name="message"
+                      rows={4}
+                      required
+                      value={formData.message}
+                      onChange={handleChange}
+                      placeholder="Provide details about your luggage shipment, destination, or question..."
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 hover:bg-blue-600 focus:outline-none transition-all disabled:opacity-70"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sending Request...
+                      </>
+                    ) : (
+                      <>
+                        Submit Message
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* FAQ ACCORDION SECTION */}
+        <div className="mt-20 max-w-4xl mx-auto">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl font-bold text-slate-900 sm:text-3xl">
+              Frequently Asked Questions
+            </h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Quick answers to common questions about luggage transfers and platform support.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {faqs.map((faq, index) => {
+              const isOpen = activeFaq === index;
+              return (
+                <div
+                  key={faq.q}
+                  className="rounded-2xl border border-slate-200/80 bg-white overflow-hidden transition"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setActiveFaq(isOpen ? null : index)}
+                    className="flex w-full items-center justify-between p-5 text-left text-base font-semibold text-slate-900 hover:bg-slate-50/50 transition"
+                  >
+                    <span className="flex items-center gap-3">
+                      <HelpCircle className="h-5 w-5 text-blue-600 shrink-0" />
+                      {faq.q}
+                    </span>
+                    <span className={`text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}>
+                      ▼
+                    </span>
+                  </button>
+
+                  {isOpen && (
+                    <div className="px-5 pb-5 pt-1 text-sm text-slate-600 leading-relaxed border-t border-slate-100">
+                      {faq.a}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
       </div>
     </div>
   );
