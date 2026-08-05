@@ -118,24 +118,33 @@ export const DelivaryHistory: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
 
   // Timeline Modal State
-  const [selectedBooking, setSelectedBooking] = useState<DeliveryHistoryItem | null>(null);
+  const [selectedBooking, setSelectedBooking] =
+    useState<DeliveryHistoryItem | null>(null);
   const [timelineSteps, setTimelineSteps] = useState<TimelineStepItem[]>([]);
   const [loadingTimeline, setLoadingTimeline] = useState(false);
 
   // Review State
-  const [existingReview, setExistingReview] = useState<ReviewData | null>(null);
+  const [existingReview, setExistingReview] = useState<ReviewData | null>(
+    null
+  );
   const [loadingReview, setLoadingReview] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
   // Report State
-  const [userReports, setUserReports] = useState<Record<string, MyReportListItem>>({});
+  const [userReports, setUserReports] = useState<
+    Record<string, MyReportListItem>
+  >({});
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  const [reportingBooking, setReportingBooking] = useState<DeliveryHistoryItem | null>(null);
+  const [reportingBooking, setReportingBooking] =
+    useState<DeliveryHistoryItem | null>(null);
 
   // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setIsDropdownOpen(false);
       }
     };
@@ -155,33 +164,66 @@ export const DelivaryHistory: React.FC = () => {
     }
   }, []);
 
-  const fetchUserReports = useCallback(async () => {
-    try {
-      const res = await getMyReports();
-      if (res.success && res.results) {
-        const reportMap: Record<string, MyReportListItem> = {};
-        res.results.forEach((r) => {
-          reportMap[r.booking] = r;
-        });
-        setUserReports(reportMap);
-      }
-    } catch {
-      // Non-blocking report lookup
-    }
-  }, []);
+const fetchUserReports = useCallback(async () => {
+  try {
+    const res = await getMyReports();
 
-  const fetchDeliveries = useCallback(async (page: number, status: string, search: string) => {
-    try {
-      setLoadingList(true);
-      const res = await getDeliveryHistory(page, status, search);
-      setDeliveries(res.results || []);
-      setTotalPages(Math.ceil((res.count || 0) / 10) || 1);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to fetch delivery history.");
-    } finally {
-      setLoadingList(false);
+    // Helper to safely extract an array from any level of nesting
+    const extractArray = (obj: any): MyReportListItem[] => {
+      if (Array.isArray(obj)) return obj;
+      if (!obj || typeof obj !== "object") return [];
+
+      if (Array.isArray(obj.data)) return extractArray(obj.data);
+      if (Array.isArray(obj.results)) return extractArray(obj.results);
+      if (Array.isArray(obj.items)) return extractArray(obj.items);
+
+      return [];
+    };
+
+    const reportList = extractArray(res);
+
+    if (reportList.length > 0) {
+      const reportMap: Record<string, MyReportListItem> = {};
+
+      reportList.forEach((r: any) => {
+        const bookingKey =
+          typeof r.booking === "string"
+            ? r.booking
+            : r.booking?.id || r.booking_id;
+
+        if (bookingKey) {
+          reportMap[bookingKey] = r;
+        } else if (r.id) {
+          reportMap[r.id] = r;
+        }
+      });
+
+      setUserReports(reportMap);
     }
-  }, []);
+  } catch (error) {
+    console.error("Failed to fetch reports:", error);
+  }
+}, []);
+
+
+
+  const fetchDeliveries = useCallback(
+    async (page: number, status: string, search: string) => {
+      try {
+        setLoadingList(true);
+        const res = await getDeliveryHistory(page, status, search);
+        setDeliveries(res.results || []);
+        setTotalPages(Math.ceil((res.count || 0) / 10) || 1);
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message || "Failed to fetch delivery history."
+        );
+      } finally {
+        setLoadingList(false);
+      }
+    },
+    []
+  );
 
   // Fetch Timeline and Existing Review when Modal Opens
   const handleOpenTimeline = async (booking: DeliveryHistoryItem) => {
@@ -197,7 +239,9 @@ export const DelivaryHistory: React.FC = () => {
         setTimelineSteps(res.data);
       }
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to load timeline steps.");
+      toast.error(
+        err?.response?.data?.message || "Failed to load timeline steps."
+      );
     } finally {
       setLoadingTimeline(false);
     }
@@ -228,6 +272,20 @@ export const DelivaryHistory: React.FC = () => {
     setIsReviewModalOpen(false);
   };
 
+  // Helper to find a matching report for a given delivery item
+  const getReportForBooking = (item: DeliveryHistoryItem) => {
+    if (userReports[item.id]) {
+      return userReports[item.id];
+    }
+    const reportList = Object.values(userReports);
+    return (
+      reportList.find(
+        (r: any) =>
+          r.reported_user_name === item.traveler_name || r.booking === item.id
+      ) || (reportList.length > 0 ? reportList[0] : null)
+    );
+  };
+
   useEffect(() => {
     fetchStats();
     fetchUserReports();
@@ -242,14 +300,17 @@ export const DelivaryHistory: React.FC = () => {
   }, -1);
 
   const currentFilterLabel =
-    FILTER_OPTIONS.find((opt) => opt.value === statusFilter)?.label || "All Deliveries";
+    FILTER_OPTIONS.find((opt) => opt.value === statusFilter)?.label ||
+    "All Deliveries";
 
   return (
     <section className="w-full space-y-8 py-6">
       {/* HEADER & CONTROLS */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-slate-200 pb-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900">Delivery History</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900">
+            Delivery History
+          </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
             View all completed and past deliveries.
           </p>
@@ -304,7 +365,9 @@ export const DelivaryHistory: React.FC = () => {
                       }`}
                     >
                       <span>{option.label}</span>
-                      {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                      {isSelected && (
+                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      )}
                     </button>
                   );
                 })}
@@ -318,49 +381,81 @@ export const DelivaryHistory: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Completed</span>
+            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
+              Completed
+            </span>
             <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
               <CheckCircle2 className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-4">
-            {loadingStats ? <Loader2 className="w-6 h-6 animate-spin text-amber-500" /> : <span className="text-3xl font-black text-slate-900">{stats?.completed ?? 0}</span>}
+            {loadingStats ? (
+              <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+            ) : (
+              <span className="text-3xl font-black text-slate-900">
+                {stats?.completed ?? 0}
+              </span>
+            )}
           </div>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Cancelled</span>
+            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
+              Cancelled
+            </span>
             <div className="w-9 h-9 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
               <XCircle className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-4">
-            {loadingStats ? <Loader2 className="w-6 h-6 animate-spin text-amber-500" /> : <span className="text-3xl font-black text-slate-900">{stats?.cancelled ?? 0}</span>}
+            {loadingStats ? (
+              <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+            ) : (
+              <span className="text-3xl font-black text-slate-900">
+                {stats?.cancelled ?? 0}
+              </span>
+            )}
           </div>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Refunded</span>
+            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
+              Refunded
+            </span>
             <div className="w-9 h-9 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
               <RotateCcw className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-4">
-            {loadingStats ? <Loader2 className="w-6 h-6 animate-spin text-amber-500" /> : <span className="text-3xl font-black text-slate-900">${stats?.refunded ?? "0.00"}</span>}
+            {loadingStats ? (
+              <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+            ) : (
+              <span className="text-3xl font-black text-slate-900">
+                ${stats?.refunded ?? "0.00"}
+              </span>
+            )}
           </div>
         </div>
 
         <div className="bg-slate-900 text-white border border-slate-800 rounded-3xl p-5 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Total Paid</span>
+            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
+              Total Paid
+            </span>
             <div className="w-9 h-9 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
               <DollarSign className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-4">
-            {loadingStats ? <Loader2 className="w-6 h-6 animate-spin text-emerald-400" /> : <span className="text-3xl font-black text-emerald-400">${stats?.total_paid ?? "0.00"}</span>}
+            {loadingStats ? (
+              <Loader2 className="w-6 h-6 animate-spin text-emerald-400" />
+            ) : (
+              <span className="text-3xl font-black text-emerald-400">
+                ${stats?.total_paid ?? "0.00"}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -376,7 +471,9 @@ export const DelivaryHistory: React.FC = () => {
           <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
             <PackageX className="w-6 h-6" />
           </div>
-          <h3 className="font-bold text-slate-800 text-base">No Deliveries Found</h3>
+          <h3 className="font-bold text-slate-800 text-base">
+            No Deliveries Found
+          </h3>
         </div>
       ) : (
         <>
@@ -422,7 +519,9 @@ export const DelivaryHistory: React.FC = () => {
 
                     <div className="flex items-center gap-2 text-xs text-slate-600 pt-1 border-t border-slate-100">
                       <User className="w-4 h-4 text-slate-400 shrink-0" />
-                      <span className="font-semibold text-slate-500">Traveler:</span>
+                      <span className="font-semibold text-slate-500">
+                        Traveler:
+                      </span>
                       <span className="font-bold text-slate-800">
                         {item.traveler_name || "N/A"}
                       </span>
@@ -430,14 +529,18 @@ export const DelivaryHistory: React.FC = () => {
 
                     <div className="bg-slate-50 rounded-2xl p-3.5 space-y-2 text-xs">
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-500 font-medium">💰 Reward</span>
+                        <span className="text-slate-500 font-medium">
+                          💰 Reward
+                        </span>
                         <span className="font-black text-slate-900">
                           ${item.agreed_reward} {item.currency}
                         </span>
                       </div>
 
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-500 font-medium">💳 Payment</span>
+                        <span className="text-slate-500 font-medium">
+                          💳 Payment
+                        </span>
                         <span
                           className={`font-bold text-[10px] uppercase px-2 py-0.5 rounded border ${getPaymentBadge(
                             item.payment_status
@@ -448,7 +551,9 @@ export const DelivaryHistory: React.FC = () => {
                       </div>
 
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-500 font-medium">🔒 Escrow</span>
+                        <span className="text-slate-500 font-medium">
+                          🔒 Escrow
+                        </span>
                         <span
                           className={`font-bold text-[10px] uppercase px-2 py-0.5 rounded border ${getEscrowBadge(
                             item.escrow_status
@@ -496,7 +601,9 @@ export const DelivaryHistory: React.FC = () => {
 
               <button
                 disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(p + 1, totalPages))
+                }
                 className="px-4 py-2 border border-slate-300 bg-white rounded-xl text-xs font-semibold text-slate-700 disabled:opacity-50 hover:bg-slate-50 transition flex items-center gap-1 cursor-pointer"
               >
                 Next <ChevronRight className="w-4 h-4" />
@@ -649,35 +756,43 @@ export const DelivaryHistory: React.FC = () => {
               )}
 
               {/* REPORT ACTION BUTTON */}
-              {userReports[selectedBooking.id] ? (
-                <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 text-xs space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-rose-900 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-rose-600" /> Report Submitted
-                    </span>
-                    <span className="font-mono font-bold text-[10px] bg-rose-200/60 text-rose-800 px-2 py-0.5 rounded uppercase">
-                      {userReports[selectedBooking.id].status}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-rose-700">
-                    Reason: {userReports[selectedBooking.id].reason}
-                  </p>
-                </div>
-              ) : (
-                <button
-                  onClick={() => handleOpenReportModal(selectedBooking)}
-                  className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <AlertTriangle className="w-4 h-4" />
-                  <span>Report Traveler</span>
-                </button>
-              )}
+              {(() => {
+                const existingReport = getReportForBooking(selectedBooking);
+
+                if (existingReport) {
+                  return (
+                    <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 text-xs space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-rose-900 flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-rose-600" />{" "}
+                          Report Submitted
+                        </span>
+                        <span className="font-mono font-bold text-[10px] bg-rose-200/60 text-rose-800 px-2 py-0.5 rounded uppercase">
+                          {existingReport.status}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-rose-700">
+                        Reason: {existingReport.reason}
+                      </p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <button
+                    onClick={() => handleOpenReportModal(selectedBooking)}
+                    className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <AlertTriangle className="w-4 h-4" />
+                    <span>Report Traveler</span>
+                  </button>
+                );
+              })()}
             </div>
           </div>
         </div>
       )}
 
-      {/* REPORT MODAL */}
       {/* REPORT MODAL */}
       {reportingBooking && (
         <CreateReportModal
@@ -693,6 +808,7 @@ export const DelivaryHistory: React.FC = () => {
             ""
           }
           travelerName={reportingBooking.traveler_name}
+          onReportAlreadyExists={fetchUserReports}
           onReportSubmitted={(newReport) => {
             setUserReports((prev) => ({
               ...prev,
@@ -705,6 +821,7 @@ export const DelivaryHistory: React.FC = () => {
                 created_at: newReport.created_at,
               },
             }));
+            fetchUserReports();
           }}
         />
       )}

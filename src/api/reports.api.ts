@@ -7,10 +7,10 @@ import axiosInstance from "@/api/axios";
 export type ReportReason =
   | "SCAM"
   | "HARASSMENT"
+  | "ABUSE"
   | "FAKE_IDENTITY"
   | "OFF_PLATFORM_PAYMENT"
-  | "DAMAGE"
-  | "DELAY"
+  | "INAPPROPRIATE_BEHAVIOR"
   | "OTHER";
 
 export type ReportStatus =
@@ -20,9 +20,12 @@ export type ReportStatus =
   | "REJECTED"
   | "ESCALATED";
 
+  
+
 export type ReportActionTaken =
   | "NONE"
   | "WARNING"
+  | "REMOVE_LISTING"
   | "SUSPEND"
   | "PERMANENT_BAN";
 
@@ -54,17 +57,13 @@ export interface ApiResponse<T> {
 
 export interface MyReportListItem {
   id: string;
-  booking: string;
+  booking?: string;
   reason: ReportReason;
   status: ReportStatus;
   action_taken: ReportActionTaken;
+  reporter_name?: string;
+  reported_user_name?: string;
   created_at: string;
-}
-
-export interface MyReportsResponse {
-  success: boolean;
-  count: number;
-  results: MyReportListItem[];
 }
 
 export interface ReportDetailData {
@@ -73,8 +72,18 @@ export interface ReportDetailData {
   description: string;
   status: ReportStatus;
   action_taken: ReportActionTaken;
+  reporter_name?: string;
+  reported_user_name?: string;
   evidence_files: EvidenceFile[];
+  created_at?: string;
 }
+
+export interface MyReportsResponse {
+  success: boolean;
+  count: number;
+  results: MyReportListItem[];
+}
+
 
 export interface AdminResolvePayload {
   status: "RESOLVED" | "REJECTED" | "ESCALATED";

@@ -11,6 +11,7 @@ import {
   Search,
   XCircle,
   Receipt,
+  BarChart3,
 } from "lucide-react";
 
 export const carrierLink = [
@@ -126,6 +127,11 @@ export const adminLink = [
     label: "Wallet",
     href: "/admin/wallet",
     icon: DollarSign, // 💰 wallet management
+  },
+  {
+    label: "Reports",
+    href: "/admin/reports",
+    icon: BarChart3,
   },
   {
     label: "TSA Records",

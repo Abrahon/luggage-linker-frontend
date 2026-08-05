@@ -24,6 +24,7 @@ interface CreateReportModalProps {
   reportedUserId: string;
   travelerName?: string;
   onReportSubmitted?: (data: CreateReportResponseData) => void;
+  onReportAlreadyExists?: () => void;
 }
 
 const REASON_OPTIONS: { label: string; value: ReportReason }[] = [
@@ -43,6 +44,7 @@ export const CreateReportModal: React.FC<CreateReportModalProps> = ({
   reportedUserId,
   travelerName = "Traveler",
   onReportSubmitted,
+  onReportAlreadyExists,
 }) => {
   const [reason, setReason] = useState<ReportReason>("SCAM");
   const [description, setDescription] = useState("");
@@ -67,7 +69,6 @@ export const CreateReportModal: React.FC<CreateReportModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Guard: Prevent sending request if reportedUserId is null, empty, or missing
     if (!reportedUserId || reportedUserId.trim() === "") {
       toast.error(
         "Traveler information is missing. Unable to file a report for this booking."
@@ -100,6 +101,21 @@ export const CreateReportModal: React.FC<CreateReportModalProps> = ({
         toast.error("Failed to submit report.");
       }
     } catch (err: any) {
+      // Check for non_field_errors specifically
+      const nonFieldError = err?.response?.data?.non_field_errors?.[0];
+
+      if (
+        nonFieldError &&
+        nonFieldError.includes("already submitted a report")
+      ) {
+        toast.error(nonFieldError);
+        if (onReportAlreadyExists) {
+          onReportAlreadyExists();
+        }
+        handleCloseModal();
+        return;
+      }
+
       const fieldError =
         err?.response?.data?.reported_user?.[0] ||
         err?.response?.data?.booking?.[0] ||
@@ -108,7 +124,9 @@ export const CreateReportModal: React.FC<CreateReportModalProps> = ({
         err?.response?.data?.detail;
 
       toast.error(
-        fieldError ? `Error: ${fieldError}` : "An error occurred while submitting the report."
+        fieldError
+          ? `Error: ${fieldError}`
+          : "An error occurred while submitting the report."
       );
     } finally {
       setSubmitting(false);
