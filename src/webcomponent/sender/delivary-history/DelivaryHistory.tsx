@@ -30,14 +30,15 @@ import {
   Filter,
   ChevronDown,
   Star,
-  MessageSquare,
-  Pencil,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getBookingReview, ReviewData } from "@/api/reviews.api";
-import { LeaveReviewModal } from "./ReviewModal"; // Imported from the same folder
+import { LeaveReviewModal } from "./ReviewModal";
+import { CreateReportModal } from "./ReportModal";
+import { getMyReports, MyReportListItem } from "@/api/reports.api";
 
-// Date Formatter: "2026-07-04T07:58:44" -> "04 Jul 2026 • 07:58 AM"
+// Date Formatters
 const formatTimelineDate = (isoString: string | null) => {
   if (!isoString) return null;
   try {
@@ -56,21 +57,6 @@ const formatTimelineDate = (isoString: string | null) => {
     return `${day} ${month} ${year} • ${time}`;
   } catch {
     return null;
-  }
-};
-
-const formatDateShort = (isoString: string | null) => {
-  if (!isoString) return "N/A";
-  try {
-    const date = new Date(isoString);
-    if (isNaN(date.getTime())) return isoString;
-    return date.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return isoString;
   }
 };
 
@@ -108,7 +94,6 @@ const getEscrowBadge = (status: string) => {
   }
 };
 
-// Available status filter choices
 const FILTER_OPTIONS = [
   { label: "All Deliveries", value: "ALL" },
   { label: "Completed", value: "COMPLETED" },
@@ -123,7 +108,7 @@ export const DelivaryHistory: React.FC = () => {
   const [loadingStats, setLoadingStats] = useState(true);
   const [loadingList, setLoadingList] = useState(true);
 
-  // Filters & Dropdown State
+  // Filters & Dropdown
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -137,10 +122,15 @@ export const DelivaryHistory: React.FC = () => {
   const [timelineSteps, setTimelineSteps] = useState<TimelineStepItem[]>([]);
   const [loadingTimeline, setLoadingTimeline] = useState(false);
 
-  // Review State inside Modal
+  // Review State
   const [existingReview, setExistingReview] = useState<ReviewData | null>(null);
   const [loadingReview, setLoadingReview] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+
+  // Report State
+  const [userReports, setUserReports] = useState<Record<string, MyReportListItem>>({});
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reportingBooking, setReportingBooking] = useState<DeliveryHistoryItem | null>(null);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -165,6 +155,21 @@ export const DelivaryHistory: React.FC = () => {
     }
   }, []);
 
+  const fetchUserReports = useCallback(async () => {
+    try {
+      const res = await getMyReports();
+      if (res.success && res.results) {
+        const reportMap: Record<string, MyReportListItem> = {};
+        res.results.forEach((r) => {
+          reportMap[r.booking] = r;
+        });
+        setUserReports(reportMap);
+      }
+    } catch {
+      // Non-blocking report lookup
+    }
+  }, []);
+
   const fetchDeliveries = useCallback(async (page: number, status: string, search: string) => {
     try {
       setLoadingList(true);
@@ -186,7 +191,6 @@ export const DelivaryHistory: React.FC = () => {
     setLoadingTimeline(true);
     setLoadingReview(true);
 
-    // Fetch Timeline Steps
     try {
       const res = await getDeliveryTimeline(booking.id);
       if (res?.success && Array.isArray(res.data)) {
@@ -198,7 +202,6 @@ export const DelivaryHistory: React.FC = () => {
       setLoadingTimeline(false);
     }
 
-    // Fetch Existing Review
     try {
       const res = await getBookingReview(booking.id);
       if (res?.success && res.data) {
@@ -215,9 +218,20 @@ export const DelivaryHistory: React.FC = () => {
     }
   };
 
+  const handleOpenReportModal = (booking: DeliveryHistoryItem) => {
+    setReportingBooking(booking);
+    setIsReportModalOpen(true);
+  };
+
+  const handleReviewSubmitted = (review: ReviewData) => {
+    setExistingReview(review);
+    setIsReviewModalOpen(false);
+  };
+
   useEffect(() => {
     fetchStats();
-  }, [fetchStats]);
+    fetchUserReports();
+  }, [fetchStats, fetchUserReports]);
 
   useEffect(() => {
     fetchDeliveries(currentPage, statusFilter, searchQuery);
@@ -241,7 +255,7 @@ export const DelivaryHistory: React.FC = () => {
           </p>
         </div>
 
-        {/* Search & Filter Dropdown Container */}
+        {/* Search & Filter Dropdown */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 sm:w-64">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -367,95 +381,102 @@ export const DelivaryHistory: React.FC = () => {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {deliveries.map((item) => (
-              <div
-                key={item.id}
-                className="bg-white border border-slate-200 rounded-3xl p-5 shadow-2xs hover:shadow-xs transition flex flex-col justify-between space-y-4"
-              >
-                <div className="space-y-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      {item.package_image ? (
-                        <img
-                          src={item.package_image}
-                          alt={item.package_title}
-                          className="w-12 h-12 rounded-2xl object-cover border border-slate-100 shrink-0"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-                          <Package className="w-6 h-6" />
+            {deliveries.map((item) => {
+              return (
+                <div
+                  key={item.id}
+                  className="bg-white border border-slate-200 rounded-3xl p-5 shadow-2xs hover:shadow-xs transition flex flex-col justify-between space-y-4"
+                >
+                  <div className="space-y-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        {item.package_image ? (
+                          <img
+                            src={item.package_image}
+                            alt={item.package_title}
+                            className="w-12 h-12 rounded-2xl object-cover border border-slate-100 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                            <Package className="w-6 h-6" />
+                          </div>
+                        )}
+                        <div>
+                          <h3 className="font-bold text-slate-900 text-sm line-clamp-1">
+                            📦 {item.package_title}
+                          </h3>
+                          <p className="text-xs text-slate-400 font-mono mt-0.5">
+                            Tracking: {item.tracking_number}
+                          </p>
                         </div>
-                      )}
-                      <div>
-                        <h3 className="font-bold text-slate-900 text-sm line-clamp-1">
-                          📦 {item.package_title}
-                        </h3>
-                        <p className="text-xs text-slate-400 font-mono mt-0.5">
-                          Tracking: {item.tracking_number}
-                        </p>
+                      </div>
+
+                      <span
+                        className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full border ${getStatusBadge(
+                          item.status
+                        )}`}
+                      >
+                        {item.status}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs text-slate-600 pt-1 border-t border-slate-100">
+                      <User className="w-4 h-4 text-slate-400 shrink-0" />
+                      <span className="font-semibold text-slate-500">Traveler:</span>
+                      <span className="font-bold text-slate-800">
+                        {item.traveler_name || "N/A"}
+                      </span>
+                    </div>
+
+                    <div className="bg-slate-50 rounded-2xl p-3.5 space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 font-medium">💰 Reward</span>
+                        <span className="font-black text-slate-900">
+                          ${item.agreed_reward} {item.currency}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 font-medium">💳 Payment</span>
+                        <span
+                          className={`font-bold text-[10px] uppercase px-2 py-0.5 rounded border ${getPaymentBadge(
+                            item.payment_status
+                          )}`}
+                        >
+                          {item.payment_status}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 font-medium">🔒 Escrow</span>
+                        <span
+                          className={`font-bold text-[10px] uppercase px-2 py-0.5 rounded border ${getEscrowBadge(
+                            item.escrow_status
+                          )}`}
+                        >
+                          {item.escrow_status}
+                        </span>
                       </div>
                     </div>
 
-                    <span
-                      className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full border ${getStatusBadge(
-                        item.status
-                      )}`}
+                    <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>Completed: {item.completed_date || "N/A"}</span>
+                    </div>
+                  </div>
+
+                  {/* ACTION BUTTON ON CARD */}
+                  <div className="pt-2 border-t border-slate-100">
+                    <button
+                      onClick={() => handleOpenTimeline(item)}
+                      className="w-full py-2.5 bg-amber-400 hover:bg-amber-500 text-slate-900 font-extrabold rounded-xl text-xs transition cursor-pointer shadow-2xs"
                     >
-                      {item.status}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-xs text-slate-600 pt-1 border-t border-slate-100">
-                    <User className="w-4 h-4 text-slate-400 shrink-0" />
-                    <span className="font-semibold text-slate-500">Traveler:</span>
-                    <span className="font-bold text-slate-800">{item.traveler_name || "N/A"}</span>
-                  </div>
-
-                  <div className="bg-slate-50 rounded-2xl p-3.5 space-y-2 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500 font-medium">💰 Reward</span>
-                      <span className="font-black text-slate-900">
-                        ${item.agreed_reward} {item.currency}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500 font-medium">💳 Payment</span>
-                      <span
-                        className={`font-bold text-[10px] uppercase px-2 py-0.5 rounded border ${getPaymentBadge(
-                          item.payment_status
-                        )}`}
-                      >
-                        {item.payment_status}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500 font-medium">🔒 Escrow</span>
-                      <span
-                        className={`font-bold text-[10px] uppercase px-2 py-0.5 rounded border ${getEscrowBadge(
-                          item.escrow_status
-                        )}`}
-                      >
-                        {item.escrow_status}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
-                    <Clock className="w-3.5 h-3.5" />
-                    <span>Completed: {item.completed_date || "N/A"}</span>
+                      View Details & Timeline →
+                    </button>
                   </div>
                 </div>
-
-                <button
-                  onClick={() => handleOpenTimeline(item)}
-                  className="w-full py-2.5 bg-amber-400 hover:bg-amber-500 active:bg-amber-600 text-slate-900 font-extrabold rounded-xl text-xs transition-colors cursor-pointer shadow-2xs hover:shadow-xs"
-                >
-                  Track Package
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* PAGINATION */}
@@ -485,11 +506,11 @@ export const DelivaryHistory: React.FC = () => {
         </>
       )}
 
-      {/* DYNAMIC TIMELINE & REVIEW MODAL */}
+      {/* DYNAMIC TIMELINE & ACTIONS MODAL */}
       {selectedBooking && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 shadow-xl space-y-6 relative max-h-[90vh] overflow-y-auto">
-            {/* Modal Top Nav */}
+            {/* Modal Navigation */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <button
                 onClick={() => setSelectedBooking(null)}
@@ -514,7 +535,9 @@ export const DelivaryHistory: React.FC = () => {
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div>
                   <p className="text-slate-400 font-medium">Traveler</p>
-                  <p className="font-bold text-slate-800">{selectedBooking.traveler_name || "N/A"}</p>
+                  <p className="font-bold text-slate-800">
+                    {selectedBooking.traveler_name || "N/A"}
+                  </p>
                 </div>
                 <div>
                   <p className="text-slate-400 font-medium">Reward</p>
@@ -545,8 +568,8 @@ export const DelivaryHistory: React.FC = () => {
                   {timelineSteps.map((step, idx) => {
                     const isCompleted = step.completed;
                     const isCurrent =
-                      idx === lastCompletedIndex && lastCompletedIndex !== timelineSteps.length - 1;
-                    const formattedDate = formatTimelineDate(step.timestamp);
+                      idx === lastCompletedIndex &&
+                      lastCompletedIndex !== timelineSteps.length - 1;
 
                     return (
                       <div key={idx} className="relative">
@@ -570,17 +593,19 @@ export const DelivaryHistory: React.FC = () => {
 
                         <p
                           className={`text-xs font-bold ${
-                            isCompleted || isCurrent ? "text-slate-900" : "text-slate-400"
+                            isCompleted || isCurrent
+                              ? "text-slate-900"
+                              : "text-slate-400"
                           }`}
                         >
                           {step.title}
                         </p>
 
-                        {formattedDate ? (
-                          <p className="text-[11px] text-slate-400 mt-0.5">{formattedDate}</p>
-                        ) : step.timestamp ? (
-                          <p className="text-[11px] text-slate-400 mt-0.5">{step.timestamp}</p>
-                        ) : null}
+                        {step.timestamp && (
+                          <p className="text-[10px] text-slate-400 mt-0.5">
+                            {formatTimelineDate(step.timestamp)}
+                          </p>
+                        )}
                       </div>
                     );
                   })}
@@ -588,143 +613,120 @@ export const DelivaryHistory: React.FC = () => {
               )}
             </div>
 
-            {/* DELIVERY SUMMARY SECTION */}
-            <div className="border-t border-slate-200 pt-5 space-y-3">
+            {/* TRAVELER ACTIONS SECTION */}
+            <div className="pt-4 border-t border-slate-100 space-y-3">
               <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
-                Delivery Summary
+                Traveler Actions
               </h3>
 
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 divide-y divide-slate-200/60 text-xs">
-                <div className="pb-2.5 flex items-center justify-between">
-                  <span className="text-slate-500 font-medium">Delivered On</span>
-                  <span className="font-bold text-slate-900">
-                    {selectedBooking.completed_date
-                      ? formatDateShort(selectedBooking.completed_date)
-                      : "N/A"}
-                  </span>
-                </div>
-
-                <div className="py-2.5 flex items-center justify-between">
-                  <span className="text-slate-500 font-medium">Traveler</span>
-                  <span className="font-bold text-slate-900">
-                    {selectedBooking.traveler_name || "N/A"}
-                  </span>
-                </div>
-
-                <div className="pt-2.5 flex items-center justify-between">
-                  <span className="text-slate-500 font-medium">Tracking Number</span>
-                  <span className="font-mono font-bold text-slate-900">
-                    #{selectedBooking.tracking_number}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* REVIEW SECTION */}
-            <div className="border-t border-slate-200 pt-5 space-y-3">
               {loadingReview ? (
-                <div className="py-4 flex items-center justify-center text-slate-400 gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
-                  <span className="text-xs font-medium">Checking reviews...</span>
+                <div className="py-4 flex justify-center text-slate-400">
+                  <Loader2 className="w-5 h-5 animate-spin text-amber-500" />
                 </div>
               ) : existingReview ? (
-                /* ALREADY REVIEWED DISPLAY */
-                <div className="bg-amber-50/50 border border-amber-200/60 rounded-2xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-xs font-extrabold text-slate-900">Your Review</h4>
-                      <p className="text-[10px] text-slate-400 font-semibold">
-                        You reviewed this traveler
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Star
-                            key={star}
-                            className={`w-3.5 h-3.5 ${
-                              star <= existingReview.rating
-                                ? "text-amber-500 fill-amber-500"
-                                : "text-slate-200"
-                            }`}
-                          />
-                        ))}
-                        <span className="text-xs font-black text-slate-800 ml-1">
-                          {existingReview.rating}.0
-                        </span>
-                      </div>
-                      
-                      {/* Edit button to trigger edit review */}
-                      <button
-                        onClick={() => setIsReviewModalOpen(true)}
-                        className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-amber-100/60 transition cursor-pointer"
-                        title="Edit Review"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-slate-700 italic bg-white/80 p-3 rounded-xl border border-amber-100">
-                    "{existingReview.comment}"
-                  </p>
-
-                  <div className="flex items-center justify-between text-[10px] font-bold text-emerald-700 pt-1">
-                    <span className="flex items-center gap-1">
-                      <Check className="w-3 h-3 stroke-[3]" /> Review Submitted
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                    <span className="font-bold text-amber-900">
+                      You rated this traveler {existingReview.rating}★
                     </span>
-                    {existingReview.created_at && (
-                      <span className="text-slate-400 font-normal">
-                        Submitted: {formatDateShort(existingReview.created_at)}
-                      </span>
-                    )}
                   </div>
-                </div>
-              ) : selectedBooking.status === "COMPLETED" ? (
-                /* NOT REVIEWED YET PROMPT (ONLY FOR COMPLETED DELIVERIES) */
-                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-3 text-center">
-                  <h4 className="text-xs font-extrabold text-slate-900">Rate Your Traveler</h4>
-
-                  <div className="flex items-center justify-center gap-1 text-amber-400">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star key={star} className="w-5 h-5 fill-amber-400" />
-                    ))}
-                  </div>
-
-                  <p className="text-xs text-slate-500">
-                    Share your experience with this traveler.
-                  </p>
-
                   <button
                     onClick={() => setIsReviewModalOpen(true)}
-                    className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-2"
+                    className="text-amber-700 font-bold underline hover:text-amber-900 cursor-pointer"
                   >
-                    <MessageSquare className="w-3.5 h-3.5" /> Leave Review
+                    Edit
                   </button>
                 </div>
-              ) : null}
+              ) : (
+                <button
+                  onClick={() => setIsReviewModalOpen(true)}
+                  className="w-full py-2.5 bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <Star className="w-4 h-4 fill-slate-900" />
+                  <span>Leave Review</span>
+                </button>
+              )}
+
+              {/* REPORT ACTION BUTTON */}
+              {userReports[selectedBooking.id] ? (
+                <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 text-xs space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-rose-900 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-rose-600" /> Report Submitted
+                    </span>
+                    <span className="font-mono font-bold text-[10px] bg-rose-200/60 text-rose-800 px-2 py-0.5 rounded uppercase">
+                      {userReports[selectedBooking.id].status}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-rose-700">
+                    Reason: {userReports[selectedBooking.id].reason}
+                  </p>
+                </div>
+              ) : (
+                <button
+                  onClick={() => handleOpenReportModal(selectedBooking)}
+                  className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <AlertTriangle className="w-4 h-4" />
+                  <span>Report Traveler</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* STANDALONE LEAVE/EDIT REVIEW MODAL COMPONENT */}
+      {/* REPORT MODAL */}
+      {/* REPORT MODAL */}
+      {reportingBooking && (
+        <CreateReportModal
+          isOpen={isReportModalOpen}
+          onClose={() => {
+            setIsReportModalOpen(false);
+            setReportingBooking(null);
+          }}
+          bookingId={reportingBooking.id}
+          reportedUserId={
+            (reportingBooking as any).traveler ||
+            (reportingBooking as any).traveler_id ||
+            ""
+          }
+          travelerName={reportingBooking.traveler_name}
+          onReportSubmitted={(newReport) => {
+            setUserReports((prev) => ({
+              ...prev,
+              [reportingBooking.id]: {
+                id: newReport.id,
+                booking: reportingBooking.id,
+                reason: newReport.reason,
+                status: newReport.status,
+                action_taken: "NONE",
+                created_at: newReport.created_at,
+              },
+            }));
+          }}
+        />
+      )}
+
+      {/* REVIEW MODAL */}
       {selectedBooking && (
         <LeaveReviewModal
           isOpen={isReviewModalOpen}
           onClose={() => setIsReviewModalOpen(false)}
           booking={{
             id: selectedBooking.id,
-            traveler: (selectedBooking as any).traveler_id || (selectedBooking as any).traveler || "",
+            traveler:
+              (selectedBooking as any).traveler_id ||
+              (typeof (selectedBooking as any).traveler === "string"
+                ? (selectedBooking as any).traveler
+                : (selectedBooking as any).traveler?.id) ||
+              "",
             travelerName: selectedBooking.traveler_name,
             packageTitle: selectedBooking.package_title,
           }}
           existingReview={existingReview}
-          onSuccess={(savedReview) => {
-            setExistingReview(savedReview);
-            setIsReviewModalOpen(false);
-          }}
+          onSuccess={handleReviewSubmitted}
         />
       )}
     </section>
