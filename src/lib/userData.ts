@@ -12,6 +12,10 @@ import {
   XCircle,
   Receipt,
   BarChart3,
+  ShieldAlert,
+  Wallet,
+  CalendarCheck, 
+  GitCompare
 } from "lucide-react";
 
 export const carrierLink = [
@@ -61,32 +65,42 @@ export const senderLink = [
   {
     label: "Matching Travelers",
     href: "/find-travelers",
-    icon: Search, // 💬 similar message/search connection
+    icon: Search,
   },
   {
     label: "My Package",
     href: "/package-list",
-    icon: Search, // 💬 similar message/search connection
+    icon: Package, // 📦 Updated from Search for better UX
   },
- {
+  {
     label: "My Booking",
     href: "/booking-list",
-    icon: Search, // 💬 similar message/search connection
+    icon: CalendarCheck, // 📅 Updated from Search for better UX
   },
   {
     label: "My Matching",
     href: "/matching-trip",
-    icon: Search, // 💬 similar message/search connection
+    icon: GitCompare, // 🔀 Updated from Search for better UX
   },
   {
     label: "Delivery History",
     href: "/delivery-history",
-    icon: History, // 🕓 history icon
+    icon: History,
+  },
+  {
+    label: "Wallet",
+    href: "/sender-wallet", // 👈 Updated to match your new route
+    icon: Wallet,
+  },
+  {
+    label: "Disputes",
+    href: "/disputes",
+    icon: ShieldAlert,
   },
   {
     label: "Payments",
     href: "/payments",
-    icon: DollarSign, // 💰
+    icon: DollarSign,
   },
 ];
 

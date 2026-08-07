@@ -181,3 +181,85 @@ export const getTravelerWalletCard = async (): Promise<TravelerWalletCardRespons
   );
   return response.data;
 };
+
+
+
+
+// --- Types ---
+export interface WalletSummary {
+  available_balance: string;
+  pending_balance: string;
+  total_spent: number;
+  total_refunded: number;
+  completed_transactions: number;
+}
+
+export interface Transaction {
+  id: string;
+  type: string;
+  transaction_type: string;
+  amount: string;
+  status: "COMPLETED" | "PENDING" | "FAILED" | "CANCELLED" | string;
+  status_display: string;
+  description: string;
+  balance_before: string;
+  balance_after: string;
+  created_at: string;
+  reference?: string | null;
+  booking_id?: string | null;
+  tracking_number?: string | null;
+  booking_tracking_number?: string | null;
+}
+
+export interface TransactionPaginatedResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: Transaction[];
+}
+
+export interface TopUpResponse {
+  success: boolean;
+  message: string;
+  data: {
+    checkout_url: string;
+    session_id: string;
+  };
+}
+
+// --- API Functions ---
+
+/** Fetch summary stats (balances, totals) */
+export const getWalletSummary = async (): Promise<WalletSummary> => {
+  const response = await axiosInstance.get<WalletSummary>("/api/sender/wallet/");
+  return response.data;
+};
+
+/** Fetch paginated transaction history */
+export const getWalletTransactions = async (
+  page: number = 1
+): Promise<TransactionPaginatedResponse> => {
+  const response = await axiosInstance.get<TransactionPaginatedResponse>(
+    `/api/sender/wallet/transactions/?page=${page}`
+  );
+  return response.data;
+};
+
+/** Fetch single transaction detail by ID */
+export const getTransactionDetail = async (
+  id: string
+): Promise<Transaction> => {
+  const response = await axiosInstance.get<Transaction>(
+    `/api/sender/wallet/transactions/${id}/`
+  );
+  return response.data;
+};
+
+/** Initiate Stripe top-up checkout */
+
+export const topUpWallet = async (amount: string): Promise<TopUpResponse> => {
+  const response = await axiosInstance.post<TopUpResponse>("/api/sender/wallet/topup/", {
+    amount: parseFloat(amount).toFixed(2), // Formats to "20.00"
+  });
+  return response.data;
+};
