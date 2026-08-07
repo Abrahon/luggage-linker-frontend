@@ -20,8 +20,6 @@ export type ReportStatus =
   | "REJECTED"
   | "ESCALATED";
 
-  
-
 export type ReportActionTaken =
   | "NONE"
   | "WARNING"
@@ -36,7 +34,7 @@ export interface EvidenceFile {
 
 export interface CreateReportPayload {
   reported_user: string;
-  booking: string;
+  booking?: string;
   reason: ReportReason;
   description: string;
   evidence_files?: File[];
@@ -68,22 +66,31 @@ export interface MyReportListItem {
 
 export interface ReportDetailData {
   id: string;
+  booking?: string;
   reason: ReportReason;
   description: string;
   status: ReportStatus;
+  is_valid?: boolean;
   action_taken: ReportActionTaken;
+  admin_notes?: string;
   reporter_name?: string;
   reported_user_name?: string;
   evidence_files: EvidenceFile[];
   created_at?: string;
+  resolved_at?: string;
 }
 
 export interface MyReportsResponse {
   success: boolean;
+  message?: string;
   count: number;
-  results: MyReportListItem[];
+  data?: MyReportListItem[];    // Backend returns 'data'
+  results?: MyReportListItem[]; // Fallback for standard Django REST frameworks
 }
 
+// ------------------------------------------
+// ADMIN TYPES (UNTOUCHED)
+// ------------------------------------------
 
 export interface AdminResolvePayload {
   status: "RESOLVED" | "REJECTED" | "ESCALATED";
@@ -107,7 +114,11 @@ export const createReport = async (
 ): Promise<ApiResponse<CreateReportResponseData>> => {
   const formData = new FormData();
   formData.append("reported_user", payload.reported_user);
-  formData.append("booking", payload.booking);
+  
+  if (payload.booking) {
+    formData.append("booking", payload.booking);
+  }
+  
   formData.append("reason", payload.reason);
   formData.append("description", payload.description);
 
@@ -148,6 +159,10 @@ export const getReportDetail = async (
   );
   return response.data;
 };
+
+// ------------------------------------------
+// ADMIN API METHODS (UNTOUCHED)
+// ------------------------------------------
 
 /**
  * 4. Admin Report List

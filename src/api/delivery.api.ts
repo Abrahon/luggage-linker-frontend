@@ -1,26 +1,45 @@
 import axiosInstance from "@/api/axios";
 
-
 // ----------------------------------------------------------------------
 // Delivery History Types
 // ----------------------------------------------------------------------
 
-export type DeliveryStatus = "COMPLETED" | "CANCELLED" | "REFUNDED" | "REJECTED" | "PENDING" | string;
-export type PaymentStatus = "PAID" | "UNPAID" | string;
+export type DeliveryStatus =
+  | "COMPLETED"
+  | "CANCELLED"
+  | "REFUNDED"
+  | "REJECTED"
+  | "PENDING"
+  | string;
+
+export type PaymentStatus =
+  | "PAID"
+  | "UNPAID"
+  | "PARTIAL_REFUND"
+  | "REFUNDED"
+  | string;
+
 export type EscrowStatus = "RELEASED" | "REFUNDED" | "NOT_FUNDED" | string;
 
 export interface DeliveryHistoryItem {
   id: string;
   tracking_number: string;
   package_title: string;
+  package_image: string | null;
+  traveler: string; // Traveler User UUID
   traveler_name: string;
   status: DeliveryStatus;
+  status_display: string;
   payment_status: PaymentStatus;
+  payment_status_display: string;
   escrow_status: EscrowStatus;
   currency: string;
   agreed_reward: string;
   completed_date: string;
-  package_image: string;
+  has_dispute: boolean;
+  dispute_id: string | null;
+  dispute_status: string | null;
+  dispute_status_display: string | null;
 }
 
 export interface DeliveryHistoryResponse {
@@ -43,7 +62,10 @@ export interface DeliveryStatsResponse {
   data: DeliveryStatsData;
 }
 
-// Exact API Structure matching backend response
+// ----------------------------------------------------------------------
+// Delivery Timeline Types
+// ----------------------------------------------------------------------
+
 export interface TimelineStepItem {
   title: string;
   status: string;
@@ -61,6 +83,9 @@ export interface DeliveryTimelineResponse {
 // API Requests
 // ----------------------------------------------------------------------
 
+/**
+ * Fetch paginated delivery history list with optional status filter and search query.
+ */
 export async function getDeliveryHistory(
   page: number = 1,
   status?: string,
@@ -77,6 +102,9 @@ export async function getDeliveryHistory(
   return response.data;
 }
 
+/**
+ * Fetch summary statistics for sender delivery history.
+ */
 export async function getDeliveryHistoryStats(): Promise<DeliveryStatsResponse> {
   const response = await axiosInstance.get<DeliveryStatsResponse>(
     "/api/sender/delivery-history/stats/"
@@ -84,7 +112,12 @@ export async function getDeliveryHistoryStats(): Promise<DeliveryStatsResponse> 
   return response.data;
 }
 
-export async function getDeliveryTimeline(bookingId: string): Promise<DeliveryTimelineResponse> {
+/**
+ * Fetch step-by-step progress timeline for a specific booking.
+ */
+export async function getDeliveryTimeline(
+  bookingId: string
+): Promise<DeliveryTimelineResponse> {
   const response = await axiosInstance.get<DeliveryTimelineResponse>(
     `/api/sender/bookings/${bookingId}/timeline/`
   );
