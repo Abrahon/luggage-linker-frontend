@@ -13,6 +13,12 @@ import {
 import { Loader2 } from "lucide-react";
 import { getUserGrowthData, MonthlyGrowthItem } from "@/api/user.api";
 
+// Static array for all 12 months
+const MONTH_NAMES = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+];
+
 export const UserGrowthChart = () => {
   const [data, setData] = useState<MonthlyGrowthItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -24,7 +30,7 @@ export const UserGrowthChart = () => {
       setErrorMessage(null);
       try {
         const growthData = await getUserGrowthData();
-        setData(growthData);
+        setData(growthData || []);
       } catch (error) {
         console.error("Error loading user growth data:", error);
         setErrorMessage("Failed to load growth data.");
@@ -36,18 +42,25 @@ export const UserGrowthChart = () => {
     loadGrowthData();
   }, []);
 
-  // Map backend fields to Recharts chart properties
-  const chartData = data.map((item) => ({
-    label: `${item.month_name} '${String(item.year).slice(-2)}`,
-    total_users: item.total_users,
-    active_users: item.active_users,
-  }));
+  // Map API response to always output all 12 static months
+  const chartData = MONTH_NAMES.map((month) => {
+    // Find matching item from API response (case-insensitive search)
+    const matchedItem = data.find(
+      (item) => item.month_name?.toLowerCase().startsWith(month.toLowerCase())
+    );
+
+    return {
+      label: month,
+      total_users: matchedItem ? matchedItem.total_users : 0,
+      active_users: matchedItem ? matchedItem.active_users : 0,
+    };
+  });
 
   return (
     <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-100">
       <h3 className="text-lg font-semibold text-gray-900 mb-6">User Growth</h3>
 
-      <div className="w-full h-64 relative flex items-center justify-center">
+      <div className="w-full h-72 relative flex items-center justify-center">
         {isLoading ? (
           <div className="flex items-center gap-2 text-gray-500 text-sm">
             <Loader2 className="animate-spin" size={20} />
@@ -55,18 +68,17 @@ export const UserGrowthChart = () => {
           </div>
         ) : errorMessage ? (
           <div className="text-red-500 text-sm">{errorMessage}</div>
-        ) : chartData.length === 0 ? (
-          <div className="text-gray-400 text-sm">No growth data available yet.</div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={chartData}
-              margin={{ top: 10, right: 10, left: 0, bottom: 20 }}
+              margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
             >
               <CartesianGrid strokeDasharray="4 4" stroke="#E5E7EB" />
 
               <XAxis
                 dataKey="label"
+                interval={0}
                 tickLine={false}
                 axisLine={false}
                 tick={{ fill: "#6B7280", fontSize: 12 }}

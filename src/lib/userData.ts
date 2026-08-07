@@ -92,11 +92,7 @@ export const senderLink = [
     href: "/sender-wallet", // 👈 Updated to match your new route
     icon: Wallet,
   },
-  {
-    label: "Disputes",
-    href: "/disputes",
-    icon: ShieldAlert,
-  },
+
   {
     label: "Payments",
     href: "/payments",
@@ -141,6 +137,11 @@ export const adminLink = [
     label: "Wallet",
     href: "/admin/wallet",
     icon: DollarSign, // 💰 wallet management
+  },
+  {
+    label: "Disputes Management",
+    href: "/admin/disputes",
+    icon: ShieldAlert,
   },
   {
     label: "Reports",
