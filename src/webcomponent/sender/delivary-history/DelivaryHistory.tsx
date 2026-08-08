@@ -22,6 +22,7 @@ import {
   Filter,
   User,
 } from "lucide-react";
+import { toast } from "sonner";
 
 // Import API Types & Functions
 import {
@@ -34,7 +35,8 @@ import {
 } from "@/api/delivery.api";
 
 // Import Custom Modals
-import { OpenDisputeModal, ViewDisputeModal } from "./DisputeModals";
+import { OpenDisputeModal } from "./DisputeModals";
+import { ViewDisputeModal } from "./ViewDisputeModal";
 import { ReportModal } from "./ReportModal";
 import { LeaveReviewModal } from "./ReviewModal";
 
@@ -51,7 +53,7 @@ export default function DeliveryHistoryPage() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
-  // Hover Dropdown State
+  // Action Dropdown State
   const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
 
   // Details & Timeline Modal States
@@ -69,6 +71,40 @@ export default function DeliveryHistoryPage() {
   // Report Modal States
   const [reportModalId, setReportModalId] = useState<string | null>(null);
   const [reportedUserId, setReportedUserId] = useState<string | undefined>(undefined);
+
+  // --- Helper: Check Dispute Eligibility ---
+  const checkDisputeEligibility = (item: DeliveryHistoryItem) => {
+    if (item.has_dispute) {
+      return { canOpen: false, canView: true, expired: false };
+    }
+
+    const upperStatus = item.status?.toUpperCase();
+    if (
+      upperStatus === "CANCELLED" ||
+      upperStatus === "REJECTED" ||
+      upperStatus === "EXPIRED" ||
+      upperStatus !== "COMPLETED"
+    ) {
+      return { canOpen: false, canView: false, expired: false };
+    }
+
+    const completionTimestamp =
+      (item as any).completed_at ||
+      (item as any).delivered_at ||
+      (item as any).updated_at;
+
+    if (completionTimestamp) {
+      const completedTime = new Date(completionTimestamp).getTime();
+      const currentTime = new Date().getTime();
+      const hoursPassed = (currentTime - completedTime) / (1000 * 60 * 60);
+
+      if (hoursPassed > 24) {
+        return { canOpen: false, canView: false, expired: true };
+      }
+    }
+
+    return { canOpen: true, canView: false, expired: false };
+  };
 
   // --- Fetch Main Data ---
   const fetchData = useCallback(async () => {
@@ -113,7 +149,7 @@ export default function DeliveryHistoryPage() {
   };
 
   return (
-    <div className="w-full bg-slate-50/50 text-slate-900 p-4 sm:p-6 lg:p-8 space-y-6">
+    <div className="w-full min-h-screen bg-slate-50/50 text-slate-900 p-4 sm:p-6 lg:p-8 space-y-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
       {/* --- Header --- */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
         <div>
@@ -178,7 +214,6 @@ export default function DeliveryHistoryPage() {
 
       {/* --- Search & Dropdown Filter Bar --- */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row gap-3 justify-between items-center">
-        {/* Search Box */}
         <div className="relative w-full sm:w-96">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -190,7 +225,6 @@ export default function DeliveryHistoryPage() {
           />
         </div>
 
-        {/* Status Select Filter Dropdown */}
         <div className="w-full sm:w-auto flex items-center gap-2">
           <Filter className="w-4 h-4 text-slate-400 shrink-0" />
           <select
@@ -211,7 +245,7 @@ export default function DeliveryHistoryPage() {
       </div>
 
       {/* --- Main Table Card --- */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
         {loading ? (
           <div className="py-20 text-center">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-3 border-indigo-600 border-t-transparent"></div>
@@ -229,7 +263,7 @@ export default function DeliveryHistoryPage() {
             <p className="text-xs text-slate-500 mt-1">There are no records matching your selected query.</p>
           </div>
         ) : (
-          <div className="w-full">
+          <div className="w-full overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             <table className="w-full text-left text-xs sm:text-sm">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
@@ -243,149 +277,170 @@ export default function DeliveryHistoryPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
-                {deliveries.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
-                    {/* Package Item */}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        {item.package_image ? (
-                          <img
-                            src={item.package_image}
-                            alt={item.package_title}
-                            className="w-11 h-11 rounded-xl object-cover border border-slate-200 shadow-2xs shrink-0"
-                          />
-                        ) : (
-                          <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 border border-slate-200/60 shrink-0">
-                            <Package className="w-5 h-5" />
+                {deliveries.map((item) => {
+                  const eligibility = checkDisputeEligibility(item);
+
+                  return (
+                    <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
+                      {/* Package Item */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          {item.package_image ? (
+                            <img
+                              src={item.package_image}
+                              alt={item.package_title}
+                              className="w-11 h-11 rounded-xl object-cover border border-slate-200 shadow-2xs shrink-0"
+                            />
+                          ) : (
+                            <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 border border-slate-200/60 shrink-0">
+                              <Package className="w-5 h-5" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-semibold text-slate-900">{item.package_title}</p>
+                            <p className="text-[11px] text-slate-400 font-mono mt-0.5">{item.tracking_number}</p>
                           </div>
-                        )}
-                        <div>
-                          <p className="font-semibold text-slate-900">{item.package_title}</p>
-                          <p className="text-[11px] text-slate-400 font-mono mt-0.5">{item.tracking_number}</p>
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Traveler */}
-                    <td className="px-6 py-4 text-slate-700">
-                      <span className="font-medium">{item.traveler_name}</span>
-                    </td>
+                      {/* Traveler */}
+                      <td className="px-6 py-4 text-slate-700">
+                        <span className="font-medium">{item.traveler_name}</span>
+                      </td>
 
-                    {/* Status */}
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                          item.status === "COMPLETED"
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
-                            : item.status === "CANCELLED"
-                            ? "bg-rose-50 text-rose-700 border border-rose-200/60"
-                            : "bg-amber-50 text-amber-700 border border-amber-200/60"
-                        }`}
-                      >
+                      {/* Status */}
+                      <td className="px-6 py-4">
                         <span
-                          className={`w-1.5 h-1.5 rounded-full ${
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
                             item.status === "COMPLETED"
-                              ? "bg-emerald-500"
-                              : item.status === "CANCELLED"
-                              ? "bg-rose-500"
-                              : "bg-amber-500"
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
+                              : item.status === "CANCELLED" || item.status === "REJECTED"
+                              ? "bg-rose-50 text-rose-700 border border-rose-200/60"
+                              : "bg-amber-50 text-amber-700 border border-amber-200/60"
                           }`}
-                        />
-                        {item.status_display || item.status}
-                      </span>
-                    </td>
-
-                    {/* Payment */}
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col">
-                        <span className="text-slate-800 font-semibold">{item.payment_status_display || item.payment_status}</span>
-                        <span className="text-[10px] text-slate-400 uppercase tracking-tight">
-                          Escrow: {item.escrow_status}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Reward */}
-                    <td className="px-6 py-4 font-bold text-slate-900">
-                      {item.currency} ${item.agreed_reward}
-                    </td>
-
-                    {/* Dispute status */}
-                    <td className="px-6 py-4">
-                      {item.has_dispute ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-full text-xs font-semibold">
-                          <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
-                          {item.dispute_status_display || "Disputed"}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 text-xs">—</span>
-                      )}
-                    </td>
-
-                    {/* --- Hover 3-Dot Dropdown Action --- */}
-                    <td className="px-6 py-4 text-center">
-                      <div
-                        className="relative inline-block text-left group"
-                        onMouseEnter={() => setHoveredRowId(item.id)}
-                        onMouseLeave={() => setHoveredRowId(null)}
-                      >
-                        <button
-                          type="button"
-                          className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors focus:outline-none cursor-pointer"
                         >
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              item.status === "COMPLETED"
+                                ? "bg-emerald-500"
+                                : item.status === "CANCELLED" || item.status === "REJECTED"
+                                ? "bg-rose-500"
+                                : "bg-amber-500"
+                            }`}
+                          />
+                          {item.status_display || item.status}
+                        </span>
+                      </td>
 
-                        {/* Action Dropdown Card */}
-                        {hoveredRowId === item.id && (
-                          <div className="absolute right-0 top-full -mt-1 w-52 bg-white rounded-2xl shadow-xl border border-slate-200/80 z-30 py-2 animate-in fade-in zoom-in-95 duration-100">
-                            {/* 1. View Details (With Timeline & Leave/Report inside) */}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setHoveredRowId(null);
-                                handleOpenDetails(item);
-                              }}
-                              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left cursor-pointer"
-                            >
-                              <Eye className="w-4 h-4 text-indigo-500" />
-                              View Details & Timeline
-                            </button>
+                      {/* Payment */}
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="text-slate-800 font-semibold">{item.payment_status_display || item.payment_status}</span>
+                          <span className="text-[10px] text-slate-400 uppercase tracking-tight">
+                            Escrow: {item.escrow_status}
+                          </span>
+                        </div>
+                      </td>
 
-                            <div className="my-1 border-t border-slate-100" />
+                      {/* Reward */}
+                      <td className="px-6 py-4 font-bold text-slate-900">
+                        {item.currency} ${item.agreed_reward}
+                      </td>
 
-                            {/* 2. Open / View Dispute */}
-                            {item.has_dispute ? (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setHoveredRowId(null);
-                                  setDisputeBookingView(item);
-                                }}
-                                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-amber-700 hover:bg-amber-50 transition-colors text-left cursor-pointer"
-                              >
-                                <ShieldAlert className="w-4 h-4 text-amber-600" />
-                                View Dispute Details
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setHoveredRowId(null);
-                                  setDisputeBookingOpen(item);
-                                }}
-                                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors text-left cursor-pointer"
-                              >
-                                <Flag className="w-4 h-4 text-rose-500" />
-                                Open Dispute
-                              </button>
-                            )}
-                          </div>
+                      {/* Dispute status */}
+                      <td className="px-6 py-4">
+                        {item.has_dispute ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-full text-xs font-semibold">
+                            <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
+                            {item.dispute_status_display || "Disputed"}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-xs">—</span>
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+
+                      {/* --- Action Dropdown Menu --- */}
+                      <td className="px-6 py-4 text-center">
+                        <div
+                          className="relative inline-block text-left group"
+                          onMouseEnter={() => setHoveredRowId(item.id)}
+                          onMouseLeave={() => setHoveredRowId(null)}
+                        >
+                          <button
+                            type="button"
+                            className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors focus:outline-none cursor-pointer"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+
+                          {hoveredRowId === item.id && (
+                            <div className="absolute right-0 top-full -mt-1 w-56 bg-white rounded-2xl shadow-xl border border-slate-200/80 z-30 py-2 animate-in fade-in zoom-in-95 duration-100">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setHoveredRowId(null);
+                                  handleOpenDetails(item);
+                                }}
+                                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left cursor-pointer"
+                              >
+                                <Eye className="w-4 h-4 text-indigo-500" />
+                                View Details & Timeline
+                              </button>
+
+                              {eligibility.canView ? (
+                                <>
+                                  <div className="my-1 border-t border-slate-100" />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setHoveredRowId(null);
+                                      setDisputeBookingView(item);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-amber-700 hover:bg-amber-50 transition-colors text-left cursor-pointer"
+                                  >
+                                    <ShieldAlert className="w-4 h-4 text-amber-600" />
+                                    View Dispute Details
+                                  </button>
+                                </>
+                              ) : eligibility.canOpen ? (
+                                <>
+                                  <div className="my-1 border-t border-slate-100" />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setHoveredRowId(null);
+                                      setDisputeBookingOpen(item);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors text-left cursor-pointer"
+                                  >
+                                    <Flag className="w-4 h-4 text-rose-500" />
+                                    Open Dispute
+                                  </button>
+                                </>
+                              ) : eligibility.expired ? (
+                                <>
+                                  <div className="my-1 border-t border-slate-100" />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      toast.error("Dispute window expired. Disputes must be opened within 24 hours of completion.");
+                                    }}
+                                    className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-slate-400 bg-slate-50 cursor-not-allowed opacity-80"
+                                  >
+                                    <span className="flex items-center gap-2">
+                                      <Clock className="w-4 h-4 text-slate-400" />
+                                      Dispute window expired
+                                    </span>
+                                  </button>
+                                </>
+                              ) : null}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -417,13 +472,10 @@ export default function DeliveryHistoryPage() {
         </div>
       </div>
 
-      {/* ========================================================================= */}
       {/* --- VIEW DETAILS & TIMELINE MODAL --- */}
-      {/* ========================================================================= */}
       {activeDetailItem && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4">
-            {/* Header */}
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 max-h-[90vh] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="font-extrabold text-slate-900 text-base">Delivery Details & Timeline</h3>
@@ -437,9 +489,7 @@ export default function DeliveryHistoryPage() {
               </button>
             </div>
 
-            {/* Container Body */}
             <div className="space-y-5">
-              {/* Package Summary Card */}
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/70 flex items-center gap-3">
                 {activeDetailItem.package_image ? (
                   <img
@@ -463,7 +513,6 @@ export default function DeliveryHistoryPage() {
                 </div>
               </div>
 
-              {/* Timeline Section */}
               <div className="space-y-3">
                 <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Tracking Progress</h4>
 
@@ -500,9 +549,7 @@ export default function DeliveryHistoryPage() {
               </div>
             </div>
 
-            {/* --- ACTION BUTTONS (Leave Review & Report Issue / View Report) --- */}
             <div className="border-t border-slate-100 pt-3 flex items-center justify-end gap-2.5">
-              {/* Leave Review Button */}
               <button
                 type="button"
                 onClick={() => {
@@ -515,7 +562,6 @@ export default function DeliveryHistoryPage() {
                 Leave Review
               </button>
 
-              {/* Dynamic Check for Existing Report */}
               {(activeDetailItem as Record<string, any>).has_report || (activeDetailItem as Record<string, any>).report_id ? (
                 <button
                   type="button"
@@ -548,7 +594,7 @@ export default function DeliveryHistoryPage() {
         </div>
       )}
 
-      {/* --- LEAVE / EDIT REVIEW MODAL --- */}
+      {/* --- LEAVE REVIEW MODAL --- */}
       {reviewBookingItem && (
         <LeaveReviewModal
           isOpen={!!reviewBookingItem}
@@ -585,27 +631,35 @@ export default function DeliveryHistoryPage() {
           isOpen={!!disputeBookingOpen}
           onClose={() => setDisputeBookingOpen(null)}
           bookingId={disputeBookingOpen.id}
+          packageTitle={disputeBookingOpen.package_title}
+          trackingNumber={disputeBookingOpen.tracking_number}
           againstUserId={disputeBookingOpen.traveler}
           agreedAmount={parseFloat(disputeBookingOpen.agreed_reward) || 0}
-          onDisputeCreated={fetchData}
+          onDisputeCreated={() => {
+            setDisputeBookingOpen(null);
+            fetchData();
+          }}
         />
       )}
 
-      {/* --- VIEW DISPUTE MODAL --- */}
+      {/* --- VIEW DISPUTE MODAL (FIXED DISPUTE ID PASSING) --- */}
       {disputeBookingView && (
         <ViewDisputeModal
           isOpen={!!disputeBookingView}
           onClose={() => setDisputeBookingView(null)}
           dispute={{
-            id: disputeBookingView.id,
-            booking: disputeBookingView.id,
+            id: (disputeBookingView as any).dispute_id || disputeBookingView.id, // Uses actual dispute_id ("3d8207d5-3be5-4963-82a5-ed1f84c499ee")
+            booking: disputeBookingView.id, // Keeps Booking ID ("df612b9b-179a-4a99-8c2f-7cd031673afa")
             status: disputeBookingView.dispute_status_display || "PENDING",
             disputed_amount: parseFloat(disputeBookingView.agreed_reward) || 0,
             reason: "DAMAGED",
             description: "Dispute opened for this shipment.",
             evidence: [],
           } as any}
-          onEvidenceUploaded={fetchData}
+          onEvidenceUploaded={() => {
+            setDisputeBookingView(null);
+            fetchData();
+          }}
         />
       )}
     </div>

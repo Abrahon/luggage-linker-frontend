@@ -96,6 +96,12 @@ export const senderLink = [
     href: "/sender-wallet", // 👈 Updated to match your new route
     icon: Wallet,
   },
+  {
+    label: "Disputes History",
+    href: "/sender-disputes", // 👈 Updated to match your new route
+    icon: ShieldAlert,
+  },
+
 
   {
     label: "Payments",

@@ -35,7 +35,7 @@ export interface DisputeMessage {
 }
 
 export interface DisputeItem {
-  id: string;
+  id: string; // <-- DISPUTE ID (e.g., "1b61d506-b348-4b34-a464-6ea2d0fa607d")
   booking: string | { tracking_number?: string; package_details?: string; [key: string]: any };
   opened_by: DisputeUser;
   against_user: DisputeUser;
@@ -57,18 +57,12 @@ export interface DisputeItem {
 }
 
 export interface CreateDisputePayload {
-  booking_id: string;
+  booking: string;       // Booking ID required by backend serializer
+  booking_id?: string;   // Fallback key
   against_user: string;
   reason: string;
   description: string;
   disputed_amount: number;
-}
-
-export interface CreateDisputeResponse {
-  success?: boolean;
-  data?: DisputeItem;
-  id?: string;
-  [key: string]: any;
 }
 
 // ==============================================================================
@@ -76,28 +70,34 @@ export interface CreateDisputeResponse {
 // ==============================================================================
 
 /** 1. Fetch all disputes for the logged-in user */
-export const getMyDisputes = async (): Promise<{ count: number; next: string | null; previous: string | null; results: DisputeItem[] }> => {
+export const getMyDisputes = async (): Promise<{
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: DisputeItem[];
+}> => {
   const response = await axiosInstance.get("/api/disputes/");
   return response.data;
 };
 
-/** 2. Open a new dispute claim */
+/** 2. Open a new dispute claim (Returns the created Dispute object containing `id`) */
 export const createDispute = async (
   payload: CreateDisputePayload
-): Promise<CreateDisputeResponse> => {
+): Promise<DisputeItem> => {
   const response = await axiosInstance.post("/api/disputes/", payload);
   return response.data;
 };
 
-/** 3. Upload evidence file attachment */
+/** 3. Upload evidence using the created DISPUTE ID -> /api/disputes/{disputeId}/evidence/ */
 export const uploadDisputeEvidence = async (
-  disputeId: string,
-  fileAttachment: File,
+  disputeId: string, // MUST BE DISPUTE ID
+  file: File,
   evidenceType: string,
   description: string
 ): Promise<DisputeEvidence> => {
   const formData = new FormData();
-  formData.append("file_attachment", fileAttachment);
+
+  formData.append("file_attachment", file);
   formData.append("evidence_type", evidenceType);
   formData.append("description", description);
 
@@ -113,7 +113,7 @@ export const uploadDisputeEvidence = async (
   return response.data;
 };
 
-/** 4. Post message into dispute modal chat (posts to /api/disputes/{id}/message/) */
+/** 4. Post message into dispute chat */
 export const sendDisputeMessage = async (
   disputeId: string,
   messageText: string
