@@ -27,21 +27,21 @@ export const metadata: Metadata = {
   },
 };
 
+
+
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
-      <body
-        className={`${montserrat.variable} ${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body>
         <AuthProvider>
           {children}
         </AuthProvider>
-        <Toaster position="top-center" richColors />
       </body>
     </html>
   );
 }
+

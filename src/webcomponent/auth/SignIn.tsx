@@ -7,13 +7,14 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
-import { login } from "@/lib/api";
+import { login as apiLogin } from "@/lib/api";
 import { toast } from "sonner";
 import { setAccessToken, setRefreshToken } from "@/lib/token";
 import { setUserRole } from "@/lib/auth";
 import { useRouter } from "next/navigation";
+import { useAuth, User } from "@/context/AuthContext"; // Adjust import path if needed
 
-// 1️⃣ Zod validation
+// Zod validation
 const signInSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
@@ -24,6 +25,8 @@ type SignInFormData = z.infer<typeof signInSchema>;
 export const SignIn = () => {
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
+  const { login: authLogin } = useAuth();
+
   const {
     register,
     handleSubmit,
@@ -34,40 +37,67 @@ export const SignIn = () => {
 
   const onSubmit = async (data: SignInFormData) => {
     try {
-      const response = await login<{
+      const response = await apiLogin<{
         role?: string;
-        user?: { role?: string };
+        user?: {
+          id?: string;
+          email?: string;
+          name?: string;
+          first_name?: string;
+          last_name?: string;
+          role?: string;
+          profile_picture?: string;
+        };
         token?: { access?: string; refresh?: string };
       }>(data.email, data.password);
 
       const accessToken = response.token?.access;
       const refreshToken = response.token?.refresh;
-      if (accessToken) {
-        setAccessToken(accessToken);
-      }
-      if (refreshToken) {
-        setRefreshToken(refreshToken);
-      }
 
-      const role = response.role ?? response.user?.role;
-      if (!role) {
+      if (accessToken) setAccessToken(accessToken);
+      if (refreshToken) setRefreshToken(refreshToken);
+
+      const rawRole = response.role ?? response.user?.role;
+      if (!rawRole) {
         throw new Error("Login succeeded, but role data is missing.");
       }
 
-      setUserRole(role);
-      const normalizedRole = role.toLowerCase();
+      setUserRole(rawRole);
+      const normalizedRole = rawRole.toLowerCase();
 
+      // Normalize role string for Auth Context
+      let mappedRole: "SENDER" | "TRAVELER" | "ADMIN" = "SENDER";
+      if (normalizedRole === "admin") mappedRole = "ADMIN";
+      else if (
+        normalizedRole === "traveler" ||
+        normalizedRole === "traveller" ||
+        normalizedRole === "carrier"
+      ) {
+        mappedRole = "TRAVELER";
+      }
+
+      // Build User object and pass to AuthContext
+      const userPayload: User = {
+        id: response.user?.id || "user-id",
+        email: response.user?.email || data.email,
+        name:
+          response.user?.name ||
+          `${response.user?.first_name || ""} ${response.user?.last_name || ""}`.trim() ||
+          data.email.split("@")[0],
+        role: mappedRole,
+        profile_picture: response.user?.profile_picture,
+      };
+
+      authLogin(accessToken || "", userPayload);
+
+      // Navigate based on role
       if (normalizedRole === "admin") {
         router.push("/admin");
-      } else if (normalizedRole === "sender") {
-        router.push("/dashboard");
-      } else if (normalizedRole === "traveler" || normalizedRole === "traveller" || normalizedRole === "carrier") {
-        router.push("/dashboard");
       } else {
         router.push("/dashboard");
       }
 
-      toast.success(`Login successful! Role: ${role}`);
+      toast.success(`Login successful! Role: ${rawRole}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Login failed.";
       toast.error(message);

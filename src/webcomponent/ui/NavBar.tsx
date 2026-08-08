@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
@@ -40,41 +40,74 @@ import { useProfile } from "@/hooks/useProfile";
 import { stringToColor } from "@/lib/stringToColor";
 
 /* ==========================================================================
+   Helper Functions
+   ========================================================================== */
+const getProfilePictureUrl = (
+  url: string | null | undefined
+): string | null => {
+  if (!url) return null;
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+  return `${baseUrl}${url}`;
+};
+
+/**
+ * Synchronous client-side check for stored auth indicators.
+ */
+const checkHasStoredAuth = (): boolean => {
+  if (typeof window === "undefined") return false;
+
+  const role = getUserRole();
+  const hasLocalStorageToken =
+    !!localStorage.getItem("access_token") ||
+    !!localStorage.getItem("token") ||
+    !!localStorage.getItem("user") ||
+    !!localStorage.getItem("role");
+
+  const hasCookieToken = document.cookie.split(";").some((c) => {
+    const key = c.trim().split("=")[0];
+    return (
+      key === "access_token" ||
+      key === "token" ||
+      key === "jwt" ||
+      key === "session"
+    );
+  });
+
+  return !!role || hasLocalStorageToken || hasCookieToken;
+};
+
+/* ==========================================================================
    1. PUBLIC NAVBAR (Landing Page / Home Page)
    ========================================================================== */
 export const Navbar = () => {
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [hasClientToken, setHasClientToken] = useState<boolean>(false);
+  const { profile } = useProfile();
 
-  // Helper function to verify token or user role state
-  const checkAuth = useCallback(() => {
-    if (typeof window !== "undefined") {
-      // Check via your auth utility first, then fallback to storage/cookies
-      const role = getUserRole();
-      const token =
-        localStorage.getItem("access_token") ||
-        localStorage.getItem("token") ||
-        document.cookie.includes("access_token") ||
-        document.cookie.includes("token");
-
-      setIsAuthenticated(!!role || !!token);
-    }
+  // Check stored auth state immediately on client mount and route changes
+  const updateAuth = useCallback(() => {
+    setHasClientToken(checkHasStoredAuth());
   }, []);
 
-  // Re-verify auth on mount and path changes
   useEffect(() => {
-    checkAuth();
+    updateAuth();
 
-    window.addEventListener("storage", checkAuth);
-    window.addEventListener("focus", checkAuth);
+    window.addEventListener("storage", updateAuth);
+    window.addEventListener("focus", updateAuth);
 
     return () => {
-      window.removeEventListener("storage", checkAuth);
-      window.removeEventListener("focus", checkAuth);
+      window.removeEventListener("storage", updateAuth);
+      window.removeEventListener("focus", updateAuth);
     };
-  }, [pathname, checkAuth]);
+  }, [pathname, updateAuth]);
+
+  // Derived authentication state: True if user profile exists OR stored token/role exists
+  const isAuthenticated = useMemo(() => {
+    return !!profile || hasClientToken;
+  }, [profile, hasClientToken]);
 
   const handleContactClick = () => {
     router.push("/contact-us");
@@ -87,10 +120,15 @@ export const Navbar = () => {
   };
 
   const handleLogout = () => {
-    logout(); // Uses centralized logout function from @/lib/auth
-    setIsAuthenticated(false);
+    logout(); // Centralized logout logic
+    setHasClientToken(false);
     setOpen(false);
   };
+
+  const resolvedPictureUrl = getProfilePictureUrl(profile?.profile_picture);
+  const displayName = profile
+    ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "User"
+    : "";
 
   return (
     <nav className="fixed top-0 left-0 w-full z-40 h-20 backdrop-blur-[30px] bg-white/10 border-b border-white/10 font-montserrat">
@@ -134,9 +172,42 @@ export const Navbar = () => {
               <Button onClick={() => router.push("/choose-user")}>Signup</Button>
             </>
           ) : (
-            <Button variant="destructive" onClick={handleLogout}>
-              Logout
-            </Button>
+            <div className="flex items-center gap-4">
+              <Link
+                href="/profile"
+                className="flex items-center gap-2.5 text-white hover:text-yellow-300 transition-colors"
+              >
+                <div className="relative overflow-hidden w-9 h-9 rounded-full flex items-center justify-center border border-white/30 shrink-0">
+                  {resolvedPictureUrl ? (
+                    <Image
+                      src={resolvedPictureUrl}
+                      alt={`${displayName}'s profile`}
+                      fill
+                      className="object-cover rounded-full"
+                      unoptimized
+                    />
+                  ) : profile?.first_name ? (
+                    <div
+                      className="w-full h-full flex items-center justify-center text-white text-xs font-semibold rounded-full"
+                      style={{
+                        backgroundColor: stringToColor(profile.first_name),
+                      }}
+                    >
+                      {profile.first_name[0].toUpperCase()}
+                    </div>
+                  ) : (
+                    <User className="w-5 h-5 text-white" />
+                  )}
+                </div>
+                <span className="font-medium text-sm max-w-[140px] truncate">
+                  {displayName || "Profile"}
+                </span>
+              </Link>
+
+              <Button variant="destructive" onClick={handleLogout}>
+                Logout
+              </Button>
+            </div>
           )}
         </div>
 
@@ -158,6 +229,40 @@ export const Navbar = () => {
                   className="w-auto h-10"
                 />
               </div>
+
+              {isAuthenticated && (
+                <Link
+                  href="/profile"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 text-white hover:text-yellow-300 transition-colors py-2 mb-2 border-b border-white/10"
+                >
+                  <div className="relative overflow-hidden w-10 h-10 rounded-full flex items-center justify-center border border-white/30 shrink-0">
+                    {resolvedPictureUrl ? (
+                      <Image
+                        src={resolvedPictureUrl}
+                        alt={`${displayName}'s profile`}
+                        fill
+                        className="object-cover rounded-full"
+                        unoptimized
+                      />
+                    ) : profile?.first_name ? (
+                      <div
+                        className="w-full h-full flex items-center justify-center text-white text-sm font-semibold rounded-full"
+                        style={{
+                          backgroundColor: stringToColor(profile.first_name),
+                        }}
+                      >
+                        {profile.first_name[0].toUpperCase()}
+                      </div>
+                    ) : (
+                      <User className="w-5 h-5 text-white" />
+                    )}
+                  </div>
+                  <span className="font-medium text-base truncate">
+                    {displayName || "Profile"}
+                  </span>
+                </Link>
+              )}
 
               <div className="flex flex-col gap-4 text-lg">
                 <button
@@ -329,15 +434,6 @@ export const NavBar = () => {
       setNotificationsOpen(false);
       router.push(actionUrl);
     }
-  };
-
-  const getProfilePictureUrl = (
-    url: string | null | undefined
-  ): string | null => {
-    if (!url) return null;
-    if (url.startsWith("http://") || url.startsWith("https://")) return url;
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
-    return `${baseUrl}${url}`;
   };
 
   const resolvedPictureUrl = getProfilePictureUrl(profile?.profile_picture);
