@@ -1,5 +1,9 @@
 import axiosInstance from "@/api/axios";
 
+// ==============================================================================
+// TYPES & INTERFACES
+// ==============================================================================
+
 export interface DisputeUser {
   id: string;
   email: string;
@@ -13,31 +17,42 @@ export interface DisputeEvidence {
   uploaded_by: string;
   uploaded_by_email: string;
   file_url: string;
-  evidence_type: string;
+  evidence_type: "IMAGE" | "DAMAGE_PHOTO" | "RECEIPT" | "CHAT_LOG" | "OTHER" | string;
   evidence_type_display: string;
   description: string;
   created_at: string;
 }
 
+export interface DisputeMessage {
+  id: string;
+  dispute: string;
+  sender: string;
+  sender_email: string;
+  message_text: string;
+  is_admin_note: boolean;
+  is_read: boolean;
+  created_at: string;
+}
+
 export interface DisputeItem {
   id: string;
-  booking: string; // Booking UUID
+  booking: string | { tracking_number?: string; package_details?: string; [key: string]: any };
   opened_by: DisputeUser;
   against_user: DisputeUser;
   assigned_admin?: DisputeUser | null;
-  reason: string;
-  reason_display: string;
+  reason: "DAMAGED" | "LOST_PACKAGE" | "ITEM_MISSING" | "NO_SHOW" | "DELAYED_DELIVERY" | "OTHER" | string;
+  reason_display?: string;
   description: string;
   disputed_amount: string | number;
-  status: "OPEN" | "UNDER_REVIEW" | "RESOLVED" | "REJECTED" | string;
-  status_display: string;
-  resolution?: string | null;
+  status: "OPEN" | "UNDER_REVIEW" | "WAITING_FOR_USER" | "RESOLVED" | "REJECTED" | "CLOSED" | string;
+  status_display?: string;
+  resolution?: "FULL_REFUND" | "PARTIAL_REFUND" | "RELEASE_PAYMENT" | "NO_ACTION" | null | string;
   resolution_display?: string | null;
-  is_reopened: boolean;
-  messages: any[];
+  is_reopened?: boolean;
+  messages: DisputeMessage[];
   evidence: DisputeEvidence[];
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
   resolved_at?: string | null;
 }
 
@@ -56,13 +71,17 @@ export interface CreateDisputeResponse {
   [key: string]: any;
 }
 
-// 1. Fetch User Disputes
-export const getMyDisputes = async (): Promise<{ results: DisputeItem[] }> => {
+// ==============================================================================
+// API CALLS
+// ==============================================================================
+
+/** 1. Fetch all disputes for the logged-in user */
+export const getMyDisputes = async (): Promise<{ count: number; next: string | null; previous: string | null; results: DisputeItem[] }> => {
   const response = await axiosInstance.get("/api/disputes/");
   return response.data;
 };
 
-// 2. Create a Dispute
+/** 2. Open a new dispute claim */
 export const createDispute = async (
   payload: CreateDisputePayload
 ): Promise<CreateDisputeResponse> => {
@@ -70,7 +89,7 @@ export const createDispute = async (
   return response.data;
 };
 
-// 3. Upload Dispute Evidence
+/** 3. Upload evidence file attachment */
 export const uploadDisputeEvidence = async (
   disputeId: string,
   fileAttachment: File,
@@ -82,7 +101,6 @@ export const uploadDisputeEvidence = async (
   formData.append("evidence_type", evidenceType);
   formData.append("description", description);
 
-  // Note: Axios automatically sets the multipart boundary header when passing FormData
   const response = await axiosInstance.post(
     `/api/disputes/${disputeId}/evidence/`,
     formData,
@@ -91,6 +109,18 @@ export const uploadDisputeEvidence = async (
         "Content-Type": "multipart/form-data",
       },
     }
+  );
+  return response.data;
+};
+
+/** 4. Post message into dispute modal chat (posts to /api/disputes/{id}/message/) */
+export const sendDisputeMessage = async (
+  disputeId: string,
+  messageText: string
+): Promise<DisputeMessage> => {
+  const response = await axiosInstance.post(
+    `/api/disputes/${disputeId}/message/`,
+    { message_text: messageText }
   );
   return response.data;
 };

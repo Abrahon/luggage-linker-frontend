@@ -1,4 +1,3 @@
-
 import {
   Plane,
   Package,
@@ -40,6 +39,11 @@ export const carrierLink = [
     icon: XCircle, // ❌ canceled deliveries/trips
   },
   {
+    label: "Disputes",
+    href: "/disputes",
+    icon: ShieldAlert, // 🛡️ dispute / claim alert icon
+  },
+  {
     label: "Earnings",
     href: "/earnings",
     icon: DollarSign, // 💰 earnings
@@ -47,7 +51,7 @@ export const carrierLink = [
   {
     label: "Wallet",
     href: "/wallet",
-    icon: DollarSign, // 💰 earnings
+    icon: Wallet, // 👛 wallet (switched from DollarSign for better clarity)
   },
   {
     label: "Withdrawal History",
@@ -55,10 +59,10 @@ export const carrierLink = [
     icon: Receipt, // 🧾 withdrawal history / receipts
   },
   {
-    label:'Verification',
-    href:'/verification',
-    icon: UserCog
-  }
+    label: "Verification",
+    href: "/verification",
+    icon: UserCog,
+  },
 ];
 
 export const senderLink = [
