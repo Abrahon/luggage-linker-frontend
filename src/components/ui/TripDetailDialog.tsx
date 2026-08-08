@@ -7,10 +7,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Calendar, Weight, DollarSign, MapPin, Plane, AlertCircle, Badge } from "lucide-react";
-import { BackendTrip,getPublicTripsApi } from "@/api/trip.api";
+import { Loader2, Calendar, Weight, DollarSign, MapPin, Plane, AlertCircle } from "lucide-react";
+import { BackendTrip, getTripDetailApi } from "@/api/trip.api";
 
 interface TripDetailDialogProps {
   tripId: string | null;

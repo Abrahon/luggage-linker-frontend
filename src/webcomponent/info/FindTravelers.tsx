@@ -1,21 +1,27 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Calendar, ArrowUpDown, Plane, Loader2, CheckCircle2, Star } from "lucide-react";
+import { Calendar, ArrowUpDown, Plane, Loader2, CheckCircle2, Star, AlertTriangle, PackagePlus, Clock } from "lucide-react";
 import { HeadingSection } from "@/webcomponent/reusable/HeadingSection";
-import { BackendTrip,getPublicTripsApi } from "@/api/trip.api";
+import { BackendTrip, getPublicTripsApi } from "@/api/trip.api";
 import { TripDetailDialog } from "@/components/ui/TripDetailDialog";
 import { SendRequestDialog } from "../sender/find-travellers/SendRequestDialog";
 
+// Auth context & your actual package API
+import { useAuth } from "@/context/AuthContext";
+import { getMyPackages, APIPackageItem } from "@/api/sender.package.api"; 
 
 const airports = [
   { city: "Dhaka", airport: "Hazrat Shahjalal" },
@@ -30,18 +36,29 @@ const airports = [
   { city: "Paris", airport: "Charles de Gaulle" },
 ];
 
-export const PublicTrip = () => {
+export const FindTravelers = () => {
+  const router = useRouter();
+  const { user } = useAuth();
+
   const [trips, setTrips] = useState<BackendTrip[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [actionLoading, setActionLoading] = useState<boolean>(false);
 
-  // Dialog Controls
+  // Dialog Controls for Trips
   const [selectedTripForDetail, setSelectedTripForDetail] = useState<string | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState<boolean>(false);
 
   const [selectedTripForRequest, setSelectedTripForRequest] = useState<BackendTrip | null>(null);
   const [requestDialogOpen, setRequestDialogOpen] = useState<boolean>(false);
 
-  // Inputs
+  // Status Modals Logic
+  const [showCreatePackageModal, setShowCreatePackageModal] = useState<boolean>(false);
+  const [showPackageStatusModal, setShowPackageStatusModal] = useState<boolean>(false);
+  const [showRejectedPackageModal, setShowRejectedPackageModal] = useState<boolean>(false);
+  const [bookingMessage, setBookingMessage] = useState<string>("");
+  const [selectedPackage, setSelectedPackage] = useState<APIPackageItem | null>(null);
+
+  // Search Inputs
   const [fromInput, setFromInput] = useState("");
   const [fromCity, setFromCity] = useState("");
   const [fromAirport, setFromAirport] = useState("");
@@ -73,6 +90,69 @@ export const PublicTrip = () => {
   useEffect(() => {
     fetchTrips();
   }, [fetchTrips]);
+
+  // Handle Flow Execution matching your Django Backend Schema
+  const handleBookingRequest = async (trip: BackendTrip) => {
+    // 1. Authenticate user check
+    if (!user) {
+      router.push(`/login?redirectTo=/find-travelers&action=booking_request`);
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+
+      // 2. Fetch Sender Packages using your API
+      const packages: APIPackageItem[] = await getMyPackages();
+
+      // Check for active verified / published package
+      const readyPackage = packages.find(
+        (pkg) =>
+          pkg.status === "PUBLISHED" ||
+          pkg.verification_status === "VERIFIED" ||
+          pkg.verification_status === "AUTO_APPROVED"
+      );
+
+      if (readyPackage) {
+        setSelectedTripForRequest(trip);
+        setRequestDialogOpen(true);
+        return;
+      }
+
+      // Check for package pending verification or manual review
+      const pendingPackage = packages.find(
+        (pkg) =>
+          pkg.verification_status === "PENDING" ||
+          pkg.verification_status === "MANUAL_REVIEW"
+      );
+
+      if (pendingPackage) {
+        setBookingMessage(
+          "Your package is currently under review. You can send a booking request once it has been verified by our team."
+        );
+        setShowPackageStatusModal(true);
+        return;
+      }
+
+      // Check for rejected package
+      const rejectedPackage = packages.find(
+        (pkg) => pkg.verification_status === "REJECTED"
+      );
+
+      if (rejectedPackage) {
+        setSelectedPackage(rejectedPackage);
+        setShowRejectedPackageModal(true);
+        return;
+      }
+
+      // If user has no package created yet
+      setShowCreatePackageModal(true);
+    } catch (error) {
+      console.error("Failed to check user packages:", error);
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   const getFilteredAirports = (input: string) => {
     if (!input) return airports;
@@ -116,20 +196,15 @@ export const PublicTrip = () => {
     setDetailDialogOpen(true);
   };
 
-  const handleOpenBookingRequest = (trip: BackendTrip) => {
-    setSelectedTripForRequest(trip);
-    setRequestDialogOpen(true);
-  };
-
   return (
-    <div className="flex flex-col gap-8 py-16 md:px-6 px-4">
+    <div className="w-full flex flex-col gap-8 py-10 md:px-8 px-4 font-montserrat">
       <HeadingSection
         heading="Find Public Trips"
         subheading="Search available travelers and request luggage carry services."
       />
 
       {/* Filter Section */}
-      <div className="w-full max-w-5xl border rounded-2xl shadow-sm hover:shadow-md transition-shadow bg-white p-6 mx-auto">
+      <div className="w-full border rounded-2xl shadow-sm hover:shadow-md transition-shadow bg-white p-6">
         <div className="flex flex-col md:flex-row items-end gap-4">
           <div className="flex-1 w-full relative">
             <Label className="text-sm font-semibold mb-2 block">From</Label>
@@ -243,7 +318,7 @@ export const PublicTrip = () => {
 
         <div className="flex justify-center mt-6">
           <Button
-            className="font-semibold px-16 py-6 text-lg bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl"
+            className="font-semibold px-16 py-6 text-lg bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl cursor-pointer"
             onClick={fetchTrips}
           >
             Search
@@ -252,7 +327,7 @@ export const PublicTrip = () => {
       </div>
 
       {/* Trips Result List */}
-      <div className="max-w-6xl mx-auto w-full">
+      <div className="w-full">
         <HeadingSection heading="Available Trips" />
 
         {loading ? (
@@ -265,27 +340,27 @@ export const PublicTrip = () => {
             <p className="text-gray-500 font-semibold">No active public trips found.</p>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 my-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 my-6">
             {trips.map((trip) => (
               <div
                 key={trip.id}
-                className="border rounded-2xl shadow-sm hover:shadow-md transition-shadow bg-white flex flex-col justify-between p-5 font-montserrat"
+                className="border rounded-2xl shadow-sm hover:shadow-md transition-shadow bg-white flex flex-col justify-between p-5"
               >
                 <div className="flex justify-between items-center border-b pb-3 mb-3">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-gray-800">
+                    <span className="font-bold text-gray-800 text-sm truncate max-w-[150px]">
                       👤 {trip.traveler_email || "Verified Traveler"}
                     </span>
-                    <CheckCircle2 className="w-4 h-4 text-blue-500" />
+                    <CheckCircle2 className="w-4 h-4 text-blue-500 shrink-0" />
                   </div>
-                  <div className="flex items-center gap-1 text-sm font-semibold text-yellow-500">
+                  <div className="flex items-center gap-1 text-sm font-semibold text-yellow-500 shrink-0">
                     <Star className="w-4 h-4 fill-yellow-500" />
                     <span>4.9</span>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 mb-3">
-                  <Plane className="w-4 h-4 text-yellow-500" />
+                  <Plane className="w-4 h-4 text-yellow-500 shrink-0" />
                   <h4 className="font-bold text-slate-800 truncate">{trip.title}</h4>
                 </div>
 
@@ -325,10 +400,11 @@ export const PublicTrip = () => {
                     View Details
                   </Button>
                   <Button
+                    disabled={actionLoading}
                     className="font-semibold text-xs bg-yellow-500 hover:bg-yellow-600 text-white"
-                    onClick={() => handleOpenBookingRequest(trip)}
+                    onClick={() => handleBookingRequest(trip)}
                   >
-                    Request Booking
+                    {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Request Booking"}
                   </Button>
                 </div>
               </div>
@@ -337,16 +413,15 @@ export const PublicTrip = () => {
         )}
       </div>
 
+      {/* Details Dialog */}
       <TripDetailDialog
         tripId={selectedTripForDetail}
         open={detailDialogOpen}
         onOpenChange={setDetailDialogOpen}
-        onRequestBooking={(trip) => {
-          setSelectedTripForRequest(trip);
-          setRequestDialogOpen(true);
-        }}
+        onRequestBooking={(trip) => handleBookingRequest(trip)}
       />
 
+      {/* Booking Form Dialog */}
       <Dialog open={requestDialogOpen} onOpenChange={setRequestDialogOpen}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
@@ -358,6 +433,93 @@ export const PublicTrip = () => {
           />
         </DialogContent>
       </Dialog>
+
+      {/* ---------------- MODALS FOR PACKAGE STATUSES ---------------- */}
+
+      {/* 1. Create Package Modal (No Package Found) */}
+      <Dialog open={showCreatePackageModal} onOpenChange={setShowCreatePackageModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <PackagePlus className="w-5 h-5 text-yellow-500" />
+              Package Required
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-600 pt-3 leading-relaxed">
+              You need to create a package before requesting this trip.
+              <br /><br />
+              Your package must be verified and published by our team first.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-end gap-3 pt-4">
+            <Button variant="outline" onClick={() => setShowCreatePackageModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold"
+              onClick={() => {
+                setShowCreatePackageModal(false);
+                router.push("/package-list");
+              }}
+            >
+              Create Package
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 2. Pending Verification Modal */}
+      <Dialog open={showPackageStatusModal} onOpenChange={setShowPackageStatusModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2 text-amber-600">
+              <Clock className="w-5 h-5" />
+              Package Under Review
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-600 pt-3 leading-relaxed">
+              {bookingMessage}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-end pt-4">
+            <Button
+              className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold"
+              onClick={() => setShowPackageStatusModal(false)}
+            >
+              Got it
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 3. Rejected Package Modal */}
+      <Dialog open={showRejectedPackageModal} onOpenChange={setShowRejectedPackageModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2 text-red-600">
+              <AlertTriangle className="w-5 h-5" />
+              Package Rejected
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-600 pt-3 leading-relaxed">
+              Your existing package was rejected during review. Please resolve any issues on your package before attempting to book a trip.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-end gap-3 pt-4">
+            <Button variant="outline" onClick={() => setShowRejectedPackageModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold"
+              onClick={() => {
+                setShowRejectedPackageModal(false);
+                router.push("/package-list");
+              }}
+            >
+              Fix Package
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
+
+export default FindTravelers;

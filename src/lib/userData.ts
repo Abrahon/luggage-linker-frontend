@@ -102,7 +102,6 @@ export const senderLink = [
     icon: ShieldAlert,
   },
 
-
   {
     label: "Payments",
     href: "/payments",
