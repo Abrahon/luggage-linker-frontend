@@ -225,8 +225,8 @@ export const uploadPackageImage = async (
   formData.append("image", imageFile);
   formData.append("is_primary", String(isPrimary));
 
-  // ✅ Changed from .post to .patch
-  const response = await axiosInstance.patch(
+  // ✅ Used .post method to match backend requirements and avoid 405 Method Not Allowed
+  const response = await axiosInstance.post(
     `/api/package/${packageId}/images/`,
     formData,
     {
@@ -279,10 +279,7 @@ export const getPackageImages = async (
   return [];
 };
 
-/**
- * 8. DELETE /api/package/images/{image_id}/
- * Remove individual package image
- */
+
 /**
  * Deletes a package image by its ID.
  */

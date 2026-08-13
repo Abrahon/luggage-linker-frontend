@@ -403,4 +403,51 @@ export async function getSenderDashboardStats(): Promise<SenderDashboardStatsRes
   return response.data;
 }
 
+// Add these types to booking.api.ts
+export interface PublicTripBookingPayload {
+  trip_id: string;
+  package_id: string;
+}
+
+export interface PublicTripBookingResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    id: string;
+    tracking_number: string;
+    status: string;
+  };
+}
+
+export interface SenderPackage {
+  id: string;
+  title: string;
+  weight_kg: number | string;
+  status: "DRAFT" | "PENDING_REVIEW" | "PUBLISHED" | "REJECTED";
+  from_city: string;
+  from_country: string;
+  to_city: string;
+  to_country: string;
+  image_url?: string | null;
+}
+
+// Add these functions inside or alongside bookingApi
+export const requestPublicTripBooking = async (
+  payload: PublicTripBookingPayload
+): Promise<PublicTripBookingResponse> => {
+  const response = await axiosInstance.post<PublicTripBookingResponse>(
+    "/api/bookings/public-trip-request/",
+    payload
+  );
+  return response.data;
+};
+
+export const getMyPackagesApi = async (): Promise<SenderPackage[]> => {
+  const response = await axiosInstance.get("/api/my/package/");
+  const rawData = response.data;
+  if (rawData && Array.isArray(rawData.data)) return rawData.data;
+  if (rawData && Array.isArray(rawData.results)) return rawData.results;
+  if (Array.isArray(rawData)) return rawData;
+  return [];
+};
 
