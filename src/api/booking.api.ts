@@ -34,7 +34,7 @@ export interface BookingData {
     | "EXPIRED"
     | string;
   payment_status: "UNPAID" | "PAID" | "REFUNDED" | string;
-  escrow_status?: "PENDING" | "HELD" | "RELEASED" | "REFUNDED" | string; 
+  escrow_status?: "PENDING" | "HELD" | "RELEASED" | "REFUNDED" | string;
   traveler_matches_listing?: boolean | null;
   traveler_refusal_reason?: string | null;
   agreed_reward: string;
@@ -69,11 +69,20 @@ export interface RespondBookingResponse {
   data?: any;
 }
 
-export interface CancelBookingResponse {
-  message: string;
-  id: string;
-  status: string;
+export interface CancelBookingData {
+  booking_id: string;
+  tracking_number: string;
+  status: "CANCELLED" | string;
 }
+
+export interface CancelBookingResponse {
+  success?: boolean;
+  message: string;
+  id?: string;
+  status?: string;
+  data?: CancelBookingData;
+}
+
 export interface CompletedDeliveriesResponse {
   success: boolean;
   message: string;
@@ -193,8 +202,69 @@ export interface RawBooking {
     to_city?: string;
     to_country?: string;
   };
-  // add any other fields returned by your API
 }
+
+// ----------------------------------------------------------------------
+// Stats Interfaces
+// ----------------------------------------------------------------------
+
+export interface EscrowHeldInfo {
+  amount: string;
+  currency: string;
+}
+
+export interface SenderDashboardStats {
+  pending_requests: number;
+  active_bookings: number;
+  completed_bookings: number;
+  total_escrow_held: EscrowHeldInfo;
+}
+
+export interface SenderDashboardStatsResponse {
+  success: boolean;
+  message: string;
+  data: SenderDashboardStats;
+}
+
+// ----------------------------------------------------------------------
+// Package & Public Trip Booking Interfaces
+// ----------------------------------------------------------------------
+
+export interface PublicTripBookingPayload {
+  trip_id: string;
+  package_id: string;
+}
+
+export interface PublicTripBookingResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    id: string;
+    tracking_number: string;
+    status: string;
+  };
+}
+
+export interface SenderPackage {
+  id: string;
+  title: string;
+  weight_kg?: number | string;
+  weight?: number | string;
+  status: "DRAFT" | "PENDING_REVIEW" | "PUBLISHED" | "REJECTED" | string;
+  from_city?: string;
+  from_country?: string;
+  to_city?: string;
+  to_country?: string;
+  pickup_city?: string;
+  pickup_country?: string;
+  destination_city?: string;
+  destination_country?: string;
+  pickup_date?: string;
+  latest_delivery_date?: string;
+  departure_date?: string;
+  image_url?: string | null;
+}
+
 // ----------------------------------------------------------------------
 // Booking & Delivery API Endpoints
 // ----------------------------------------------------------------------
@@ -231,7 +301,6 @@ export const bookingApi = {
 export const deliveryApi = {
   /**
    * Fetch list of active bookings (PAYMENT_PENDING, CONFIRMED, PICKED_UP, IN_TRANSIT)
-
    */
   async getActiveDeliveries(): Promise<PaginatedResponse<BookingData>> {
     const response = await axiosInstance.get<PaginatedResponse<BookingData>>(
@@ -263,8 +332,7 @@ export const deliveryApi = {
     return response.data;
   },
 
-
-   async getCompletedDeliveries(): Promise<CompletedDeliveriesResponse> {
+  async getCompletedDeliveries(): Promise<CompletedDeliveriesResponse> {
     const response = await axiosInstance.get<CompletedDeliveriesResponse>(
       "/api/traveler/completed-deliveries/"
     );
@@ -277,10 +345,6 @@ export const deliveryApi = {
     );
     return response.data;
   },
-
-  // ----------------------------------------------------------------------
-// Delivery API Endpoints
-// ----------------------------------------------------------------------
 
   /**
    * Verify package pickup (match or refusal)
@@ -317,10 +381,11 @@ export const deliveryApi = {
     );
     return response.data;
   },
-
 };
 
-export async function getMyBookings(page: number = 1): Promise<PaginatedResponse<MyBookingItem>> {
+export async function getMyBookings(
+  page: number = 1
+): Promise<PaginatedResponse<MyBookingItem>> {
   const response = await axiosInstance.get<PaginatedResponse<MyBookingItem>>(
     `/api/sender/my-bookings/?page=${page}`
   );
@@ -330,7 +395,9 @@ export async function getMyBookings(page: number = 1): Promise<PaginatedResponse
 /**
  * Get tracking timeline for a specific booking
  */
-export async function getBookingTimeline(bookingId: string): Promise<TimelineResponse> {
+export async function getBookingTimeline(
+  bookingId: string
+): Promise<TimelineResponse> {
   const response = await axiosInstance.get<TimelineResponse>(
     `/api/sender/bookings/${bookingId}/timeline/`
   );
@@ -338,60 +405,17 @@ export async function getBookingTimeline(bookingId: string): Promise<TimelineRes
 }
 
 /**
- * Cancel a booking
- */
-// ----------------------------------------------------------------------
-// Cancel Booking Types
-// ----------------------------------------------------------------------
-
-export interface CancelBookingData {
-  booking_id: string;
-  tracking_number: string;
-  status: "CANCELLED" | string;
-}
-
-export interface CancelBookingResponse {
-  success: boolean;
-  message: string;
-  data: CancelBookingData;
-}
-
-
-/**
  * Cancel a booking via POST
  * Endpoint: /api/bookings/<uuid:pk>/cancel/
  */
-export async function cancelBooking(bookingId: string): Promise<CancelBookingResponse> {
+export async function cancelBooking(
+  bookingId: string
+): Promise<CancelBookingResponse> {
   const response = await axiosInstance.post<CancelBookingResponse>(
     `/api/bookings/${bookingId}/cancel/`
   );
   return response.data;
 }
-// ----------------------------------------------------------------------
-// Stats Interfaces
-// ----------------------------------------------------------------------
-
-export interface EscrowHeldInfo {
-  amount: string;
-  currency: string;
-}
-
-export interface SenderDashboardStats {
-  pending_requests: number;
-  active_bookings: number;
-  completed_bookings: number;
-  total_escrow_held: EscrowHeldInfo;
-}
-
-export interface SenderDashboardStatsResponse {
-  success: boolean;
-  message: string;
-  data: SenderDashboardStats;
-}
-
-// ----------------------------------------------------------------------
-// Stats API Endpoint
-// ----------------------------------------------------------------------
 
 /**
  * Fetch Sender Dashboard Statistics
@@ -403,35 +427,6 @@ export async function getSenderDashboardStats(): Promise<SenderDashboardStatsRes
   return response.data;
 }
 
-// Add these types to booking.api.ts
-export interface PublicTripBookingPayload {
-  trip_id: string;
-  package_id: string;
-}
-
-export interface PublicTripBookingResponse {
-  success: boolean;
-  message: string;
-  data?: {
-    id: string;
-    tracking_number: string;
-    status: string;
-  };
-}
-
-export interface SenderPackage {
-  id: string;
-  title: string;
-  weight_kg: number | string;
-  status: "DRAFT" | "PENDING_REVIEW" | "PUBLISHED" | "REJECTED";
-  from_city: string;
-  from_country: string;
-  to_city: string;
-  to_country: string;
-  image_url?: string | null;
-}
-
-// Add these functions inside or alongside bookingApi
 export const requestPublicTripBooking = async (
   payload: PublicTripBookingPayload
 ): Promise<PublicTripBookingResponse> => {
@@ -450,4 +445,3 @@ export const getMyPackagesApi = async (): Promise<SenderPackage[]> => {
   if (Array.isArray(rawData)) return rawData;
   return [];
 };
-

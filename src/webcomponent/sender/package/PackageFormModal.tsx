@@ -10,12 +10,17 @@ import {
   Loader2,
   Sparkles,
   Truck,
-  FileCheck2,
+  Lock,
+  Info,
+  Calendar,
+  MapPin,
+  DollarSign,
+  AlertCircle,
+  CheckCircle2,
 } from "lucide-react";
 import {
   createPackage,
   updatePackage,
-  uploadPackageImage,
   uploadPackageImagesParallel,
   deletePackageImage,
   getPackageById,
@@ -25,11 +30,41 @@ import {
 } from "@/api/sender.package.api";
 import { toast } from "sonner";
 
+// Shadcn UI Components
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+
+// Model for Trip Data passed when mode === "trip"
+export interface TripContextData {
+  id: string;
+  pickup_city: string;
+  pickup_country?: string;
+  destination_city: string;
+  destination_country?: string;
+  pickup_date: string; // ISO date string or YYYY-MM-DD
+  latest_delivery_date: string;
+  suggested_reward?: number;
+  reward_per_kg?: number;
+  available_weight_kg?: number;
+  currency?: string;
+}
+
 interface PackageFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: (pkg: APIPackageItem) => void;
   packageToEdit?: APIPackageItem | null;
+  /**
+   * "direct"  -> Standard mode (all fields editable)
+   * "trip"    -> Route, dates, and reward locked based on selected trip
+   */
+  mode?: "direct" | "trip";
+  tripData?: TripContextData | null;
 }
 
 interface LocalImageItem {
@@ -58,8 +93,11 @@ export function PackageFormModal({
   onClose,
   onSuccess,
   packageToEdit,
+  mode = "direct",
+  tripData,
 }: PackageFormModalProps) {
   const isEditMode = Boolean(packageToEdit?.id);
+  const isTripLocked = mode === "trip" && Boolean(tripData);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -101,12 +139,13 @@ export function PackageFormModal({
   useEffect(() => {
     if (!isOpen) return;
 
-    if (packageToEdit && isEditMode) {
-      const formatDateForInput = (dateStr?: string) => {
-        if (!dateStr) return "";
-        return dateStr.split("T")[0];
-      };
+    const formatDateForInput = (dateStr?: string) => {
+      if (!dateStr) return "";
+      return dateStr.split("T")[0];
+    };
 
+    if (packageToEdit && isEditMode) {
+      // Edit Mode Initialization
       setFormData({
         title: packageToEdit.title || "",
         description: packageToEdit.description || "",
@@ -164,25 +203,46 @@ export function PackageFormModal({
         setImages([]);
       }
     } else {
+      // Create Mode (Direct or Locked via Trip)
+      const initialReward =
+        tripData?.suggested_reward || tripData?.reward_per_kg;
+
       setFormData({
         title: "",
         description: "",
         category: "DOCUMENT",
         weight: "",
         declared_value: "",
-        reward_amount: "",
-        currency: "USD",
-        pickup_country: "United States",
-        pickup_city: "",
+        reward_amount:
+          isTripLocked && initialReward ? String(initialReward) : "",
+        currency: isTripLocked && tripData?.currency ? tripData.currency : "USD",
+        pickup_country:
+          isTripLocked && tripData?.pickup_country
+            ? tripData.pickup_country
+            : "United States",
+        pickup_city:
+          isTripLocked && tripData?.pickup_city ? tripData.pickup_city : "",
         pickup_address: "",
-        destination_country: "Germany",
-        destination_city: "",
+        destination_country:
+          isTripLocked && tripData?.destination_country
+            ? tripData.destination_country
+            : "Germany",
+        destination_city:
+          isTripLocked && tripData?.destination_city
+            ? tripData.destination_city
+            : "",
         destination_address: "",
-        pickup_date: "",
-        latest_delivery_date: "",
+        pickup_date:
+          isTripLocked && tripData?.pickup_date
+            ? formatDateForInput(tripData.pickup_date)
+            : "",
+        latest_delivery_date:
+          isTripLocked && tripData?.latest_delivery_date
+            ? formatDateForInput(tripData.latest_delivery_date)
+            : "",
         is_fragile: false,
         requires_signature: false,
-        is_public: true,
+        is_public: !isTripLocked, // If trip locked, it's specific to this trip
         declared_as_legal: false,
         terms_accepted: false,
         serial_number: "",
@@ -194,9 +254,7 @@ export function PackageFormModal({
 
     setFieldErrors({});
     setSubmitStep("idle");
-  }, [isOpen, packageToEdit, isEditMode]);
-
-  if (!isOpen) return null;
+  }, [isOpen, packageToEdit, isEditMode, mode, tripData, isTripLocked]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -204,6 +262,24 @@ export function PackageFormModal({
     >
   ) => {
     const { name, value, type } = e.target;
+
+    // Prevent changing locked parameters in Trip Mode
+    if (
+      isTripLocked &&
+      [
+        "pickup_country",
+        "pickup_city",
+        "destination_country",
+        "destination_city",
+        "pickup_date",
+        "latest_delivery_date",
+        "reward_amount",
+        "currency",
+      ].includes(name)
+    ) {
+      return;
+    }
+
     if (fieldErrors[name]) {
       setFieldErrors((prev) => {
         const copy = { ...prev };
@@ -250,6 +326,28 @@ export function PackageFormModal({
           },
         ];
       });
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFiles(e.dataTransfer.files);
     }
   };
 
@@ -312,7 +410,14 @@ export function PackageFormModal({
     }
     if (!formData.weight || Number(formData.weight) <= 0) {
       errors.weight = "Enter a valid weight.";
+    } else if (
+      isTripLocked &&
+      tripData?.available_weight_kg &&
+      Number(formData.weight) > tripData.available_weight_kg
+    ) {
+      errors.weight = `Weight exceeds available traveler capacity (${tripData.available_weight_kg} kg).`;
     }
+
     if (!formData.declared_value || Number(formData.declared_value) <= 0) {
       errors.declared_value = "Declared value required.";
     }
@@ -338,13 +443,6 @@ export function PackageFormModal({
     return Object.keys(errors).length === 0;
   };
 
-  const calculateTotalProgress = (): number => {
-    const queued = images.filter((img) => img.file && !img.serverId);
-    if (queued.length === 0) return 100;
-    const total = queued.reduce((acc, curr) => acc + curr.progress, 0);
-    return Math.round(total / queued.length);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -356,16 +454,23 @@ export function PackageFormModal({
 
       let finalPackage: APIPackageItem | null = null;
 
+      // Prepare payload - attach trip ID if in Trip Mode
+      const payload: CreatePackagePayload = {
+        ...formData,
+        weight: Number(formData.weight),
+        declared_value: Number(formData.declared_value),
+        reward_amount: Number(formData.reward_amount),
+        ...(isTripLocked && tripData?.id ? { trip_id: tripData.id } : {}),
+      } as unknown as CreatePackagePayload;
+
       if (isEditMode && packageToEdit?.id) {
         const targetPackageId = packageToEdit.id;
 
-        // Step 1: Update metadata
         const updateRes: any = await updatePackage(
           targetPackageId,
-          formData as Partial<CreatePackagePayload>
+          payload as Partial<CreatePackagePayload>
         );
 
-        // Step 2: Clean up deleted images
         if (deletedImageIds.length > 0) {
           await Promise.all(
             deletedImageIds.map((imageId) =>
@@ -374,7 +479,6 @@ export function PackageFormModal({
           );
         }
 
-        // Step 3: Process dynamic parallel image uploads
         const newFilesToUpload = images.filter((img) => img.file);
         if (newFilesToUpload.length > 0) {
           setSubmitStep("uploading");
@@ -407,16 +511,10 @@ export function PackageFormModal({
         finalPackage =
           (await getPackageById(targetPackageId)) || updateRes?.data || updateRes;
 
-        const successMessage =
-          updateRes?.message ||
-          updateRes?.data?.message ||
-          "Package updated successfully!";
-        toast.success(successMessage);
+        toast.success(updateRes?.message || "Package updated successfully!");
       } else {
         // --- CREATE MODE ---
-        const createRes: any = await createPackage(
-          formData as CreatePackagePayload
-        );
+        const createRes: any = await createPackage(payload);
         const targetPackageId = createRes?.data?.id || createRes?.id;
 
         if (targetPackageId) {
@@ -455,11 +553,7 @@ export function PackageFormModal({
             createRes;
         }
 
-        const successMessage =
-          createRes?.message ||
-          createRes?.data?.message ||
-          "Package created successfully!";
-        toast.success(successMessage);
+        toast.success(createRes?.message || "Package created successfully!");
       }
 
       if (onSuccess && finalPackage) {
@@ -479,46 +573,67 @@ export function PackageFormModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-      <div className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 my-8 overflow-hidden">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && !isSubmitting && onClose()}>
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+        <DialogHeader className="p-6 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex flex-row items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/50">
               <PackageIcon className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                {isEditMode ? "Edit Package Information" : "Create New Package"}
-              </h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
+              <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">
+                {packageToEdit
+                  ? "Edit Package Information"
+                  : isTripLocked
+                  ? "Create Package for This Trip"
+                  : "Create New Package"}
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 {isEditMode
                   ? "Update your shipment parameters and manage attached media."
-                  : "Fill in shipment details to find matches on our platform."}
-              </p>
+                  : isTripLocked
+                  ? "Trip route, travel schedule, and reward are fixed to match the traveler's itinerary."
+                  : "Fill in shipment details to list your item on the platform."}
+              </DialogDescription>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSubmitting}
-            className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+        </DialogHeader>
 
-        {/* Modal Form Content */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-8 max-h-[75vh] overflow-y-auto">
-          {/* Item Essentials */}
+        {/* Mode Notification Banner */}
+        {isTripLocked && (
+          <div className="mx-6 mt-4 p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 rounded-xl flex items-start gap-2.5 text-amber-800 dark:text-amber-300 text-xs">
+            <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-semibold block mb-0.5">
+                Traveler Trip Selected
+              </span>
+              <span>
+                Origin, destination, dates, and reward rate are automatically locked to match this specific trip itinerary.
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Scrollable Form Body */}
+        <form
+          id="package-form"
+          onSubmit={handleSubmit}
+          className="p-6 space-y-8 overflow-y-auto flex-1"
+        >
+          {/* SECTION 1: ITEM DETAILS (ALWAYS EDITABLE) */}
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
-              1. Item Details
+            <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center text-[10px]">
+                1
+              </span>
+              Item Information
             </h3>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Package Title *
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Package Title <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -526,26 +641,26 @@ export function PackageFormModal({
                   value={formData.title}
                   onChange={handleChange}
                   placeholder="e.g. MacBook Pro 16 Inch with Leather Case"
-                  className={`w-full px-4 py-2.5 rounded-xl border bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all ${
+                  className={`w-full px-3.5 py-2 rounded-xl border bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 transition-all ${
                     fieldErrors.title
                       ? "border-red-500"
                       : "border-slate-200 dark:border-slate-700"
                   }`}
                 />
                 {fieldErrors.title && (
-                  <p className="mt-1 text-xs text-red-500">{fieldErrors.title}</p>
+                  <p className="mt-1 text-[11px] text-red-500">{fieldErrors.title}</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Category *
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Category <span className="text-red-500">*</span>
                 </label>
                 <select
                   name="category"
                   value={formData.category}
                   onChange={handleChange}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500"
                 >
                   {CATEGORY_OPTIONS.map((cat) => (
                     <option key={cat.value} value={cat.value}>
@@ -556,57 +671,62 @@ export function PackageFormModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Weight (kg) *
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Weight (kg) <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
                   step="0.1"
+                  min="0.1"
                   name="weight"
                   value={formData.weight}
                   onChange={handleChange}
-                  placeholder="e.g. 2.5"
-                  className={`w-full px-4 py-2.5 rounded-xl border bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 ${
+                  placeholder={
+                    isTripLocked && tripData?.available_weight_kg
+                      ? `Max ${tripData.available_weight_kg} kg`
+                      : "e.g. 2.5"
+                  }
+                  className={`w-full px-3.5 py-2 rounded-xl border bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 ${
                     fieldErrors.weight
                       ? "border-red-500"
                       : "border-slate-200 dark:border-slate-700"
                   }`}
                 />
                 {fieldErrors.weight && (
-                  <p className="mt-1 text-xs text-red-500">{fieldErrors.weight}</p>
+                  <p className="mt-1 text-[11px] text-red-500">{fieldErrors.weight}</p>
                 )}
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Item Description *
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Item Description <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   name="description"
                   rows={3}
                   value={formData.description}
                   onChange={handleChange}
-                  placeholder="Provide details about the item condition, size, special instructions..."
-                  className={`w-full px-4 py-2.5 rounded-xl border bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 ${
+                  placeholder="Provide details about the item contents, condition, dimensions..."
+                  className={`w-full px-3.5 py-2 rounded-xl border bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 ${
                     fieldErrors.description
                       ? "border-red-500"
                       : "border-slate-200 dark:border-slate-700"
                   }`}
                 />
                 {fieldErrors.description && (
-                  <p className="mt-1 text-xs text-red-500">
+                  <p className="mt-1 text-[11px] text-red-500">
                     {fieldErrors.description}
                   </p>
                 )}
               </div>
             </div>
 
-            {/* Category Dynamic Extra Fields */}
+            {/* Dynamic Electronics Fields */}
             {formData.category === "ELECTRONICS" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Serial Number *
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Serial Number <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -614,21 +734,21 @@ export function PackageFormModal({
                     value={formData.serial_number}
                     onChange={handleChange}
                     placeholder="e.g. C02G1234MD6R"
-                    className={`w-full px-4 py-2 rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 ${
+                    className={`w-full px-3.5 py-2 rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 ${
                       fieldErrors.serial_number
                         ? "border-red-500"
                         : "border-slate-200 dark:border-slate-700"
                     }`}
                   />
                   {fieldErrors.serial_number && (
-                    <p className="mt-1 text-xs text-red-500">
+                    <p className="mt-1 text-[11px] text-red-500">
                       {fieldErrors.serial_number}
                     </p>
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    IMEI Number *
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    IMEI Number <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -636,261 +756,395 @@ export function PackageFormModal({
                     value={formData.imei}
                     onChange={handleChange}
                     placeholder="e.g. 352094081234567"
-                    className={`w-full px-4 py-2 rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 ${
+                    className={`w-full px-3.5 py-2 rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 ${
                       fieldErrors.imei
                         ? "border-red-500"
                         : "border-slate-200 dark:border-slate-700"
                     }`}
                   />
                   {fieldErrors.imei && (
-                    <p className="mt-1 text-xs text-red-500">{fieldErrors.imei}</p>
+                    <p className="mt-1 text-[11px] text-red-500">{fieldErrors.imei}</p>
                   )}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Valuation & Reward */}
+          {/* SECTION 2: ROUTE & DATES (LOCKED IN TRIP MODE) */}
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
-              2. Valuation & Reward
-            </h3>
+            <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-6">
+              <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center text-[10px]">
+                  2
+                </span>
+                Route & Schedule
+              </h3>
+              {isTripLocked && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900">
+                  <Lock className="w-3 h-3" /> Locked to Trip
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Pickup Country & City */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Pickup Country <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="pickup_country"
+                    value={formData.pickup_country}
+                    onChange={handleChange}
+                    disabled={isTripLocked}
+                    className={`w-full px-3.5 py-2 rounded-xl border text-xs transition-all ${
+                      isTripLocked
+                        ? "bg-slate-100 dark:bg-slate-800/80 text-slate-500 cursor-not-allowed border-slate-200 dark:border-slate-700 pr-9"
+                        : "bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
+                    }`}
+                  />
+                  {isTripLocked && (
+                    <Lock className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5" />
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Pickup City <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="pickup_city"
+                    value={formData.pickup_city}
+                    onChange={handleChange}
+                    disabled={isTripLocked}
+                    placeholder="e.g. New York"
+                    className={`w-full px-3.5 py-2 rounded-xl border text-xs transition-all ${
+                      isTripLocked
+                        ? "bg-slate-100 dark:bg-slate-800/80 text-slate-500 cursor-not-allowed border-slate-200 dark:border-slate-700 pr-9"
+                        : "bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
+                    }`}
+                  />
+                  {isTripLocked && (
+                    <Lock className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5" />
+                  )}
+                </div>
+                {fieldErrors.pickup_city && (
+                  <p className="mt-1 text-[11px] text-red-500">{fieldErrors.pickup_city}</p>
+                )}
+              </div>
+
+              {/* Destination Country & City */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Destination Country <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="destination_country"
+                    value={formData.destination_country}
+                    onChange={handleChange}
+                    disabled={isTripLocked}
+                    className={`w-full px-3.5 py-2 rounded-xl border text-xs transition-all ${
+                      isTripLocked
+                        ? "bg-slate-100 dark:bg-slate-800/80 text-slate-500 cursor-not-allowed border-slate-200 dark:border-slate-700 pr-9"
+                        : "bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
+                    }`}
+                  />
+                  {isTripLocked && (
+                    <Lock className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5" />
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Destination City <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="destination_city"
+                    value={formData.destination_city}
+                    onChange={handleChange}
+                    disabled={isTripLocked}
+                    placeholder="e.g. Berlin"
+                    className={`w-full px-3.5 py-2 rounded-xl border text-xs transition-all ${
+                      isTripLocked
+                        ? "bg-slate-100 dark:bg-slate-800/80 text-slate-500 cursor-not-allowed border-slate-200 dark:border-slate-700 pr-9"
+                        : "bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
+                    }`}
+                  />
+                  {isTripLocked && (
+                    <Lock className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5" />
+                  )}
+                </div>
+                {fieldErrors.destination_city && (
+                  <p className="mt-1 text-[11px] text-red-500">{fieldErrors.destination_city}</p>
+                )}
+              </div>
+
+              {/* Pickup & Destination Addresses (ALWAYS EDITABLE) */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Pickup Street Address <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="pickup_address"
+                  value={formData.pickup_address}
+                  onChange={handleChange}
+                  placeholder="Street address or meetup spot"
+                  className={`w-full px-3.5 py-2 rounded-xl border bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 ${
+                    fieldErrors.pickup_address
+                      ? "border-red-500"
+                      : "border-slate-200 dark:border-slate-700"
+                  }`}
+                />
+                {fieldErrors.pickup_address && (
+                  <p className="mt-1 text-[11px] text-red-500">
+                    {fieldErrors.pickup_address}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Delivery Street Address <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="destination_address"
+                  value={formData.destination_address}
+                  onChange={handleChange}
+                  placeholder="Street address or dropoff spot"
+                  className={`w-full px-3.5 py-2 rounded-xl border bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 ${
+                    fieldErrors.destination_address
+                      ? "border-red-500"
+                      : "border-slate-200 dark:border-slate-700"
+                  }`}
+                />
+                {fieldErrors.destination_address && (
+                  <p className="mt-1 text-[11px] text-red-500">
+                    {fieldErrors.destination_address}
+                  </p>
+                )}
+              </div>
+
+              {/* Schedule Dates */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Pickup Date <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    name="pickup_date"
+                    value={formData.pickup_date}
+                    onChange={handleChange}
+                    disabled={isTripLocked}
+                    className={`w-full px-3.5 py-2 rounded-xl border text-xs transition-all ${
+                      isTripLocked
+                        ? "bg-slate-100 dark:bg-slate-800/80 text-slate-500 cursor-not-allowed border-slate-200 dark:border-slate-700 pr-9"
+                        : "bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
+                    }`}
+                  />
+                  {isTripLocked && (
+                    <Lock className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5" />
+                  )}
+                </div>
+                {fieldErrors.pickup_date && (
+                  <p className="mt-1 text-[11px] text-red-500">{fieldErrors.pickup_date}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Latest Delivery Date <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    name="latest_delivery_date"
+                    value={formData.latest_delivery_date}
+                    onChange={handleChange}
+                    disabled={isTripLocked}
+                    className={`w-full px-3.5 py-2 rounded-xl border text-xs transition-all ${
+                      isTripLocked
+                        ? "bg-slate-100 dark:bg-slate-800/80 text-slate-500 cursor-not-allowed border-slate-200 dark:border-slate-700 pr-9"
+                        : "bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
+                    }`}
+                  />
+                  {isTripLocked && (
+                    <Lock className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5" />
+                  )}
+                </div>
+                {fieldErrors.latest_delivery_date && (
+                  <p className="mt-1 text-[11px] text-red-500">
+                    {fieldErrors.latest_delivery_date}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 3: VALUATION & REWARD */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-6">
+              <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center text-[10px]">
+                  3
+                </span>
+                Valuation & Reward
+              </h3>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Declared Value ($) *
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Declared Value <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
+                  min="0"
                   name="declared_value"
                   value={formData.declared_value}
                   onChange={handleChange}
-                  placeholder="e.g. 1200"
-                  className={`w-full px-4 py-2.5 rounded-xl border bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 ${
+                  placeholder="e.g. 500"
+                  className={`w-full px-3.5 py-2 rounded-xl border bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 ${
                     fieldErrors.declared_value
                       ? "border-red-500"
                       : "border-slate-200 dark:border-slate-700"
                   }`}
                 />
                 {fieldErrors.declared_value && (
-                  <p className="mt-1 text-xs text-red-500">
+                  <p className="mt-1 text-[11px] text-red-500">
                     {fieldErrors.declared_value}
                   </p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Traveler Reward ($) *
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Traveler Reward Amount <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="number"
-                  name="reward_amount"
-                  value={formData.reward_amount}
-                  onChange={handleChange}
-                  placeholder="e.g. 150"
-                  className={`w-full px-4 py-2.5 rounded-xl border bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 ${
-                    fieldErrors.reward_amount
-                      ? "border-red-500"
-                      : "border-slate-200 dark:border-slate-700"
-                  }`}
-                />
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    name="reward_amount"
+                    value={formData.reward_amount}
+                    onChange={handleChange}
+                    disabled={isTripLocked}
+                    placeholder="e.g. 40"
+                    className={`w-full px-3.5 py-2 rounded-xl border text-xs transition-all ${
+                      isTripLocked
+                        ? "bg-slate-100 dark:bg-slate-800/80 text-slate-500 cursor-not-allowed border-slate-200 dark:border-slate-700 pr-9"
+                        : "bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
+                    }`}
+                  />
+                  {isTripLocked && (
+                    <Lock className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5" />
+                  )}
+                </div>
                 {fieldErrors.reward_amount && (
-                  <p className="mt-1 text-xs text-red-500">
+                  <p className="mt-1 text-[11px] text-red-500">
                     {fieldErrors.reward_amount}
                   </p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Currency
                 </label>
-                <select
-                  name="currency"
-                  value={formData.currency}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="USD">USD ($)</option>
-                  <option value="EUR">EUR (€)</option>
-                  <option value="GBP">GBP (£)</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Logistics & Route */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
-              3. Pickup & Destination
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Pickup Side */}
-              <div className="space-y-3 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
-                  <Truck className="w-4 h-4 text-blue-500" /> Pickup Location
-                </div>
-                <div>
-                  <input
-                    type="text"
-                    name="pickup_city"
-                    value={formData.pickup_city}
+                <div className="relative">
+                  <select
+                    name="currency"
+                    value={formData.currency}
                     onChange={handleChange}
-                    placeholder="Pickup City *"
-                    className={`w-full px-3 py-2 rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 ${
-                      fieldErrors.pickup_city
-                        ? "border-red-500"
-                        : "border-slate-200 dark:border-slate-700"
+                    disabled={isTripLocked}
+                    className={`w-full px-3.5 py-2 rounded-xl border text-xs transition-all ${
+                      isTripLocked
+                        ? "bg-slate-100 dark:bg-slate-800/80 text-slate-500 cursor-not-allowed border-slate-200 dark:border-slate-700 pr-9"
+                        : "bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
                     }`}
-                  />
-                </div>
-                <div>
-                  <input
-                    type="text"
-                    name="pickup_address"
-                    value={formData.pickup_address}
-                    onChange={handleChange}
-                    placeholder="Pickup Address *"
-                    className={`w-full px-3 py-2 rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 ${
-                      fieldErrors.pickup_address
-                        ? "border-red-500"
-                        : "border-slate-200 dark:border-slate-700"
-                    }`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">
-                    Ready for Pickup Date *
-                  </label>
-                  <input
-                    type="date"
-                    name="pickup_date"
-                    value={formData.pickup_date}
-                    onChange={handleChange}
-                    className={`w-full px-3 py-2 rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 ${
-                      fieldErrors.pickup_date
-                        ? "border-red-500"
-                        : "border-slate-200 dark:border-slate-700"
-                    }`}
-                  />
-                </div>
-              </div>
-
-              {/* Destination Side */}
-              <div className="space-y-3 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
-                  <Truck className="w-4 h-4 text-emerald-500" /> Destination Location
-                </div>
-                <div>
-                  <input
-                    type="text"
-                    name="destination_city"
-                    value={formData.destination_city}
-                    onChange={handleChange}
-                    placeholder="Destination City *"
-                    className={`w-full px-3 py-2 rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 ${
-                      fieldErrors.destination_city
-                        ? "border-red-500"
-                        : "border-slate-200 dark:border-slate-700"
-                    }`}
-                  />
-                </div>
-                <div>
-                  <input
-                    type="text"
-                    name="destination_address"
-                    value={formData.destination_address}
-                    onChange={handleChange}
-                    placeholder="Destination Address *"
-                    className={`w-full px-3 py-2 rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 ${
-                      fieldErrors.destination_address
-                        ? "border-red-500"
-                        : "border-slate-200 dark:border-slate-700"
-                    }`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">
-                    Latest Delivery Date *
-                  </label>
-                  <input
-                    type="date"
-                    name="latest_delivery_date"
-                    value={formData.latest_delivery_date}
-                    onChange={handleChange}
-                    className={`w-full px-3 py-2 rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 ${
-                      fieldErrors.latest_delivery_date
-                        ? "border-red-500"
-                        : "border-slate-200 dark:border-slate-700"
-                    }`}
-                  />
+                  >
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="GBP">GBP (£)</option>
+                    <option value="CAD">CAD ($)</option>
+                  </select>
+                  {isTripLocked && (
+                    <Lock className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5" />
+                  )}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Media Section */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
-                4. Package Photos (Max 5)
-              </h3>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                {images.length}/5 Attached
+          {/* SECTION 4: MEDIA / IMAGES */}
+          <div className="space-y-4 border-t border-slate-200 dark:border-slate-800 pt-6">
+            <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center text-[10px]">
+                4
               </span>
+              Package Images
+            </h3>
+
+            {/* Drag and Drop Zone */}
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
+                dragActive
+                  ? "border-blue-500 bg-blue-50/50 dark:bg-blue-950/30"
+                  : "border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
+              }`}
+            >
+              <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+              <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                Drag and drop package photos here, or{" "}
+                <label className="text-blue-600 dark:text-blue-400 hover:underline cursor-pointer">
+                  browse files
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={(e) =>
+                      e.target.files && processFiles(e.target.files)
+                    }
+                    className="hidden"
+                  />
+                </label>
+              </p>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Upload up to 5 clear photos (PNG, JPG up to 10MB each)
+              </p>
             </div>
 
-            {/* Drop Zone */}
-            {images.length < 5 && (
-              <div
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragActive(true);
-                }}
-                onDragLeave={() => setDragActive(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragActive(false);
-                  if (e.dataTransfer.files) processFiles(e.dataTransfer.files);
-                }}
-                className={`relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-2xl transition-all cursor-pointer ${
-                  dragActive
-                    ? "border-blue-500 bg-blue-50/50 dark:bg-blue-950/30"
-                    : "border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
-                }`}
-              >
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={(e) => e.target.files && processFiles(e.target.files)}
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                />
-                <div className="p-3 rounded-full bg-slate-100 dark:bg-slate-800 mb-2">
-                  <Upload className="w-5 h-5 text-slate-500 dark:text-slate-400" />
-                </div>
-                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Click or drag images to upload
-                </p>
-                <p className="text-xs text-slate-400 mt-1">
-                  JPG, PNG, WEBP up to 10MB each
-                </p>
-              </div>
-            )}
-
-            {/* Image Previews Grid */}
+            {/* Images List */}
             {images.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-                {images.map((img, index) => (
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2">
+                {images.map((img, idx) => (
                   <div
                     key={img.id}
                     draggable
-                    onDragStart={() => (dragItemIndex.current = index)}
-                    onDragEnter={() => (dragOverItemIndex.current = index)}
+                    onDragStart={() => (dragItemIndex.current = idx)}
+                    onDragEnter={() => (dragOverItemIndex.current = idx)}
                     onDragEnd={handleSortEnd}
                     onDragOver={(e) => e.preventDefault()}
-                    className="relative group aspect-square rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800"
+                    className={`relative group rounded-xl overflow-hidden border bg-slate-100 dark:bg-slate-800 aspect-square flex flex-col items-center justify-center ${
+                      img.isPrimary
+                        ? "border-blue-500 ring-2 ring-blue-500/20"
+                        : "border-slate-200 dark:border-slate-700"
+                    }`}
                   >
                     <img
                       src={img.previewUrl}
@@ -898,45 +1152,38 @@ export function PackageFormModal({
                       className="w-full h-full object-cover"
                     />
 
-                    {/* Progress Bar Overlay */}
-                    {img.status === "uploading" && (
-                      <div className="absolute inset-0 bg-slate-900/60 flex flex-col items-center justify-center p-2 text-white">
-                        <Loader2 className="w-5 h-5 animate-spin mb-1" />
-                        <span className="text-xs font-semibold">{img.progress}%</span>
-                      </div>
-                    )}
+                    {/* Drag handle */}
+                    <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-black/60 rounded text-white cursor-grab">
+                      <GripVertical className="w-3.5 h-3.5" />
+                    </div>
 
                     {/* Primary Badge */}
                     {img.isPrimary && (
-                      <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-amber-500 text-white text-[10px] font-bold flex items-center gap-1 shadow-sm">
-                        <Star className="w-3 h-3 fill-current" /> Main
+                      <span className="absolute top-1 right-1 bg-blue-600 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
+                        <Star className="w-2.5 h-2.5 fill-current" /> Primary
                       </span>
                     )}
 
-                    {/* Hover Actions */}
-                    <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setPrimaryImage(img.id)}
-                        title="Set as Primary"
-                        className={`p-1.5 rounded-lg bg-white/90 dark:bg-slate-800/90 hover:scale-110 transition-transform ${
-                          img.isPrimary ? "text-amber-500" : "text-slate-600"
-                        }`}
-                      >
-                        <Star className="w-4 h-4" />
-                      </button>
+                    {/* Quick Controls Hover */}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      {!img.isPrimary && (
+                        <button
+                          type="button"
+                          onClick={() => setPrimaryImage(img.id)}
+                          className="p-1.5 bg-white text-slate-900 rounded-lg text-[10px] font-medium hover:bg-slate-100"
+                          title="Set as primary"
+                        >
+                          Primary
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => removeImage(img.id)}
+                        className="p-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700"
                         title="Remove image"
-                        className="p-1.5 rounded-lg bg-white/90 dark:bg-slate-800/90 text-red-600 hover:scale-110 transition-transform"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-3.5 h-3.5" />
                       </button>
-                    </div>
-
-                    <div className="absolute bottom-1 right-1 text-white/70 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <GripVertical className="w-4 h-4" />
                     </div>
                   </div>
                 ))}
@@ -944,79 +1191,128 @@ export function PackageFormModal({
             )}
           </div>
 
-          {/* Safety & Compliance */}
-          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 space-y-3">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                name="declared_as_legal"
-                checked={formData.declared_as_legal}
-                onChange={handleChange}
-                className="mt-1 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-xs text-slate-600 dark:text-slate-300">
-                I declare that this package contains no illegal items, hazardous
-                materials, or contraband under local and international transport
-                laws. *
+          {/* SECTION 5: OPTIONS & DECLARATIONS */}
+          <div className="space-y-4 border-t border-slate-200 dark:border-slate-800 pt-6">
+            <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center text-[10px]">
+                5
               </span>
-            </label>
-            {fieldErrors.declared_as_legal && (
-              <p className="text-xs text-red-500">{fieldErrors.declared_as_legal}</p>
-            )}
+              Requirements & Legal Terms
+            </h3>
 
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                name="terms_accepted"
-                checked={formData.terms_accepted}
-                onChange={handleChange}
-                className="mt-1 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-xs text-slate-600 dark:text-slate-300">
-                I accept the platform safety policies and peer-to-peer delivery
-                terms. *
-              </span>
-            </label>
-            {fieldErrors.terms_accepted && (
-              <p className="text-xs text-red-500">{fieldErrors.terms_accepted}</p>
-            )}
-          </div>
+            {/* Checkbox Options */}
+            <div className="flex flex-wrap items-center gap-6 text-xs text-slate-700 dark:text-slate-300 font-medium">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="is_fragile"
+                  checked={formData.is_fragile}
+                  onChange={handleChange}
+                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                Fragile Item
+              </label>
 
-          {/* Footer Submit */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-sm font-medium"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium text-sm transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>
-                    {submitStep === "creating" && "Saving details..."}
-                    {submitStep === "uploading" &&
-                      `Uploading photos (${calculateTotalProgress()}%)...`}
-                    {submitStep === "verifying" && "Finalizing package..."}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  <span>{isEditMode ? "Update Package" : "Create Package"}</span>
-                </>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="requires_signature"
+                  checked={formData.requires_signature}
+                  onChange={handleChange}
+                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                Signature Required on Delivery
+              </label>
+
+              {!isTripLocked && (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="is_public"
+                    checked={formData.is_public}
+                    onChange={handleChange}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  List publicly on marketplace
+                </label>
               )}
-            </button>
+            </div>
+
+            {/* Legal terms checkboxes */}
+            <div className="space-y-2 pt-2">
+              <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-600 dark:text-slate-400">
+                <input
+                  type="checkbox"
+                  name="declared_as_legal"
+                  checked={formData.declared_as_legal}
+                  onChange={handleChange}
+                  className="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span>
+                  I declare that this package does not contain prohibited, hazardous, or illegal items under local and international laws. <span className="text-red-500">*</span>
+                </span>
+              </label>
+              {fieldErrors.declared_as_legal && (
+                <p className="text-[11px] text-red-500 pl-6">
+                  {fieldErrors.declared_as_legal}
+                </p>
+              )}
+
+              <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-600 dark:text-slate-400">
+                <input
+                  type="checkbox"
+                  name="terms_accepted"
+                  checked={formData.terms_accepted}
+                  onChange={handleChange}
+                  className="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span>
+                  I accept the <span className="text-blue-600 dark:text-blue-400 underline">Terms of Service</span> and authorize space booking for this shipment. <span className="text-red-500">*</span>
+                </span>
+              </label>
+              {fieldErrors.terms_accepted && (
+                <p className="text-[11px] text-red-500 pl-6">
+                  {fieldErrors.terms_accepted}
+                </p>
+              )}
+            </div>
           </div>
         </form>
-      </div>
-    </div>
+
+        {/* Modal Footer */}
+        <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center justify-between shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            form="package-form"
+            disabled={isSubmitting}
+            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center gap-2 disabled:opacity-50"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                {submitStep === "creating" && "Saving Package..."}
+                {submitStep === "uploading" && "Uploading Photos..."}
+                {submitStep === "verifying" && "Finalizing..."}
+              </>
+            ) : isEditMode ? (
+              "Update Package"
+            ) : isTripLocked ? (
+              "Save & Continue Booking"
+            ) : (
+              "Create Package"
+            )}
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
