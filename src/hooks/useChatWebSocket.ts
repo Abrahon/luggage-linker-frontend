@@ -97,6 +97,7 @@ export const useChatWebSocket = ({
         try {
           const payload = JSON.parse(event.data);
 
+          // Support event name resolution across 'event', 'type', and 'action'
           const eventType = String(
             payload.event || payload.type || payload.action || ""
           ).toLowerCase();
@@ -119,7 +120,9 @@ export const useChatWebSocket = ({
             eventType === "presence_event" ||
             eventType.includes("status")
           ) {
-            const rawStatus = String(data.status || payload.status || "offline").toLowerCase();
+            const rawStatus = String(
+              data.status || payload.status || "offline"
+            ).toLowerCase();
             const isOnline = rawStatus === "online";
 
             if (eventUserId) {
@@ -144,23 +147,25 @@ export const useChatWebSocket = ({
           // -------------------------------------------------------------
           // 2. MESSAGE EVENT
           // -------------------------------------------------------------
-          if (eventType === "message") {
+          if (eventType === "message" || eventType === "chat_message") {
+            const msgData = data.message || data;
+
             const newMsg: ExtendedChatMessage = {
-              id: String(data.id),
-              room_id: String(data.room_id || roomId),
-              sender_id: String(data.sender_id),
-              receiver_id: String(data.receiver_id),
-              message: data.message || "",
-              message_type: data.message_type || "TEXT",
-              attachment: data.attachment ?? null,
-              audio_duration: data.audio_duration ?? 0,
-              reply_to: data.reply_to ?? null,
-              is_read: Boolean(data.is_read),
-              is_deleted: Boolean(data.is_deleted),
-              is_edited: Boolean(data.is_edited),
-              created_at: data.created_at || new Date().toISOString(),
-              edited_at: data.edited_at ?? null,
-              status: data.is_read ? "read" : "sent",
+              id: String(msgData.id),
+              room_id: String(msgData.room_id || msgData.room || roomId),
+              sender_id: String(msgData.sender_id || msgData.sender),
+              receiver_id: String(msgData.receiver_id || msgData.receiver || ""),
+              message: msgData.is_deleted ? "" : msgData.message || "",
+              message_type: msgData.message_type || "TEXT",
+              attachment: msgData.is_deleted ? null : msgData.attachment ?? null,
+              audio_duration: msgData.audio_duration ?? 0,
+              reply_to: msgData.reply_to ?? null,
+              is_read: Boolean(msgData.is_read),
+              is_deleted: Boolean(msgData.is_deleted),
+              is_edited: Boolean(msgData.is_edited),
+              created_at: msgData.created_at || new Date().toISOString(),
+              edited_at: msgData.edited_at ?? null,
+              status: msgData.is_read ? "read" : "sent",
             };
 
             setMessages((prev) => {
@@ -192,18 +197,31 @@ export const useChatWebSocket = ({
             setMessages((prev) =>
               prev.map((msg) =>
                 String(msg.id) === msgId
-                  ? { ...msg, message: data.message, is_edited: true, edited_at: data.updated_at }
+                  ? {
+                      ...msg,
+                      message: data.message,
+                      is_edited: true,
+                      edited_at: data.updated_at || data.edited_at,
+                    }
                   : msg
               )
             );
             return;
           }
 
+          // Real-time Delete Sync
           if (eventType === "delete_message") {
             const msgId = String(data.message_id || data.id);
             setMessages((prev) =>
               prev.map((msg) =>
-                String(msg.id) === msgId ? { ...msg, is_deleted: true, message: "" } : msg
+                String(msg.id) === msgId
+                  ? {
+                      ...msg,
+                      is_deleted: true,
+                      message: "",
+                      attachment: null,
+                    }
+                  : msg
               )
             );
             return;
@@ -252,6 +270,15 @@ export const useChatWebSocket = ({
       socket.onerror = (err) => console.error("[WS] Socket error:", err);
 
       socket.onclose = (e) => {
+        console.warn(`[WS] Connection closed with code: ${e.code}`);
+
+        // PREVENT INSTANT RECONNECT LOOP: Stop reconnecting if unauthorized/forbidden
+        if (e.code === 4003 || e.code === 4001 || e.code === 4000) {
+          console.error("[WS] Authentication or permission failure. Stopping reconnects.");
+          return;
+        }
+
+        // Delay reconnection by 3 seconds to avoid overwhelming Redis or Server
         if (isMounted && e.code !== 1000) {
           reconnectTimeoutRef.current = setTimeout(connect, 3000);
         }
@@ -351,9 +378,17 @@ export const useChatWebSocket = ({
   }, []);
 
   const deleteMessage = useCallback((messageId: string) => {
+    // Optimistic Delete: Immediate local update
     setMessages((prev) =>
       prev.map((msg) =>
-        String(msg.id) === String(messageId) ? { ...msg, is_deleted: true, message: "" } : msg
+        String(msg.id) === String(messageId)
+          ? {
+              ...msg,
+              is_deleted: true,
+              message: "",
+              attachment: null,
+            }
+          : msg
       )
     );
 
@@ -361,7 +396,9 @@ export const useChatWebSocket = ({
       ws.current.send(
         JSON.stringify({
           event: "delete_message",
-          data: { message_id: messageId },
+          data: {
+            message_id: messageId,
+          },
         })
       );
     }
@@ -373,6 +410,8 @@ export const useChatWebSocket = ({
     isTyping,
     partnerPresence,
     presenceMap,
+    unreadCount,
+    pinnedMessage,
     sendMessage,
     sendTyping,
     editMessage,

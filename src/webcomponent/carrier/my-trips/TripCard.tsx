@@ -1,18 +1,19 @@
 "use client";
 
-import { ArrowRight, Calendar, Scale, Eye, DollarSign, Send } from "lucide-react";
+import { ArrowRight, Calendar, Scale, Eye, DollarSign, Pencil } from "lucide-react";
 import { BackendTrip } from "@/api/trip.api"; // Adjust import path if needed
 import { format } from "date-fns";
+import { Button } from "@/components/ui/button"; // Importing Shadcn UI Button
 
 interface TripCardProps {
   trip: BackendTrip;
   /** Triggered when clicking "View" to open trip details */
   onViewClick: (tripId: string) => void;
-  /** Triggered when clicking "Send Request" to open the TripBookingContextModal */
-  onBookClick: (trip: BackendTrip) => void;
+  /** Triggered when clicking "Edit Trip" to modify trip details */
+  onEditClick: (trip: BackendTrip) => void;
 }
 
-export const TripCard = ({ trip, onViewClick, onBookClick }: TripCardProps) => {
+export const TripCard = ({ trip, onViewClick, onEditClick }: TripCardProps) => {
   // Safely format date strings
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return "N/A";
@@ -27,7 +28,7 @@ export const TripCard = ({ trip, onViewClick, onBookClick }: TripCardProps) => {
   const availableWeight = parseFloat(String(trip.available_weight_kg ?? "0"));
   const maxWeight = parseFloat(String(trip.max_weight_kg ?? "0"));
   const rewardRate = parseFloat(String(trip.reward_per_kg ?? "0"));
-  
+
   const isFullyBooked = availableWeight <= 0;
 
   return (
@@ -117,26 +118,29 @@ export const TripCard = ({ trip, onViewClick, onBookClick }: TripCardProps) => {
         </p>
       </div>
 
-      {/* Action Buttons */}
+      {/* Action Buttons with Shadcn UI Button */}
+      {/* Action Buttons with Shadcn UI Button */}
       <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-slate-100">
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={() => onViewClick(trip.id)}
-          className="flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-bold text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-all border border-slate-200"
+          className="w-full gap-1.5 text-xs font-semibold rounded-xl"
         >
           <Eye className="w-3.5 h-3.5" />
           View
-        </button>
+        </Button>
 
-        <button
+        <Button
           type="button"
-          disabled={isFullyBooked}
-          onClick={() => onBookClick(trip)}
-          className="flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-xl transition-all shadow-sm active:scale-95 shadow-blue-500/20"
+          size="sm"
+          onClick={() => onEditClick(trip)}
+          className="w-full gap-1.5 text-xs font-semibold rounded-xl bg-amber-400 hover:bg-amber-500 text-white shadow-sm"
         >
-          <Send className="w-3.5 h-3.5" />
-          {isFullyBooked ? "Fully Booked" : "Send Request"}
-        </button>
+          <Pencil className="w-3.5 h-3.5" />
+          Edit Trip
+        </Button>
       </div>
     </div>
   );

@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, SubmitHandler } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Country, City, ICountry, ICity } from "country-state-city";
+
 import {
   Form,
   FormField,
@@ -28,71 +30,92 @@ import { format, parseISO, isValid, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { BackendTrip, createTrip, updateTripApi, deleteTripApi } from "@/api/trip.api";
 
+// Fetch all countries in the world
+const allCountries = Country.getAllCountries();
+
+// Helper to look up country ISO code by country name
+const getCountryIsoByName = (countryName: string): string | undefined => {
+  const match = allCountries.find(
+    (c) => c.name.toLowerCase() === countryName.trim().toLowerCase()
+  );
+  return match?.isoCode;
+};
+
+// ---------------------------------------------------------------------------
+// Zod Schema Aligned with DRF TripSerializer & React Hook Form Types
+// ---------------------------------------------------------------------------
 export const tripSchema = z
   .object({
     title: z
       .string()
       .trim()
-      .min(5, "Title must be at least 5 characters")
-      .max(200, "Title cannot exceed 200 characters"),
+      .min(1, "Trip title is required.")
+      .min(5, "Title must be at least 5 characters.")
+      .max(200, "Title cannot exceed 200 characters."),
 
     description: z
       .string()
       .trim()
       .refine((val) => !val || val.length >= 20, {
-        message: "Description must be at least 20 characters if provided",
+        message: "Description must contain at least 20 characters.",
       })
       .optional()
       .or(z.literal("")),
 
-    from_country: z.string().min(1, "Departure country is required"),
-    from_city: z.string().min(1, "Departure city is required"),
-    to_country: z.string().min(1, "Destination country is required"),
-    to_city: z.string().min(1, "Destination city is required"),
+    from_country: z.string().trim().min(1, "Departure country is required."),
+    from_city: z.string().trim().min(1, "Departure city is required."),
+    to_country: z.string().trim().min(1, "Destination country is required."),
+    to_city: z.string().trim().min(1, "Destination city is required."),
 
-    departure_date: z
-      .date({
-        required_error: "Departure date is required",
-      })
-      .refine((date) => date >= startOfDay(new Date()), {
-        message: "Departure date cannot be in the past",
-      }),
+    departure_date: z.custom<Date>(
+      (val) => val instanceof Date && !isNaN(val.getTime()),
+      { message: "Departure date is required." }
+    ),
 
-    arrival_date: z.date({
-      required_error: "Arrival date is required",
-    }),
+    arrival_date: z.custom<Date>(
+      (val) => val instanceof Date && !isNaN(val.getTime()),
+      { message: "Arrival date is required." }
+    ),
 
     max_weight_kg: z.coerce
-      .number({ invalid_type_error: "Max weight must be a number" })
-      .gt(0, "Maximum weight must be greater than 0")
-      .lte(100, "Maximum allowed weight is 100 KG"),
+      .number({ message: "Max weight must be a number." })
+      .gt(0, "Maximum weight must be greater than zero.")
+      .lte(100, "Maximum allowed weight is 100 KG."),
 
     reward_per_kg: z.coerce
-      .number({ invalid_type_error: "Reward must be a number" })
-      .min(0, "Reward cannot be negative"),
+      .number({ message: "Reward must be a number." })
+      .min(0, "Reward cannot be negative."),
 
-    currency: z.string().min(1, "Currency is required").default("USD"),
+    currency: z.string().min(1, "Currency is required.").default("USD"),
     is_public: z.boolean().default(true),
   })
   .refine(
     (data) => {
-      if (
-        data.from_country.toLowerCase() === data.to_country.toLowerCase() &&
-        data.from_city.toLowerCase() === data.to_city.toLowerCase()
-      ) {
-        return false;
+      if (data.from_country && data.to_country && data.from_city && data.to_city) {
+        return !(
+          data.from_country.toLowerCase() === data.to_country.toLowerCase() &&
+          data.from_city.toLowerCase() === data.to_city.toLowerCase()
+        );
       }
       return true;
     },
     {
-      message: "Destination cannot be the same as departure city",
+      message: "Destination cannot be the same as departure city.",
       path: ["to_city"],
     }
   )
-  .refine((data) => data.arrival_date >= data.departure_date, {
-    message: "Arrival date must be on or after departure date",
-    path: ["arrival_date"],
-  });
+  .refine(
+    (data) => {
+      if (data.departure_date && data.arrival_date) {
+        return data.arrival_date >= data.departure_date;
+      }
+      return true;
+    },
+    {
+      message: "Arrival date must be after departure date.",
+      path: ["arrival_date"],
+    }
+  );
 
 export type TripFormValues = z.infer<typeof tripSchema>;
 
@@ -105,29 +128,19 @@ export interface NewTripProps {
 const formatApiError = (errData: any): string => {
   if (!errData) return "An unexpected error occurred.";
   if (typeof errData === "string") return errData;
-
-  if (errData.errors && typeof errData.errors === "object") {
-    return formatApiError(errData.errors);
-  }
-
-  if (errData.detail) {
-    return formatApiError(errData.detail);
-  }
+  if (errData.errors && typeof errData.errors === "object") return formatApiError(errData.errors);
+  if (errData.detail) return formatApiError(errData.detail);
 
   if (typeof errData === "object") {
     return Object.entries(errData)
       .map(([key, val]) => {
-        if (Array.isArray(val)) {
-          return `${key}: ${val.join(", ")}`;
-        }
-        if (typeof val === "object" && val !== null) {
-          return `${key}: ${formatApiError(val)}`;
-        }
-        return `${key}: ${val}`;
+        const fieldName = key.replace(/_/g, " ").toUpperCase();
+        if (Array.isArray(val)) return `${fieldName}: ${val.join(", ")}`;
+        if (typeof val === "object" && val !== null) return `${fieldName}: ${formatApiError(val)}`;
+        return `${fieldName}: ${val}`;
       })
       .join("\n");
   }
-
   return String(errData);
 };
 
@@ -168,6 +181,17 @@ export const NewTrip = ({ setOpenDialog, initialData, onSuccess }: NewTripProps)
     },
   });
 
+  const selectedFromCountryName = form.watch("from_country");
+  const selectedToCountryName = form.watch("to_country");
+
+  // Get ISO codes to fetch cities from package
+  const fromIsoCode = getCountryIsoByName(selectedFromCountryName);
+  const toIsoCode = getCountryIsoByName(selectedToCountryName);
+
+  // Fetch all cities dynamically based on selected country's ISO code
+  const availableFromCities = fromIsoCode ? City.getCitiesOfCountry(fromIsoCode) || [] : [];
+  const availableToCities = toIsoCode ? City.getCitiesOfCountry(toIsoCode) || [] : [];
+
   useEffect(() => {
     if (initialData) {
       form.reset({
@@ -202,12 +226,33 @@ export const NewTrip = ({ setOpenDialog, initialData, onSuccess }: NewTripProps)
     }
   }, [initialData, form]);
 
-  const onSubmit = async (values: TripFormValues) => {
+  const onSubmit: SubmitHandler<TripFormValues> = async (values) => {
     setIsSubmitting(true);
     setApiError(null);
     setSuccessMessage(null);
 
-    const payload: Record<string, any> = {
+    if (!initialData && values.departure_date < startOfDay(new Date())) {
+      form.setError("departure_date", {
+        type: "manual",
+        message: "Departure date cannot be in the past.",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (initialData && initialData.available_weight_kg !== undefined) {
+      const availWeight = Number(initialData.available_weight_kg);
+      if (Number(values.max_weight_kg) < availWeight) {
+        form.setError("max_weight_kg", {
+          type: "manual",
+          message: "Maximum weight cannot be less than available weight.",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
+    const payload = {
       title: values.title.trim(),
       from_country: values.from_country.trim(),
       from_city: values.from_city.trim(),
@@ -219,11 +264,8 @@ export const NewTrip = ({ setOpenDialog, initialData, onSuccess }: NewTripProps)
       reward_per_kg: Number(values.reward_per_kg),
       currency: values.currency,
       is_public: values.is_public,
+      description: values.description?.trim() ? values.description.trim() : "",
     };
-
-    if (values.description && values.description.trim().length >= 20) {
-      payload.description = values.description.trim();
-    }
 
     try {
       if (initialData?.id) {
@@ -235,18 +277,11 @@ export const NewTrip = ({ setOpenDialog, initialData, onSuccess }: NewTripProps)
       }
 
       if (onSuccess) onSuccess();
-
-      setTimeout(() => {
-        setOpenDialog(false);
-      }, 1200);
+      setTimeout(() => setOpenDialog(false), 1200);
     } catch (err: any) {
       console.error("Backend Error Response:", err?.response?.data);
       const errData = err?.response?.data;
-      if (errData) {
-        setApiError(formatApiError(errData));
-      } else {
-        setApiError(err?.message || "An unexpected error occurred.");
-      }
+      setApiError(errData ? formatApiError(errData) : err?.message || "An error occurred.");
     } finally {
       setIsSubmitting(false);
     }
@@ -262,20 +297,12 @@ export const NewTrip = ({ setOpenDialog, initialData, onSuccess }: NewTripProps)
     try {
       await deleteTripApi(initialData.id);
       setSuccessMessage("Trip deleted successfully!");
-
       if (onSuccess) onSuccess();
-
-      setTimeout(() => {
-        setOpenDialog(false);
-      }, 1000);
+      setTimeout(() => setOpenDialog(false), 1000);
     } catch (err: any) {
       console.error("Delete Error Response:", err?.response?.data);
       const errData = err?.response?.data;
-      if (errData) {
-        setApiError(formatApiError(errData));
-      } else {
-        setApiError(err?.message || "Failed to delete trip.");
-      }
+      setApiError(errData ? formatApiError(errData) : err?.message || "Failed to delete trip.");
     } finally {
       setIsDeleting(false);
       setShowConfirmDelete(false);
@@ -285,14 +312,12 @@ export const NewTrip = ({ setOpenDialog, initialData, onSuccess }: NewTripProps)
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="grid sm:grid-cols-2 gap-4 text-left">
-        {/* Error Alert */}
         {apiError && (
           <div className="sm:col-span-2 bg-red-50 text-red-600 p-3 rounded-xl text-xs font-medium border border-red-100 whitespace-pre-line">
             {apiError}
           </div>
         )}
 
-        {/* Success Alert */}
         {successMessage && (
           <div className="sm:col-span-2 bg-emerald-50 text-emerald-700 p-3 rounded-xl text-xs font-semibold border border-emerald-200 flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
@@ -300,29 +325,14 @@ export const NewTrip = ({ setOpenDialog, initialData, onSuccess }: NewTripProps)
           </div>
         )}
 
-        {/* Delete Confirmation Box */}
         {showConfirmDelete && (
           <div className="sm:col-span-2 bg-red-50 border border-red-200 p-3 rounded-xl flex items-center justify-between gap-2">
             <span className="text-xs text-red-700 font-medium">Are you sure you want to delete this trip?</span>
             <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="text-xs h-8"
-                onClick={() => setShowConfirmDelete(false)}
-                disabled={isDeleting}
-              >
+              <Button type="button" variant="outline" size="sm" className="text-xs h-8" onClick={() => setShowConfirmDelete(false)} disabled={isDeleting}>
                 Cancel
               </Button>
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                className="text-xs h-8 bg-red-600 hover:bg-red-700 text-white"
-                onClick={handleDelete}
-                disabled={isDeleting}
-              >
+              <Button type="button" variant="destructive" size="sm" className="text-xs h-8 bg-red-600 hover:bg-red-700 text-white" onClick={handleDelete} disabled={isDeleting}>
                 {isDeleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Confirm Delete"}
               </Button>
             </div>
@@ -332,7 +342,7 @@ export const NewTrip = ({ setOpenDialog, initialData, onSuccess }: NewTripProps)
         {/* Title */}
         <div className="sm:col-span-2">
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="title"
             render={({ field }) => (
               <FormItem>
@@ -346,59 +356,141 @@ export const NewTrip = ({ setOpenDialog, initialData, onSuccess }: NewTripProps)
           />
         </div>
 
-        {/* From Country / City */}
+        {/* Departure Country */}
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="from_country"
           render={({ field }) => (
             <FormItem>
               <FormLabel className="text-xs font-semibold">From Country</FormLabel>
-              <FormControl>
-                <Input placeholder="Bangladesh" {...field} />
-              </FormControl>
+              <Select
+                onValueChange={(val) => {
+                  field.onChange(val);
+                  form.setValue("from_city", ""); // Reset selected city
+                }}
+                value={field.value}
+              >
+                <FormControl>
+                  <SelectTrigger className="text-xs">
+                    <SelectValue placeholder="Select Departure Country" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent className="max-h-60">
+                  {allCountries.map((country: ICountry) => (
+                    <SelectItem key={country.isoCode} value={country.name}>
+                      {country.flag} {country.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
         />
 
+        {/* Departure City */}
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="from_city"
           render={({ field }) => (
             <FormItem>
               <FormLabel className="text-xs font-semibold">From City</FormLabel>
-              <FormControl>
-                <Input placeholder="Dhaka" {...field} />
-              </FormControl>
+              <Select
+                onValueChange={field.onChange}
+                value={field.value}
+                disabled={!selectedFromCountryName || availableFromCities.length === 0}
+              >
+                <FormControl>
+                  <SelectTrigger className="text-xs">
+                    <SelectValue
+                      placeholder={
+                        selectedFromCountryName
+                          ? availableFromCities.length > 0
+                            ? "Select Departure City"
+                            : "No cities found for this country"
+                          : "Select Country First"
+                      }
+                    />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent className="max-h-60">
+                  {availableFromCities.map((city: ICity, idx) => (
+                    <SelectItem key={`${city.name}-${idx}`} value={city.name}>
+                      {city.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        {/* To Country / City */}
+        {/* Destination Country */}
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="to_country"
           render={({ field }) => (
             <FormItem>
               <FormLabel className="text-xs font-semibold">To Country</FormLabel>
-              <FormControl>
-                <Input placeholder="Italy" {...field} />
-              </FormControl>
+              <Select
+                onValueChange={(val) => {
+                  field.onChange(val);
+                  form.setValue("to_city", ""); // Reset selected city
+                }}
+                value={field.value}
+              >
+                <FormControl>
+                  <SelectTrigger className="text-xs">
+                    <SelectValue placeholder="Select Destination Country" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent className="max-h-60">
+                  {allCountries.map((country: ICountry) => (
+                    <SelectItem key={country.isoCode} value={country.name}>
+                      {country.flag} {country.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
         />
 
+        {/* Destination City */}
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="to_city"
           render={({ field }) => (
             <FormItem>
               <FormLabel className="text-xs font-semibold">To City</FormLabel>
-              <FormControl>
-                <Input placeholder="Rome" {...field} />
-              </FormControl>
+              <Select
+                onValueChange={field.onChange}
+                value={field.value}
+                disabled={!selectedToCountryName || availableToCities.length === 0}
+              >
+                <FormControl>
+                  <SelectTrigger className="text-xs">
+                    <SelectValue
+                      placeholder={
+                        selectedToCountryName
+                          ? availableToCities.length > 0
+                            ? "Select Destination City"
+                            : "No cities found for this country"
+                          : "Select Country First"
+                      }
+                    />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent className="max-h-60">
+                  {availableToCities.map((city: ICity, idx) => (
+                    <SelectItem key={`${city.name}-${idx}`} value={city.name}>
+                      {city.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
@@ -406,7 +498,7 @@ export const NewTrip = ({ setOpenDialog, initialData, onSuccess }: NewTripProps)
 
         {/* Departure Date */}
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="departure_date"
           render={({ field }) => (
             <FormItem>
@@ -432,7 +524,7 @@ export const NewTrip = ({ setOpenDialog, initialData, onSuccess }: NewTripProps)
                     mode="single"
                     selected={field.value}
                     onSelect={field.onChange}
-                    disabled={(date) => date < startOfDay(new Date())}
+                    disabled={(date) => !initialData && date < startOfDay(new Date())}
                     initialFocus
                   />
                 </PopoverContent>
@@ -444,7 +536,7 @@ export const NewTrip = ({ setOpenDialog, initialData, onSuccess }: NewTripProps)
 
         {/* Arrival Date */}
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="arrival_date"
           render={({ field }) => (
             <FormItem>
@@ -485,7 +577,7 @@ export const NewTrip = ({ setOpenDialog, initialData, onSuccess }: NewTripProps)
         {/* Capacity Input */}
         <div className="sm:col-span-2">
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="max_weight_kg"
             render={({ field }) => (
               <FormItem>
@@ -501,7 +593,7 @@ export const NewTrip = ({ setOpenDialog, initialData, onSuccess }: NewTripProps)
 
         {/* Reward & Currency */}
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="reward_per_kg"
           render={({ field }) => (
             <FormItem>
@@ -515,7 +607,7 @@ export const NewTrip = ({ setOpenDialog, initialData, onSuccess }: NewTripProps)
         />
 
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="currency"
           render={({ field }) => (
             <FormItem>
@@ -541,7 +633,7 @@ export const NewTrip = ({ setOpenDialog, initialData, onSuccess }: NewTripProps)
         {/* Description */}
         <div className="sm:col-span-2">
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="description"
             render={({ field }) => (
               <FormItem>
@@ -591,7 +683,7 @@ export const NewTrip = ({ setOpenDialog, initialData, onSuccess }: NewTripProps)
             <Button
               type="submit"
               disabled={isSubmitting || isDeleting || !!successMessage}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              className="bg-amber-400 hover:bg-amber-500 text-white font-semibold text-xs py-2.5 px-4 rounded-xl transition-all shadow-md active:scale-[0.98]"
             >
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {initialData ? "Update Trip" : "Create Trip"}

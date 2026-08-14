@@ -64,10 +64,9 @@ export const MyTrips = () => {
           <h2 className="text-xl font-bold tracking-tight text-slate-900">Your Scheduled Operations</h2>
           <p className="text-xs text-slate-500 mt-0.5">Manage weight limits, routing payloads, and dispatch tracks</p>
         </div>
-
         <Button
           onClick={handleOpenAddModal}
-          className="w-full sm:w-fit bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs py-2.5 px-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 active:scale-[0.98]"
+          className="w-full sm:w-fit bg-amber-400 hover:bg-amber-500 text-white font-semibold text-xs py-2.5 px-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 active:scale-[0.98]"
         >
           <Plus className="w-4 h-4" />
           Add new Trip

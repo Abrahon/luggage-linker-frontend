@@ -70,26 +70,29 @@ export const CarrierMessage = () => {
   const selectedConv = conversations.find((c) => c.id === selectedConvId);
   const partnerUser = selectedConv?.participant || null;
 
-  // Real-time presence callback to keep the room list updated
-  const handlePresenceChanged = useCallback((userId: string, isOnline: boolean) => {
-    setConversations((prev) =>
-      prev.map((conv) => {
-        if (
-          conv.participant?.id &&
-          String(conv.participant.id).toLowerCase() === userId.toLowerCase()
-        ) {
-          return {
-            ...conv,
-            participant: {
-              ...conv.participant,
-              is_online: isOnline,
-            },
-          };
-        }
-        return conv;
-      })
-    );
-  }, []);
+  // Real-time presence callback
+  const handlePresenceChanged = useCallback(
+    (userId: string, isOnline: boolean) => {
+      setConversations((prev) =>
+        prev.map((conv) => {
+          if (
+            conv.participant?.id &&
+            String(conv.participant.id).toLowerCase() === userId.toLowerCase()
+          ) {
+            return {
+              ...conv,
+              participant: {
+                ...conv.participant,
+                is_online: isOnline,
+              },
+            };
+          }
+          return conv;
+        })
+      );
+    },
+    []
+  );
 
   const {
     messages,
@@ -229,6 +232,7 @@ export const CarrierMessage = () => {
 
     try {
       setIsUploading(true);
+      // Upload without attaching filename text caption
       const uploaded = await uploadChatAttachment(
         selectedConvId,
         file,
@@ -237,11 +241,7 @@ export const CarrierMessage = () => {
       );
 
       if (sendMessage) {
-        sendMessage(
-          "",
-          uploaded.url || uploaded.attachment,
-          messageType
-        );
+        sendMessage("", uploaded.url || uploaded.attachment, messageType);
       }
     } catch (err) {
       console.error("Failed to upload attachment:", err);
@@ -250,7 +250,6 @@ export const CarrierMessage = () => {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
-
 
   const checkIsMe = (msg: ExtendedChatMessage) => {
     if (!currentUserId) return false;
@@ -286,7 +285,9 @@ export const CarrierMessage = () => {
           }`}
         >
           <div className="p-3.5 border-b border-gray-100 flex flex-col gap-2.5">
-            <h2 className="text-2xl font-bold text-gray-900 px-1 tracking-tight">Chats</h2>
+            <h2 className="text-2xl font-bold text-gray-900 px-1 tracking-tight">
+              Chats
+            </h2>
             <div className="relative">
               <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -344,7 +345,9 @@ export const CarrierMessage = () => {
                       <div className="flex justify-between items-baseline mb-0.5">
                         <h4
                           className={`truncate text-sm ${
-                            hasUnread ? "font-bold text-gray-900" : "font-semibold text-gray-800"
+                            hasUnread
+                              ? "font-bold text-gray-900"
+                              : "font-semibold text-gray-800"
                           }`}
                         >
                           {partner?.full_name || "Unknown User"}
@@ -357,7 +360,9 @@ export const CarrierMessage = () => {
                       <div className="flex justify-between items-center gap-2">
                         <p
                           className={`text-xs truncate ${
-                            hasUnread ? "font-bold text-blue-600" : "text-gray-500"
+                            hasUnread
+                              ? "font-bold text-blue-600"
+                              : "text-gray-500"
                           }`}
                         >
                           {lastMsgText}
@@ -434,8 +439,14 @@ export const CarrierMessage = () => {
                 ) : (
                   messages.map((msg) => {
                     const isMe = checkIsMe(msg);
+                    const isDeleted = Boolean(msg.is_deleted);
                     const msgStatus =
-                      msg.status || (msg.is_read ? "read" : isPartnerOnline ? "delivered" : "sent");
+                      msg.status ||
+                      (msg.is_read
+                        ? "read"
+                        : isPartnerOnline
+                        ? "delivered"
+                        : "sent");
 
                     return (
                       <div
@@ -450,13 +461,13 @@ export const CarrierMessage = () => {
                           }`}
                         >
                           <div className="relative flex items-center gap-1 group">
-                            {/* Action Menu */}
-                            {isMe && !msg.is_deleted && (
+                            {/* Action Menu (Only show if NOT deleted) */}
+                            {isMe && !isDeleted && (
                               <div className="opacity-0 group-hover:opacity-100 transition flex items-center gap-1 bg-white border border-gray-200 shadow-xs rounded-lg px-1 py-0.5">
                                 <button
                                   onClick={() => {
                                     setEditingMsgId(msg.id);
-                                    setReplyText(msg.message);
+                                    setReplyText(msg.message || "");
                                   }}
                                   className="p-1 hover:bg-gray-100 rounded text-gray-600 hover:text-blue-600"
                                   title="Edit Message"
@@ -473,60 +484,63 @@ export const CarrierMessage = () => {
                               </div>
                             )}
 
-                            {/* Message Bubble */}
-
-                            {/* Message Bubble */}
+                            {/* Message Bubble Container */}
                             <div
                               className={`rounded-2xl text-sm break-words shadow-2xs overflow-hidden ${
-                                msg.is_deleted
-                                  ? "bg-gray-100 text-gray-400 border border-gray-200 select-none p-3"
+                                isDeleted
+                                  ? "bg-gray-100 border border-gray-200 select-none"
                                   : isMe
                                   ? "bg-blue-600 text-white rounded-br-xs"
                                   : "bg-white text-gray-900 border border-gray-200/80 rounded-bl-xs"
                               }`}
                             >
-                              {msg.is_deleted ? (
-                                <div className="flex items-center gap-1.5 text-gray-400 font-normal text-xs italic select-none ">
-                                  {/* <Trash2 className="w-3.5 h-3.5 shrink-0" /> */}
+                              {/* If Deleted: Render Deleted State for ALL message types */}
+                              {isDeleted ? (
+                                <div className="flex items-center gap-1.5 text-gray-400 font-normal text-xs italic px-3 py-2">
+                                  <Trash2 className="w-3.5 h-3.5 shrink-0" />
                                   <span>This message was deleted</span>
                                 </div>
                               ) : (
                                 <>
-                                  {/* Image Attachment (Edge-to-Edge) */}
-                                  {msg.attachment && msg.message_type === "IMAGE" && (
-                                    <div className="overflow-hidden">
-                                      <img
-                                        src={msg.attachment}
-                                        alt="Attachment"
-                                        onClick={() => setPreviewImage(msg.attachment!)}
-                                        className="max-h-72 w-full object-cover cursor-pointer hover:opacity-95 transition block"
-                                      />
-                                    </div>
-                                  )}
+                                  {/* Edge-to-Edge Image Attachment */}
+                                  {msg.attachment &&
+                                    msg.message_type === "IMAGE" && (
+                                      <div className="overflow-hidden">
+                                        <img
+                                          src={msg.attachment}
+                                          alt="Attachment"
+                                          onClick={() =>
+                                            setPreviewImage(msg.attachment!)
+                                          }
+                                          className="max-h-72 w-full object-cover cursor-pointer hover:opacity-95 transition block"
+                                        />
+                                      </div>
+                                    )}
 
                                   {/* File Attachment */}
-                                  {msg.attachment && msg.message_type !== "IMAGE" && (
-                                    <div className="p-2.5">
-                                      <a
-                                        href={msg.attachment}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className={`flex items-center gap-2 p-2 rounded-lg text-xs font-medium border ${
-                                          isMe
-                                            ? "bg-blue-700/50 border-blue-500 text-white"
-                                            : "bg-gray-50 border-gray-200 text-blue-600"
-                                        }`}
-                                      >
-                                        <FileIcon className="w-4 h-4 shrink-0" />
-                                        <span className="truncate flex-1">
-                                          {msg.message || "Download Attachment"}
-                                        </span>
-                                        <Download className="w-4 h-4 shrink-0" />
-                                      </a>
-                                    </div>
-                                  )}
+                                  {msg.attachment &&
+                                    msg.message_type !== "IMAGE" && (
+                                      <div className="p-2.5">
+                                        <a
+                                          href={msg.attachment}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className={`flex items-center gap-2 p-2 rounded-lg text-xs font-medium border ${
+                                            isMe
+                                              ? "bg-blue-700/50 border-blue-500 text-white"
+                                              : "bg-gray-50 border-gray-200 text-blue-600"
+                                          }`}
+                                        >
+                                          <FileIcon className="w-4 h-4 shrink-0" />
+                                          <span className="truncate flex-1">
+                                            {msg.message || "Download Attachment"}
+                                          </span>
+                                          <Download className="w-4 h-4 shrink-0" />
+                                        </a>
+                                      </div>
+                                    )}
 
-                                  {/* Message Text (Padded only if text exists) */}
+                                  {/* Padded Text (Only if message text is present) */}
                                   {msg.message && (
                                     <p className="px-4 py-2.5 leading-relaxed whitespace-pre-wrap">
                                       {msg.message}
@@ -551,12 +565,14 @@ export const CarrierMessage = () => {
                             }`}
                           >
                             <span>{formatTime(msg.created_at)}</span>
-                            {isMe && !msg.is_deleted && (
+                            {isMe && !isDeleted && (
                               <span className="flex items-center gap-0.5 ml-1">
                                 {msgStatus === "read" ? (
                                   <>
                                     <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
-                                    <span className="text-blue-500 font-medium">Read</span>
+                                    <span className="text-blue-500 font-medium">
+                                      Read
+                                    </span>
                                   </>
                                 ) : msgStatus === "delivered" ? (
                                   <>
@@ -665,6 +681,7 @@ export const CarrierMessage = () => {
         </div>
       </div>
 
+      {/* Image Preview Modal */}
       {previewImage && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
           <button
