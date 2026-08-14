@@ -1,26 +1,69 @@
-// src/hooks/useChatWebSocket.ts
 import { useEffect, useRef, useState, useCallback } from "react";
-import { ChatMessageData } from "@/api/chat.api";
+
+export interface ReplyToMessage {
+  id: string;
+  message: string;
+  sender_id: string;
+  message_type: string;
+  audio_duration?: number;
+}
+
+export interface ExtendedChatMessage {
+  id: string;
+  room_id: string;
+  sender_id: string;
+  receiver_id: string;
+  message: string;
+  message_type: "TEXT" | "IMAGE" | "FILE" | "VIDEO" | "AUDIO";
+  attachment?: string | null;
+  audio_duration?: number;
+  reply_to?: ReplyToMessage | null;
+  is_read: boolean;
+  is_delivered?: boolean;
+  is_deleted: boolean;
+  is_edited: boolean;
+  created_at: string;
+  edited_at?: string | null;
+  reactions?: Record<string, string>;
+  status?: "sent" | "delivered" | "read";
+}
+
+export interface PinnedMessageData {
+  id: string;
+  message_id: string;
+  message: string;
+  sender_id: string;
+  message_type: string;
+  attachment?: string | null;
+  pinned_by: string;
+  pinned_at: string;
+}
 
 interface UseChatWebSocketProps {
   roomId: string | null;
   currentUserId: string;
-  onMessageReceived?: (msg: ChatMessageData) => void;
+  partnerUserId?: string | null;
+  onMessageReceived?: (msg: ExtendedChatMessage) => void;
+  onPresenceChanged?: (userId: string, isOnline: boolean) => void;
 }
 
 export const useChatWebSocket = ({
   roomId,
   currentUserId,
+  partnerUserId,
   onMessageReceived,
+  onPresenceChanged,
 }: UseChatWebSocketProps) => {
-  const [messages, setMessages] = useState<ChatMessageData[]>([]);
+  const [messages, setMessages] = useState<ExtendedChatMessage[]>([]);
   const [isTyping, setIsTyping] = useState<boolean>(false);
-  const [partnerPresence, setPartnerPresence] = useState<"online" | "offline">("offline");
+  const [presenceMap, setPresenceMap] = useState<Record<string, boolean>>({});
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [pinnedMessage, setPinnedMessage] = useState<PinnedMessageData | null>(null);
+
   const ws = useRef<WebSocket | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Keep ref up to date to prevent stale closures in socket callbacks
   const currentUserIdRef = useRef(currentUserId);
   useEffect(() => {
     currentUserIdRef.current = currentUserId;
@@ -43,61 +86,84 @@ export const useChatWebSocket = ({
         token || ""
       )}`;
 
-      console.log("Connecting to WebSocket:", socketUrl);
       const socket = new WebSocket(socketUrl);
       ws.current = socket;
 
       socket.onopen = () => {
-        console.log(`Connected to chat room: ${roomId}`);
+        console.log(`[WS] Connected to room: ${roomId}`);
       };
 
       socket.onmessage = (event) => {
         try {
           const payload = JSON.parse(event.data);
-          console.log("WebSocket message received:", payload);
 
-          // Support event names across various backend conventions
-          const eventType = (payload.event || payload.type || payload.action || "").toLowerCase();
-          const rawData = payload.data || payload.message_data || payload;
+          const eventType = String(
+            payload.event || payload.type || payload.action || ""
+          ).toLowerCase();
 
-          // Process message frames
+          const data = payload.data || payload;
+
+          const eventUserId = String(
+            data.user_id ||
+              payload.user_id ||
+              data.sender_id ||
+              data.reader_id ||
+              ""
+          ).toLowerCase();
+
+          // -------------------------------------------------------------
+          // 1. PRESENCE EVENT
+          // -------------------------------------------------------------
           if (
-            eventType.includes("message") ||
-            eventType === "chat" ||
-            rawData.message !== undefined ||
-            rawData.text !== undefined
+            eventType === "presence" ||
+            eventType === "presence_event" ||
+            eventType.includes("status")
           ) {
-            const senderId = String(
-              rawData.sender_id ??
-                rawData.sender?.id ??
-                rawData.sender ??
-                rawData.user_id ??
-                ""
-            );
+            const rawStatus = String(data.status || payload.status || "offline").toLowerCase();
+            const isOnline = rawStatus === "online";
 
-          const replyToObj =
-            typeof rawData.reply_to === "object" && rawData.reply_to !== null
-              ? (rawData.reply_to as ChatMessageData)
-              : null;
+            if (eventUserId) {
+              setPresenceMap((prev) => ({
+                ...prev,
+                [eventUserId]: isOnline,
+              }));
 
-          const newMsg: ChatMessageData = {
-            id: String(rawData.id || rawData.message_id || `msg-${Date.now()}`),
-            room_id: String(rawData.room_id || roomId),
-            sender_id: senderId,
-            receiver_id: String(rawData.receiver_id || rawData.recipient_id || ""),
-            message: rawData.message || rawData.text || "",
-            message_type: rawData.message_type || "TEXT",
-            attachment: rawData.attachment ?? null,
-            audio_duration: rawData.audio_duration ?? 0,
-            reply_to: replyToObj, // <--- Updated to match ChatMessageData | null
-            is_read: rawData.is_read ?? false,
-            is_deleted: rawData.is_deleted ?? false,
-            is_edited: Boolean(rawData.is_edited || rawData.edited_at),
-            created_at: rawData.created_at || rawData.timestamp || new Date().toISOString(),
-          };
+              onPresenceChanged?.(eventUserId, isOnline);
+
+              if (isOnline) {
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.status === "sent" ? { ...msg, status: "delivered" } : msg
+                  )
+                );
+              }
+            }
+            return;
+          }
+
+          // -------------------------------------------------------------
+          // 2. MESSAGE EVENT
+          // -------------------------------------------------------------
+          if (eventType === "message") {
+            const newMsg: ExtendedChatMessage = {
+              id: String(data.id),
+              room_id: String(data.room_id || roomId),
+              sender_id: String(data.sender_id),
+              receiver_id: String(data.receiver_id),
+              message: data.message || "",
+              message_type: data.message_type || "TEXT",
+              attachment: data.attachment ?? null,
+              audio_duration: data.audio_duration ?? 0,
+              reply_to: data.reply_to ?? null,
+              is_read: Boolean(data.is_read),
+              is_deleted: Boolean(data.is_deleted),
+              is_edited: Boolean(data.is_edited),
+              created_at: data.created_at || new Date().toISOString(),
+              edited_at: data.edited_at ?? null,
+              status: data.is_read ? "read" : "sent",
+            };
 
             setMessages((prev) => {
-              // Replace optimistic temp message or avoid duplicate inserts
               const existingIndex = prev.findIndex(
                 (m) =>
                   String(m.id) === String(newMsg.id) ||
@@ -115,30 +181,78 @@ export const useChatWebSocket = ({
             });
 
             onMessageReceived?.(newMsg);
-          } else if (eventType.includes("typing")) {
-            const typingUserId = String(rawData.user_id || rawData.sender_id || "");
-            if (typingUserId !== String(currentUserIdRef.current)) {
-              setIsTyping(Boolean(rawData.is_typing ?? rawData.typing));
+            return;
+          }
+
+          // -------------------------------------------------------------
+          // 3. EDIT / DELETE / TYPING / READ RECEIPTS
+          // -------------------------------------------------------------
+          if (eventType === "edit_message") {
+            const msgId = String(data.message_id || data.id);
+            setMessages((prev) =>
+              prev.map((msg) =>
+                String(msg.id) === msgId
+                  ? { ...msg, message: data.message, is_edited: true, edited_at: data.updated_at }
+                  : msg
+              )
+            );
+            return;
+          }
+
+          if (eventType === "delete_message") {
+            const msgId = String(data.message_id || data.id);
+            setMessages((prev) =>
+              prev.map((msg) =>
+                String(msg.id) === msgId ? { ...msg, is_deleted: true, message: "" } : msg
+              )
+            );
+            return;
+          }
+
+          if (eventType === "typing") {
+            if (eventUserId !== String(currentUserIdRef.current).toLowerCase()) {
+              setIsTyping(Boolean(data.is_typing));
             }
-          } else if (eventType.includes("presence") || eventType.includes("status")) {
-            const statusUserId = String(rawData.user_id || rawData.sender_id || "");
-            if (statusUserId !== String(currentUserIdRef.current)) {
-              setPartnerPresence(rawData.status === "online" ? "online" : "offline");
-            }
+            return;
+          }
+
+          if (eventType === "read_receipt") {
+            const messageIds: string[] = (data.message_ids || []).map(String);
+            setMessages((prev) =>
+              prev.map((msg) =>
+                messageIds.includes(String(msg.id))
+                  ? { ...msg, is_read: true, status: "read" }
+                  : msg
+              )
+            );
+            return;
+          }
+
+          if (eventType === "delivered") {
+            const msgId = String(data.message_id);
+            setMessages((prev) =>
+              prev.map((msg) =>
+                String(msg.id) === msgId && msg.status !== "read"
+                  ? { ...msg, is_delivered: true, status: "delivered" }
+                  : msg
+              )
+            );
+            return;
+          }
+
+          if (eventType === "unread_count") {
+            setUnreadCount(Number(data.count || 0));
+            return;
           }
         } catch (err) {
-          console.error("Error parsing WebSocket message:", err);
+          console.error("[WS] Error parsing message:", err);
         }
       };
 
-      socket.onerror = (err) => {
-        console.error("WebSocket Error:", err);
-      };
+      socket.onerror = (err) => console.error("[WS] Socket error:", err);
 
-      socket.onclose = (event) => {
-        console.log(`WebSocket closed for room ${roomId}. Code: ${event.code}`);
-        // Reconnect automatically if closed unexpectedly
-        if (isMounted && event.code !== 1000) {
+      socket.onclose = (e) => {
+        if (isMounted && e.code !== 1000) {
           reconnectTimeoutRef.current = setTimeout(connect, 3000);
         }
       };
@@ -150,13 +264,16 @@ export const useChatWebSocket = ({
       isMounted = false;
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
-      if (ws.current) {
-        ws.current.close(1000, "Unmounted");
-      }
+      if (ws.current) ws.current.close(1000, "Unmounted");
     };
-  }, [roomId, onMessageReceived]);
+  }, [roomId, onMessageReceived, onPresenceChanged]);
 
-  // Send message with INSTANT Optimistic Local Update
+  const partnerPresence =
+    partnerUserId && presenceMap[partnerUserId.toLowerCase()] !== undefined
+      ? presenceMap[partnerUserId.toLowerCase()]
+      : false;
+
+  // Actions
   const sendMessage = useCallback(
     (
       text: string,
@@ -168,8 +285,7 @@ export const useChatWebSocket = ({
       const activeUserId = currentUserIdRef.current;
       const tempId = `temp-${Date.now()}`;
 
-      // 1. OPTIMISTIC UPDATE: Append immediately to local state
-      const optimisticMsg: ChatMessageData = {
+      const optimisticMsg: ExtendedChatMessage = {
         id: tempId,
         room_id: String(roomId || ""),
         sender_id: String(activeUserId),
@@ -178,57 +294,76 @@ export const useChatWebSocket = ({
         message_type: messageType,
         attachment: attachmentUrl,
         audio_duration: audioDuration,
-        reply_to: null,
+        reply_to: replyToId ? { id: replyToId, message: "", sender_id: "", message_type: "TEXT" } : null,
         is_read: false,
         is_deleted: false,
         is_edited: false,
         created_at: new Date().toISOString(),
+        status: partnerPresence ? "delivered" : "sent",
       };
 
       setMessages((prev) => [...prev, optimisticMsg]);
 
-      // 2. Transmit through WebSocket connection
       if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-        const payload = {
-          event: "message",
-          data: {
-            message: text,
-            message_type: messageType,
-            attachment: attachmentUrl,
-            reply_to: replyToId,
-            audio_duration: audioDuration,
-          },
-        };
-        console.log("Sending WebSocket message:", payload);
-        ws.current.send(JSON.stringify(payload));
-      } else {
-        console.warn("WebSocket not connected. Message rendered optimistically.");
+        ws.current.send(
+          JSON.stringify({
+            event: "message",
+            data: {
+              message: text,
+              message_type: messageType,
+              attachment: attachmentUrl,
+              reply_to: replyToId,
+              audio_duration: audioDuration,
+            },
+          })
+        );
       }
     },
-    [roomId]
+    [roomId, partnerPresence]
   );
 
-  const handleTyping = useCallback(() => {
+  const sendTyping = useCallback((isTypingStatus: boolean) => {
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
       ws.current.send(
         JSON.stringify({
           event: "typing",
-          data: { is_typing: true },
+          data: { is_typing: isTypingStatus },
         })
       );
+    }
+  }, []);
 
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+  const editMessage = useCallback((messageId: string, newText: string) => {
+    setMessages((prev) =>
+      prev.map((msg) =>
+        String(msg.id) === String(messageId) ? { ...msg, message: newText, is_edited: true } : msg
+      )
+    );
 
-      typingTimeoutRef.current = setTimeout(() => {
-        if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-          ws.current.send(
-            JSON.stringify({
-              event: "typing",
-              data: { is_typing: false },
-            })
-          );
-        }
-      }, 2000);
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      ws.current.send(
+        JSON.stringify({
+          event: "edit_message",
+          data: { message_id: messageId, message: newText },
+        })
+      );
+    }
+  }, []);
+
+  const deleteMessage = useCallback((messageId: string) => {
+    setMessages((prev) =>
+      prev.map((msg) =>
+        String(msg.id) === String(messageId) ? { ...msg, is_deleted: true, message: "" } : msg
+      )
+    );
+
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      ws.current.send(
+        JSON.stringify({
+          event: "delete_message",
+          data: { message_id: messageId },
+        })
+      );
     }
   }, []);
 
@@ -237,7 +372,10 @@ export const useChatWebSocket = ({
     setMessages,
     isTyping,
     partnerPresence,
+    presenceMap,
     sendMessage,
-    handleTyping,
+    sendTyping,
+    editMessage,
+    deleteMessage,
   };
 };

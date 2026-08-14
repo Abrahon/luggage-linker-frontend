@@ -1,5 +1,4 @@
 // src/api/chat.api.ts
-// src/api/chat.api.ts
 import axiosInstance from "@/api/axios";
 
 export interface Participant {
@@ -45,7 +44,6 @@ export interface ChatMessageData {
 // Fetch Chat Rooms
 export const fetchChatRooms = async (): Promise<ChatRoom[]> => {
   const response = await axiosInstance.get("/api/chat/rooms/");
-  // Handles Django REST Framework paginated response ({ results: [...] }) or direct arrays
   return response.data.results || response.data;
 };
 
@@ -63,27 +61,34 @@ export const fetchChatHistory = async (
   return response.data;
 };
 
-// Upload File Attachment
+// Upload File Attachment (UPDATED)
 export const uploadChatAttachment = async (
-  file: File
-): Promise<{ url: string; file_type: "IMAGE" | "FILE" | "VIDEO" | "AUDIO" }> => {
+  roomId: string,
+  file: File,
+  messageType: string,
+  messageText: string = ""
+) => {
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append("room", roomId);
+  formData.append("message_type", messageType);
+  formData.append("attachment", file);
+  formData.append("message", messageText);
 
   const response = await axiosInstance.post("/api/chat/upload/", formData, {
     headers: {
       "Content-Type": "multipart/form-data",
     },
   });
+
   return response.data;
 };
 
-// 4. Global Message Search across conversations
+// Global Message Search
 export const searchMessages = async (
   query: string
 ): Promise<ChatMessageData[]> => {
   const response = await axiosInstance.get(
-    `api/messages/search/?q=${encodeURIComponent(query)}`
+    `/api/messages/search/?q=${encodeURIComponent(query)}`
   );
   return response.data.results || response.data;
 };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, ChangeEvent } from "react";
+import { useEffect, useRef, useState, ChangeEvent, useCallback } from "react";
 import { HeadingSection } from "@/webcomponent/reusable/HeadingSection";
 import {
   Send,
@@ -13,6 +13,10 @@ import {
   X,
   FileIcon,
   ImageIcon,
+  Pencil,
+  Trash2,
+  Check,
+  CheckCheck,
 } from "lucide-react";
 import { format, isValid } from "date-fns";
 import {
@@ -20,9 +24,11 @@ import {
   fetchChatHistory,
   uploadChatAttachment,
   ChatRoom,
-  ChatMessageData,
 } from "@/api/chat.api";
-import { useChatWebSocket } from "@/hooks/useChatWebSocket";
+import {
+  useChatWebSocket,
+  ExtendedChatMessage,
+} from "@/hooks/useChatWebSocket";
 
 export const CarrierMessage = () => {
   const [conversations, setConversations] = useState<ChatRoom[]>([]);
@@ -35,10 +41,12 @@ export const CarrierMessage = () => {
   const [showMobileChat, setShowMobileChat] = useState<boolean>(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
+  const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Extract User ID reliably from local storage
   useEffect(() => {
     if (typeof window !== "undefined") {
       let uid =
@@ -52,13 +60,9 @@ export const CarrierMessage = () => {
           try {
             const parsed = JSON.parse(userObjStr);
             uid = String(parsed.id || parsed.user_id || "");
-          } catch {
-            // Ignore parse errors
-          }
+          } catch {}
         }
       }
-
-      console.log("Current User ID loaded:", uid);
       setCurrentUserId(String(uid));
     }
   }, []);
@@ -66,17 +70,41 @@ export const CarrierMessage = () => {
   const selectedConv = conversations.find((c) => c.id === selectedConvId);
   const partnerUser = selectedConv?.participant || null;
 
-  // Initialize Chat WebSocket
+  // Real-time presence callback to keep the room list updated
+  const handlePresenceChanged = useCallback((userId: string, isOnline: boolean) => {
+    setConversations((prev) =>
+      prev.map((conv) => {
+        if (
+          conv.participant?.id &&
+          String(conv.participant.id).toLowerCase() === userId.toLowerCase()
+        ) {
+          return {
+            ...conv,
+            participant: {
+              ...conv.participant,
+              is_online: isOnline,
+            },
+          };
+        }
+        return conv;
+      })
+    );
+  }, []);
+
   const {
     messages,
     setMessages,
     isTyping,
     partnerPresence,
     sendMessage,
-    handleTyping,
+    sendTyping,
+    editMessage,
+    deleteMessage,
   } = useChatWebSocket({
     roomId: selectedConvId,
     currentUserId,
+    partnerUserId: partnerUser?.id ? String(partnerUser.id) : null,
+    onPresenceChanged: handlePresenceChanged,
     onMessageReceived: (newMsg) => {
       setConversations((prev) =>
         prev.map((conv) => {
@@ -111,7 +139,7 @@ export const CarrierMessage = () => {
     loadRooms();
   }, []);
 
-  // Load Room History
+  // Load History
   useEffect(() => {
     if (!selectedConvId) return;
 
@@ -121,14 +149,16 @@ export const CarrierMessage = () => {
         const historyData = await fetchChatHistory(selectedConvId);
         const historyList = historyData.results || [];
 
-        // Order history chronologically (oldest top, newest bottom)
         const isNewestFirst =
           historyList.length > 1 &&
           new Date(historyList[0].created_at).getTime() >
             new Date(historyList[historyList.length - 1].created_at).getTime();
 
-        const sortedHistory = isNewestFirst ? [...historyList].reverse() : historyList;
-        setMessages(sortedHistory);
+        const sortedHistory = isNewestFirst
+          ? [...historyList].reverse()
+          : historyList;
+
+        setMessages(sortedHistory as ExtendedChatMessage[]);
 
         setConversations((prev) =>
           prev.map((conv) =>
@@ -145,10 +175,19 @@ export const CarrierMessage = () => {
     loadHistory();
   }, [selectedConvId, setMessages]);
 
-  // Scroll to bottom on new message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
+
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setReplyText(e.target.value);
+    sendTyping(true);
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      sendTyping(false);
+    }, 2000);
+  };
 
   const formatTime = (dateString?: string | null) => {
     if (!dateString) return "";
@@ -161,27 +200,49 @@ export const CarrierMessage = () => {
     setShowMobileChat(true);
   };
 
-  const handleSend = () => {
+  const handleSendOrUpdate = () => {
     if (!replyText.trim() || !selectedConvId) return;
-    sendMessage(replyText.trim());
-    setReplyText("");
-  };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
+    if (editingMsgId) {
+      editMessage(editingMsgId, replyText.trim());
+      setEditingMsgId(null);
+    } else {
+      sendMessage(replyText.trim());
     }
+
+    sendTyping(false);
+    setReplyText("");
   };
 
   const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !selectedConvId) return;
 
+    let messageType: "IMAGE" | "VIDEO" | "AUDIO" | "FILE" = "FILE";
+    if (file.type.startsWith("image/")) {
+      messageType = "IMAGE";
+    } else if (file.type.startsWith("video/")) {
+      messageType = "VIDEO";
+    } else if (file.type.startsWith("audio/")) {
+      messageType = "AUDIO";
+    }
+
     try {
       setIsUploading(true);
-      const uploaded = await uploadChatAttachment(file);
-      sendMessage(file.name, uploaded.url, uploaded.file_type || "FILE");
+      const uploaded = await uploadChatAttachment(
+        selectedConvId,
+        file,
+        messageType,
+        ""
+      );
+
+      if (sendMessage) {
+        sendMessage(
+          "",
+          uploaded.url || uploaded.attachment,
+          messageType
+        );
+      }
     } catch (err) {
       console.error("Failed to upload attachment:", err);
     } finally {
@@ -190,25 +251,20 @@ export const CarrierMessage = () => {
     }
   };
 
-  // Robust check to match current user vs. message sender
-// Robust check to match current user vs. message sender
-  const checkIsMe = (msg: ChatMessageData) => {
-    if (!currentUserId) return false;
 
-    // Double assertion through 'unknown' resolves the index signature error
+  const checkIsMe = (msg: ExtendedChatMessage) => {
+    if (!currentUserId) return false;
     const rawMsg = (msg as unknown) as Record<string, unknown>;
     const senderObj = rawMsg.sender as { id?: string | number } | undefined;
 
     const msgSenderId = String(
-      msg.sender_id ??
-        senderObj?.id ??
-        rawMsg.sender ??
-        rawMsg.user_id ??
-        ""
+      msg.sender_id ?? senderObj?.id ?? rawMsg.sender ?? rawMsg.user_id ?? ""
     ).trim();
 
     return msgSenderId === String(currentUserId).trim();
   };
+
+  const isPartnerOnline = partnerPresence || Boolean(partnerUser?.is_online);
 
   const filteredConversations = conversations.filter((conv) => {
     const name = conv.participant?.full_name || "";
@@ -254,6 +310,7 @@ export const CarrierMessage = () => {
                 const isSelected = selectedConvId === conv.id;
                 const hasUnread = conv.unread_count > 0;
                 const lastMsgText = conv.last_message || "Started a chat";
+                const activeOnline = Boolean(partner?.is_online);
 
                 return (
                   <div
@@ -278,7 +335,7 @@ export const CarrierMessage = () => {
 
                       <span
                         className={`w-3.5 h-3.5 absolute bottom-0 right-0 rounded-full border-2 border-white ${
-                          partner?.is_online ? "bg-green-500" : "bg-gray-300"
+                          activeOnline ? "bg-green-500" : "bg-gray-300"
                         }`}
                       />
                     </div>
@@ -318,7 +375,7 @@ export const CarrierMessage = () => {
           </div>
         </div>
 
-        {/* Chat Panel */}
+        {/* Main Chat Panel */}
         <div
           className={`flex-1 flex flex-col bg-gray-50/50 ${
             !showMobileChat ? "hidden md:flex" : "flex"
@@ -350,7 +407,7 @@ export const CarrierMessage = () => {
                     )}
                     <Circle
                       className={`w-3 h-3 absolute bottom-0 right-0 rounded-full border-2 border-white ${
-                        partnerPresence === "online" || partnerUser.is_online
+                        isPartnerOnline
                           ? "fill-green-500 text-green-500"
                           : "fill-gray-300 text-gray-300"
                       }`}
@@ -362,18 +419,14 @@ export const CarrierMessage = () => {
                       {partnerUser.full_name}
                     </h3>
                     <p className="text-xs text-gray-500 flex items-center gap-1.5">
-                      <span>
-                        {partnerPresence === "online" || partnerUser.is_online
-                          ? "Active now"
-                          : "Offline"}
-                      </span>
+                      <span>{isPartnerOnline ? "Active now" : "Offline"}</span>
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Chat Window */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              {/* Message Feed */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {loadingHistory ? (
                   <div className="flex items-center justify-center h-full">
                     <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
@@ -381,11 +434,13 @@ export const CarrierMessage = () => {
                 ) : (
                   messages.map((msg) => {
                     const isMe = checkIsMe(msg);
+                    const msgStatus =
+                      msg.status || (msg.is_read ? "read" : isPartnerOnline ? "delivered" : "sent");
 
                     return (
                       <div
                         key={msg.id}
-                        className={`flex w-full ${
+                        className={`group relative flex w-full ${
                           isMe ? "justify-end" : "justify-start"
                         }`}
                       >
@@ -394,57 +449,129 @@ export const CarrierMessage = () => {
                             isMe ? "items-end" : "items-start"
                           }`}
                         >
-                          <div
-                            className={`px-4 py-2.5 rounded-2xl text-sm break-words shadow-2xs ${
-                              isMe
-                                ? "bg-blue-600 text-white rounded-br-xs"
-                                : "bg-white text-gray-900 border border-gray-200/80 rounded-bl-xs"
-                            }`}
-                          >
-                            {msg.attachment && msg.message_type === "IMAGE" && (
-                              <div className="mb-2 overflow-hidden rounded-xl">
-                                <img
-                                  src={msg.attachment}
-                                  alt="Attachment"
-                                  onClick={() => setPreviewImage(msg.attachment)}
-                                  className="max-h-60 w-full object-cover cursor-pointer hover:opacity-90 transition"
-                                />
+                          <div className="relative flex items-center gap-1 group">
+                            {/* Action Menu */}
+                            {isMe && !msg.is_deleted && (
+                              <div className="opacity-0 group-hover:opacity-100 transition flex items-center gap-1 bg-white border border-gray-200 shadow-xs rounded-lg px-1 py-0.5">
+                                <button
+                                  onClick={() => {
+                                    setEditingMsgId(msg.id);
+                                    setReplyText(msg.message);
+                                  }}
+                                  className="p-1 hover:bg-gray-100 rounded text-gray-600 hover:text-blue-600"
+                                  title="Edit Message"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => deleteMessage(msg.id)}
+                                  className="p-1 hover:bg-gray-100 rounded text-gray-600 hover:text-red-600"
+                                  title="Delete Message"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
                               </div>
                             )}
 
-                            {msg.attachment && msg.message_type !== "IMAGE" && (
-                              <a
-                                href={msg.attachment}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className={`flex items-center gap-2 p-2 rounded-lg mb-2 text-xs font-medium border ${
-                                  isMe
-                                    ? "bg-blue-700/50 border-blue-500 text-white"
-                                    : "bg-gray-50 border-gray-200 text-blue-600"
-                                }`}
-                              >
-                                <FileIcon className="w-4 h-4 shrink-0" />
-                                <span className="truncate flex-1">
-                                  {msg.message || "Download Attachment"}
-                                </span>
-                                <Download className="w-4 h-4 shrink-0" />
-                              </a>
-                            )}
+                            {/* Message Bubble */}
 
-                            {msg.message && (
-                              <p className="leading-relaxed whitespace-pre-wrap">
-                                {msg.message}
-                              </p>
-                            )}
+                            {/* Message Bubble */}
+                            <div
+                              className={`rounded-2xl text-sm break-words shadow-2xs overflow-hidden ${
+                                msg.is_deleted
+                                  ? "bg-gray-100 text-gray-400 border border-gray-200 select-none p-3"
+                                  : isMe
+                                  ? "bg-blue-600 text-white rounded-br-xs"
+                                  : "bg-white text-gray-900 border border-gray-200/80 rounded-bl-xs"
+                              }`}
+                            >
+                              {msg.is_deleted ? (
+                                <div className="flex items-center gap-1.5 text-gray-400 font-normal text-xs italic select-none ">
+                                  {/* <Trash2 className="w-3.5 h-3.5 shrink-0" /> */}
+                                  <span>This message was deleted</span>
+                                </div>
+                              ) : (
+                                <>
+                                  {/* Image Attachment (Edge-to-Edge) */}
+                                  {msg.attachment && msg.message_type === "IMAGE" && (
+                                    <div className="overflow-hidden">
+                                      <img
+                                        src={msg.attachment}
+                                        alt="Attachment"
+                                        onClick={() => setPreviewImage(msg.attachment!)}
+                                        className="max-h-72 w-full object-cover cursor-pointer hover:opacity-95 transition block"
+                                      />
+                                    </div>
+                                  )}
+
+                                  {/* File Attachment */}
+                                  {msg.attachment && msg.message_type !== "IMAGE" && (
+                                    <div className="p-2.5">
+                                      <a
+                                        href={msg.attachment}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={`flex items-center gap-2 p-2 rounded-lg text-xs font-medium border ${
+                                          isMe
+                                            ? "bg-blue-700/50 border-blue-500 text-white"
+                                            : "bg-gray-50 border-gray-200 text-blue-600"
+                                        }`}
+                                      >
+                                        <FileIcon className="w-4 h-4 shrink-0" />
+                                        <span className="truncate flex-1">
+                                          {msg.message || "Download Attachment"}
+                                        </span>
+                                        <Download className="w-4 h-4 shrink-0" />
+                                      </a>
+                                    </div>
+                                  )}
+
+                                  {/* Message Text (Padded only if text exists) */}
+                                  {msg.message && (
+                                    <p className="px-4 py-2.5 leading-relaxed whitespace-pre-wrap">
+                                      {msg.message}
+                                    </p>
+                                  )}
+
+                                  {/* Edited Badge */}
+                                  {msg.is_edited && (
+                                    <span className="text-[10px] opacity-75 block text-right px-3 pb-1">
+                                      (edited)
+                                    </span>
+                                  )}
+                                </>
+                              )}
+                            </div>
                           </div>
 
-                          <span
-                            className={`text-[10px] mt-1 px-1 text-gray-400 ${
-                              isMe ? "text-right" : "text-left"
+                          {/* Timestamp & Status */}
+                          <div
+                            className={`flex items-center gap-1 text-[10px] mt-1 px-1 text-gray-400 ${
+                              isMe ? "justify-end" : "justify-start"
                             }`}
                           >
-                            {formatTime(msg.created_at)}
-                          </span>
+                            <span>{formatTime(msg.created_at)}</span>
+                            {isMe && !msg.is_deleted && (
+                              <span className="flex items-center gap-0.5 ml-1">
+                                {msgStatus === "read" ? (
+                                  <>
+                                    <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
+                                    <span className="text-blue-500 font-medium">Read</span>
+                                  </>
+                                ) : msgStatus === "delivered" ? (
+                                  <>
+                                    <CheckCheck className="w-3.5 h-3.5 text-gray-400" />
+                                    <span>Delivered</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check className="w-3.5 h-3.5 text-gray-400" />
+                                    <span>Sent</span>
+                                  </>
+                                )}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
@@ -460,7 +587,23 @@ export const CarrierMessage = () => {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Message Input */}
+              {/* Editing Banner */}
+              {editingMsgId && (
+                <div className="bg-blue-50 border-t border-blue-100 px-4 py-1.5 flex items-center justify-between text-xs text-blue-700">
+                  <span>Editing message...</span>
+                  <button
+                    onClick={() => {
+                      setEditingMsgId(null);
+                      setReplyText("");
+                    }}
+                    className="p-0.5 hover:bg-blue-100 rounded text-blue-800"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              {/* Input Bar */}
               <div className="p-3 bg-white border-t border-gray-200 flex items-center gap-2">
                 <input
                   type="file"
@@ -483,18 +626,22 @@ export const CarrierMessage = () => {
 
                 <input
                   type="text"
-                  placeholder="Type a message..."
+                  placeholder={
+                    editingMsgId ? "Edit your message..." : "Type a message..."
+                  }
                   value={replyText}
-                  onChange={(e) => {
-                    setReplyText(e.target.value);
-                    handleTyping();
+                  onChange={handleInputChange}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendOrUpdate();
+                    }
                   }}
-                  onKeyDown={handleKeyPress}
                   className="flex-1 bg-gray-100 border-none rounded-full px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 transition"
                 />
 
                 <button
-                  onClick={handleSend}
+                  onClick={handleSendOrUpdate}
                   disabled={!replyText.trim()}
                   className="p-2.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition disabled:opacity-40 shrink-0 shadow-2xs"
                 >
@@ -507,7 +654,9 @@ export const CarrierMessage = () => {
               <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-3">
                 <ImageIcon className="w-8 h-8 text-gray-300" />
               </div>
-              <h3 className="text-gray-700 font-medium text-base mb-1">Your Messages</h3>
+              <h3 className="text-gray-700 font-medium text-base mb-1">
+                Your Messages
+              </h3>
               <p className="text-xs text-gray-400 max-w-sm">
                 Select a conversation to start messaging.
               </p>
