@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, ChangeEvent } from "react";
 import { HeadingSection } from "@/webcomponent/reusable/HeadingSection";
 import {
-  ArrowRight,
   Send,
   Paperclip,
   Loader2,
@@ -39,17 +38,35 @@ export const CarrierMessage = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Extract User ID reliably from local storage
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const storedUserId = localStorage.getItem("userId") || "";
-      setCurrentUserId(storedUserId);
+      let uid =
+        localStorage.getItem("userId") ||
+        localStorage.getItem("user_id") ||
+        "";
+
+      if (!uid) {
+        const userObjStr = localStorage.getItem("user");
+        if (userObjStr) {
+          try {
+            const parsed = JSON.parse(userObjStr);
+            uid = String(parsed.id || parsed.user_id || "");
+          } catch {
+            // Ignore parse errors
+          }
+        }
+      }
+
+      console.log("Current User ID loaded:", uid);
+      setCurrentUserId(String(uid));
     }
   }, []);
 
   const selectedConv = conversations.find((c) => c.id === selectedConvId);
   const partnerUser = selectedConv?.participant || null;
 
-  // Initialize WebSocket Hook
+  // Initialize Chat WebSocket
   const {
     messages,
     setMessages,
@@ -69,9 +86,7 @@ export const CarrierMessage = () => {
               last_message: newMsg.message || "Sent an attachment",
               last_message_at: newMsg.created_at,
               unread_count:
-                conv.id === selectedConvId
-                  ? 0
-                  : (conv.unread_count || 0) + 1,
+                conv.id === selectedConvId ? 0 : (conv.unread_count || 0) + 1,
             };
           }
           return conv;
@@ -80,7 +95,7 @@ export const CarrierMessage = () => {
     },
   });
 
-  // 1. Fetch Chat Rooms
+  // Load Rooms
   useEffect(() => {
     const loadRooms = async () => {
       try {
@@ -96,7 +111,7 @@ export const CarrierMessage = () => {
     loadRooms();
   }, []);
 
-  // 2. Fetch Chat History
+  // Load Room History
   useEffect(() => {
     if (!selectedConvId) return;
 
@@ -104,7 +119,16 @@ export const CarrierMessage = () => {
       setLoadingHistory(true);
       try {
         const historyData = await fetchChatHistory(selectedConvId);
-        setMessages(historyData.results || []);
+        const historyList = historyData.results || [];
+
+        // Order history chronologically (oldest top, newest bottom)
+        const isNewestFirst =
+          historyList.length > 1 &&
+          new Date(historyList[0].created_at).getTime() >
+            new Date(historyList[historyList.length - 1].created_at).getTime();
+
+        const sortedHistory = isNewestFirst ? [...historyList].reverse() : historyList;
+        setMessages(sortedHistory);
 
         setConversations((prev) =>
           prev.map((conv) =>
@@ -121,7 +145,7 @@ export const CarrierMessage = () => {
     loadHistory();
   }, [selectedConvId, setMessages]);
 
-  // 3. Auto Scroll
+  // Scroll to bottom on new message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
@@ -129,7 +153,7 @@ export const CarrierMessage = () => {
   const formatTime = (dateString?: string | null) => {
     if (!dateString) return "";
     const date = new Date(dateString);
-    return isValid(date) ? format(date, "HH:mm") : "";
+    return isValid(date) ? format(date, "hh:mm a") : "";
   };
 
   const handleSelectRoom = (roomId: string) => {
@@ -166,6 +190,26 @@ export const CarrierMessage = () => {
     }
   };
 
+  // Robust check to match current user vs. message sender
+// Robust check to match current user vs. message sender
+  const checkIsMe = (msg: ChatMessageData) => {
+    if (!currentUserId) return false;
+
+    // Double assertion through 'unknown' resolves the index signature error
+    const rawMsg = (msg as unknown) as Record<string, unknown>;
+    const senderObj = rawMsg.sender as { id?: string | number } | undefined;
+
+    const msgSenderId = String(
+      msg.sender_id ??
+        senderObj?.id ??
+        rawMsg.sender ??
+        rawMsg.user_id ??
+        ""
+    ).trim();
+
+    return msgSenderId === String(currentUserId).trim();
+  };
+
   const filteredConversations = conversations.filter((conv) => {
     const name = conv.participant?.full_name || "";
     return name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -179,14 +223,12 @@ export const CarrierMessage = () => {
       />
 
       <div className="mt-4 bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden flex h-[calc(100vh-180px)] min-h-[500px]">
-        
-        {/* ===================== MESSENGER SIDEBAR ===================== */}
+        {/* Sidebar */}
         <div
           className={`w-full md:w-[340px] lg:w-[380px] border-r border-gray-200 flex flex-col shrink-0 bg-white transition-all ${
             showMobileChat ? "hidden md:flex" : "flex"
           }`}
         >
-          {/* Header & Search Bar */}
           <div className="p-3.5 border-b border-gray-100 flex flex-col gap-2.5">
             <h2 className="text-2xl font-bold text-gray-900 px-1 tracking-tight">Chats</h2>
             <div className="relative">
@@ -201,7 +243,6 @@ export const CarrierMessage = () => {
             </div>
           </div>
 
-          {/* Conversations List */}
           <div className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
             {filteredConversations.length === 0 ? (
               <div className="p-6 text-center text-gray-400 text-sm">
@@ -219,36 +260,29 @@ export const CarrierMessage = () => {
                     key={conv.id}
                     onClick={() => handleSelectRoom(conv.id)}
                     className={`group cursor-pointer p-2.5 rounded-xl flex items-center gap-3 transition-colors ${
-                      isSelected
-                        ? "bg-blue-50/80"
-                        : "hover:bg-gray-100/80"
+                      isSelected ? "bg-blue-50/80" : "hover:bg-gray-100/80"
                     }`}
                   >
-                    {/* Profile Picture with Online Status Indicator */}
                     <div className="relative shrink-0">
                       {partner?.profile_image ? (
                         <img
                           src={partner.profile_image}
                           alt={partner.full_name}
-                          className="w-13 h-13 rounded-full object-cover shadow-xs border border-gray-100"
+                          className="w-12 h-12 rounded-full object-cover shadow-xs border border-gray-100"
                         />
                       ) : (
-                        <div className="w-13 h-13 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-500 flex items-center justify-center text-white font-bold text-lg uppercase shadow-xs">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-500 flex items-center justify-center text-white font-bold text-base uppercase shadow-xs">
                           {partner?.full_name?.[0] || "U"}
                         </div>
                       )}
 
-                      {/* Messenger Active Dot */}
                       <span
                         className={`w-3.5 h-3.5 absolute bottom-0 right-0 rounded-full border-2 border-white ${
-                          partner?.is_online
-                            ? "bg-green-500"
-                            : "bg-gray-300"
+                          partner?.is_online ? "bg-green-500" : "bg-gray-300"
                         }`}
                       />
                     </div>
 
-                    {/* Chat Info */}
                     <div className="flex-1 min-w-0 pr-1">
                       <div className="flex justify-between items-baseline mb-0.5">
                         <h4
@@ -266,9 +300,7 @@ export const CarrierMessage = () => {
                       <div className="flex justify-between items-center gap-2">
                         <p
                           className={`text-xs truncate ${
-                            hasUnread
-                              ? "font-bold text-blue-600"
-                              : "text-gray-500"
+                            hasUnread ? "font-bold text-blue-600" : "text-gray-500"
                           }`}
                         >
                           {lastMsgText}
@@ -286,7 +318,7 @@ export const CarrierMessage = () => {
           </div>
         </div>
 
-        {/* ===================== CHAT MAIN PANEL ===================== */}
+        {/* Chat Panel */}
         <div
           className={`flex-1 flex flex-col bg-gray-50/50 ${
             !showMobileChat ? "hidden md:flex" : "flex"
@@ -294,7 +326,7 @@ export const CarrierMessage = () => {
         >
           {selectedConv && partnerUser ? (
             <>
-              {/* Top Header */}
+              {/* Header */}
               <div className="px-4 py-3 bg-white border-b border-gray-200 flex items-center justify-between shadow-2xs">
                 <div className="flex items-center gap-3">
                   <button
@@ -340,72 +372,75 @@ export const CarrierMessage = () => {
                 </div>
               </div>
 
-              {/* Chat Message Window */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {/* Chat Window */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-2">
                 {loadingHistory ? (
                   <div className="flex items-center justify-center h-full">
                     <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
                   </div>
                 ) : (
                   messages.map((msg) => {
-                    const isMe = msg.sender_id === currentUserId;
+                    const isMe = checkIsMe(msg);
 
                     return (
                       <div
                         key={msg.id}
-                        className={`flex flex-col ${
-                          isMe ? "items-end" : "items-start"
+                        className={`flex w-full ${
+                          isMe ? "justify-end" : "justify-start"
                         }`}
                       >
                         <div
-                          className={`max-w-[85%] sm:max-w-[70%] rounded-2xl px-4 py-2.5 shadow-2xs ${
-                            isMe
-                              ? "bg-blue-600 text-white rounded-br-xs"
-                              : "bg-white text-gray-800 border border-gray-100 rounded-bl-xs"
+                          className={`flex flex-col max-w-[80%] sm:max-w-[65%] ${
+                            isMe ? "items-end" : "items-start"
                           }`}
                         >
-                          {/* Image Attachments */}
-                          {msg.attachment && msg.message_type === "IMAGE" && (
-                            <div className="mb-2 overflow-hidden rounded-xl">
-                              <img
-                                src={msg.attachment}
-                                alt="Attachment"
-                                onClick={() => setPreviewImage(msg.attachment)}
-                                className="max-h-60 w-full object-cover cursor-pointer hover:opacity-90 transition"
-                              />
-                            </div>
-                          )}
+                          <div
+                            className={`px-4 py-2.5 rounded-2xl text-sm break-words shadow-2xs ${
+                              isMe
+                                ? "bg-blue-600 text-white rounded-br-xs"
+                                : "bg-white text-gray-900 border border-gray-200/80 rounded-bl-xs"
+                            }`}
+                          >
+                            {msg.attachment && msg.message_type === "IMAGE" && (
+                              <div className="mb-2 overflow-hidden rounded-xl">
+                                <img
+                                  src={msg.attachment}
+                                  alt="Attachment"
+                                  onClick={() => setPreviewImage(msg.attachment)}
+                                  className="max-h-60 w-full object-cover cursor-pointer hover:opacity-90 transition"
+                                />
+                              </div>
+                            )}
 
-                          {/* Non-Image Attachments */}
-                          {msg.attachment && msg.message_type !== "IMAGE" && (
-                            <a
-                              href={msg.attachment}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={`flex items-center gap-2 p-2 rounded-lg mb-2 text-xs font-medium border ${
-                                isMe
-                                  ? "bg-blue-700/50 border-blue-500 text-white"
-                                  : "bg-gray-50 border-gray-200 text-blue-600"
-                              }`}
-                            >
-                              <FileIcon className="w-4 h-4 shrink-0" />
-                              <span className="truncate flex-1">
-                                {msg.message || "Download Attachment"}
-                              </span>
-                              <Download className="w-4 h-4 shrink-0" />
-                            </a>
-                          )}
+                            {msg.attachment && msg.message_type !== "IMAGE" && (
+                              <a
+                                href={msg.attachment}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`flex items-center gap-2 p-2 rounded-lg mb-2 text-xs font-medium border ${
+                                  isMe
+                                    ? "bg-blue-700/50 border-blue-500 text-white"
+                                    : "bg-gray-50 border-gray-200 text-blue-600"
+                                }`}
+                              >
+                                <FileIcon className="w-4 h-4 shrink-0" />
+                                <span className="truncate flex-1">
+                                  {msg.message || "Download Attachment"}
+                                </span>
+                                <Download className="w-4 h-4 shrink-0" />
+                              </a>
+                            )}
 
-                          {/* Message Text */}
-                          {msg.message_type === "TEXT" && (
-                            <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-                              {msg.message}
-                            </p>
-                          )}
+                            {msg.message && (
+                              <p className="leading-relaxed whitespace-pre-wrap">
+                                {msg.message}
+                              </p>
+                            )}
+                          </div>
 
                           <span
-                            className={`text-[10px] mt-1 block text-right ${
-                              isMe ? "text-blue-100" : "text-gray-400"
+                            className={`text-[10px] mt-1 px-1 text-gray-400 ${
+                              isMe ? "text-right" : "text-left"
                             }`}
                           >
                             {formatTime(msg.created_at)}
@@ -416,7 +451,6 @@ export const CarrierMessage = () => {
                   })
                 )}
 
-                {/* Typing Indicator */}
                 {isTyping && (
                   <div className="flex items-center gap-2 text-xs text-gray-500 bg-white border border-gray-100 w-max px-3 py-1.5 rounded-full shadow-2xs">
                     <span className="w-2 h-2 bg-blue-600 rounded-full animate-ping" />
@@ -426,7 +460,7 @@ export const CarrierMessage = () => {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Input Control Bar */}
+              {/* Message Input */}
               <div className="p-3 bg-white border-t border-gray-200 flex items-center gap-2">
                 <input
                   type="file"
@@ -482,7 +516,6 @@ export const CarrierMessage = () => {
         </div>
       </div>
 
-      {/* Lightbox Preview Modal */}
       {previewImage && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
           <button

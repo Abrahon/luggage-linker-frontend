@@ -83,7 +83,7 @@ export const searchMessages = async (
   query: string
 ): Promise<ChatMessageData[]> => {
   const response = await axiosInstance.get(
-    `api//messages/search/?q=${encodeURIComponent(query)}`
+    `api/messages/search/?q=${encodeURIComponent(query)}`
   );
   return response.data.results || response.data;
 };
