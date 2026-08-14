@@ -10,9 +10,9 @@ import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { login as apiLogin } from "@/lib/api";
 import { toast } from "sonner";
 import { setAccessToken, setRefreshToken } from "@/lib/token";
-import { setUserRole } from "@/lib/auth";
+import { setUserRole, setUserId } from "@/lib/auth";
 import { useRouter } from "next/navigation";
-import { useAuth, User } from "@/context/AuthContext"; // Adjust import path if needed
+import { useAuth, User } from "@/context/AuthContext";
 
 // Zod validation
 const signInSchema = z.object({
@@ -57,28 +57,35 @@ export const SignIn = () => {
       if (accessToken) setAccessToken(accessToken);
       if (refreshToken) setRefreshToken(refreshToken);
 
-      const rawRole = response.role ?? response.user?.role;
+      // Save user ID for chat and profile features
+      if (response.user?.id) {
+        setUserId(response.user.id);
+      }
+
+      // Safely extract and normalize raw role
+      const rawRole = (response.role ?? response.user?.role ?? "").trim().toUpperCase();
       if (!rawRole) {
         throw new Error("Login succeeded, but role data is missing.");
       }
 
+      // Store normalized role in localStorage
       setUserRole(rawRole);
-      const normalizedRole = rawRole.toLowerCase();
 
-      // Normalize role string for Auth Context
+      // Determine explicit role mapping
       let mappedRole: "SENDER" | "TRAVELER" | "ADMIN" = "SENDER";
-      if (normalizedRole === "admin") mappedRole = "ADMIN";
-      else if (
-        normalizedRole === "traveler" ||
-        normalizedRole === "traveller" ||
-        normalizedRole === "carrier"
+      if (rawRole === "ADMIN") {
+        mappedRole = "ADMIN";
+      } else if (
+        rawRole === "TRAVELER" ||
+        rawRole === "TRAVELLER" ||
+        rawRole === "CARRIER"
       ) {
         mappedRole = "TRAVELER";
       }
 
-      // Build User object and pass to AuthContext
+      // Build User object and update AuthContext state
       const userPayload: User = {
-        id: response.user?.id || "user-id",
+        id: response.user?.id || "",
         email: response.user?.email || data.email,
         name:
           response.user?.name ||
@@ -90,14 +97,14 @@ export const SignIn = () => {
 
       authLogin(accessToken || "", userPayload);
 
-      // Navigate based on role
-      if (normalizedRole === "admin") {
+      toast.success(`Login successful! Role: ${mappedRole}`);
+
+      // ✅ FIX: Route according to actual Next.js app directory structure
+      if (mappedRole === "ADMIN") {
         router.push("/admin");
       } else {
-        router.push("/dashboard");
+        router.push("/dashboard"); // Redirects SENDER and TRAVELER to /dashboard
       }
-
-      toast.success(`Login successful! Role: ${rawRole}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Login failed.";
       toast.error(message);

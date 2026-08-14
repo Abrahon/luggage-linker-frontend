@@ -7,8 +7,9 @@ import { usePathname } from "next/navigation";
 import { getUserRole } from "@/lib/auth";
 import { senderLink, carrierLink, adminLink } from "@/lib/userData";
 import { Home, Package, MessageCircle } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
-// Universal routes for sender & carrier
+// Universal routes for sender & traveler
 const commonLinks = [
   { label: "Dashboard", href: "/dashboard", icon: Home },
   { label: "Active Deliveries", href: "/active-deliveries", icon: Package },
@@ -17,23 +18,25 @@ const commonLinks = [
 
 export const SideBaar = () => {
   const pathname = usePathname();
+  const { user } = useAuth(); // Read role directly from Auth Context
   const [role, setRole] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState<boolean>(false);
 
-  // Sync role on the client side after mounting to prevent SSR mismatch
+  // Sync role on mount and when auth context user changes
   useEffect(() => {
     setIsMounted(true);
-    const userRole = getUserRole();
-    setRole(userRole);
-  }, []);
+    // Prioritize context user role, fallback to localStorage helper
+    const activeRole = user?.role || getUserRole();
+    setRole(activeRole ? activeRole.toUpperCase() : null);
+  }, [user]);
 
-  const isCarrierOrTraveler =role === "traveler" || role === "TRAVELER";
+  const isCarrierOrTraveler = role === "TRAVELER";
+  const isAdmin = role === "ADMIN";
 
-  // Determine navigation links based on user role
-  const links =
-    role === "admin"
-      ? adminLink
-      : [...commonLinks, ...(isCarrierOrTraveler ? carrierLink : senderLink)];
+  // Determine navigation links based on normalized user role
+  const links = isAdmin
+    ? adminLink
+    : [...commonLinks, ...(isCarrierOrTraveler ? carrierLink : senderLink)];
 
   return (
     <div className="flex flex-col h-full bg-white border-r py-6 px-4">
@@ -63,12 +66,13 @@ export const SideBaar = () => {
         ) : (
           links.map((item) => {
             const Icon = item.icon;
-            
+
             // Safe pathname matching for active link highlight
             const isActive =
               item.href === "/"
                 ? pathname === "/"
-                : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                : pathname === item.href ||
+                  pathname.startsWith(`${item.href}/`);
 
             return (
               <Link
