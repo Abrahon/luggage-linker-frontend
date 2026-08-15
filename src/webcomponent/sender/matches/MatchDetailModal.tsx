@@ -4,12 +4,23 @@ import React from "react";
 import Image from "next/image";
 import { MatchItem } from "@/api/matching.api";
 import {
+  Calendar,
+  Briefcase,
+  DollarSign,
+  Star,
+  Package,
+  Loader2,
+  Send,
+  CheckCircle2,
+  Clock,
+  User,
+} from "lucide-react";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Star, MapPin, Calendar, Briefcase, DollarSign, Package, User, CheckCircle2, Loader2 } from "lucide-react";
 
 interface MatchDetailModalProps {
   isOpen: boolean;
@@ -28,6 +39,11 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
 }) => {
   if (!match) return null;
 
+  // Enabled only when available, rejected, or expired
+  const isRequestedOrAccepted =
+    match.status === "REQUESTED" || match.status === "ACCEPTED";
+  const isButtonDisabled = isSubmitting || isRequestedOrAccepted;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl p-6">
@@ -43,10 +59,14 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
         {/* Modal Body */}
         <div className="space-y-5 py-2">
           {/* Match Score Banner */}
-          <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-2xl p-4 flex items-center justify-between shadow-sm">
+          <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-2xl p-4 flex items-center justify-between shadow-xs">
             <div>
-              <p className="text-xs font-medium text-emerald-100">Algorithmic Match Score</p>
-              <h3 className="text-2xl font-black">{Math.round(parseFloat(match.score || "0"))}% Compatible</h3>
+              <p className="text-xs font-medium text-emerald-100">
+                Algorithmic Match Score
+              </p>
+              <h3 className="text-2xl font-black">
+                {Math.round(parseFloat(match.score || "0"))}% Compatible
+              </h3>
             </div>
             <div className="bg-white/20 p-2.5 rounded-xl backdrop-blur-md">
               <CheckCircle2 className="w-7 h-7 text-white" />
@@ -74,16 +94,22 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
                   </div>
                 )}
                 <div>
-                  <h5 className="font-bold text-slate-900 text-sm">{match.traveler_name}</h5>
+                  <h5 className="font-bold text-slate-900 text-sm">
+                    {match.traveler_name}
+                  </h5>
                   <p className="text-xs text-slate-500">{match.traveler}</p>
                 </div>
               </div>
               <div className="flex flex-col items-end">
                 <div className="flex items-center gap-1 text-sm font-extrabold text-slate-800">
                   <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                  <span>{parseFloat(match.traveler_rating || "0").toFixed(1)}</span>
+                  <span>
+                    {parseFloat(match.traveler_rating || "0").toFixed(1)}
+                  </span>
                 </div>
-                <span className="text-xs text-slate-400">{match.total_reviews} reviews</span>
+                <span className="text-xs text-slate-400">
+                  {match.total_reviews} reviews
+                </span>
               </div>
             </div>
           </div>
@@ -91,18 +117,30 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
           {/* Travel Route */}
           <div className="space-y-2">
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <MapPin className="w-4 h-4 text-slate-400" /> Travel Route
+              📍 Travel Route
             </h4>
             <div className="grid grid-cols-2 gap-3 p-3.5 border border-slate-200 rounded-xl bg-white">
               <div>
-                <span className="text-xs text-slate-400 block font-medium">Departure</span>
-                <span className="text-sm font-bold text-slate-900">{match.traveler_from_city}</span>
-                <span className="text-xs text-slate-500 block">{match.traveler_from_country}</span>
+                <span className="text-xs text-slate-400 block font-medium">
+                  Departure
+                </span>
+                <span className="text-sm font-bold text-slate-900">
+                  {match.traveler_from_city}
+                </span>
+                <span className="text-xs text-slate-500 block">
+                  {match.traveler_from_country}
+                </span>
               </div>
               <div>
-                <span className="text-xs text-slate-400 block font-medium">Destination</span>
-                <span className="text-sm font-bold text-slate-900">{match.traveler_to_city}</span>
-                <span className="text-xs text-slate-500 block">{match.traveler_to_country}</span>
+                <span className="text-xs text-slate-400 block font-medium">
+                  Destination
+                </span>
+                <span className="text-sm font-bold text-slate-900">
+                  {match.traveler_to_city}
+                </span>
+                <span className="text-xs text-slate-500 block">
+                  {match.traveler_to_country}
+                </span>
               </div>
             </div>
           </div>
@@ -113,25 +151,33 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
               <span className="text-xs text-slate-400 font-medium flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5 text-slate-500" /> Departure Date
               </span>
-              <p className="text-sm font-bold text-slate-800 mt-1">{match.departure_date}</p>
+              <p className="text-sm font-bold text-slate-800 mt-1">
+                {match.departure_date}
+              </p>
             </div>
             <div className="p-3 border border-slate-200 rounded-xl bg-slate-50/50">
               <span className="text-xs text-slate-400 font-medium flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5 text-slate-500" /> Arrival Date
               </span>
-              <p className="text-sm font-bold text-slate-800 mt-1">{match.arrival_date}</p>
+              <p className="text-sm font-bold text-slate-800 mt-1">
+                {match.arrival_date}
+              </p>
             </div>
             <div className="p-3 border border-slate-200 rounded-xl bg-slate-50/50">
               <span className="text-xs text-slate-400 font-medium flex items-center gap-1">
                 <Briefcase className="w-3.5 h-3.5 text-slate-500" /> Available Capacity
               </span>
-              <p className="text-sm font-bold text-slate-800 mt-1">{match.remaining_weight} kg</p>
+              <p className="text-sm font-bold text-slate-800 mt-1">
+                {match.remaining_weight} kg
+              </p>
             </div>
             <div className="p-3 border border-slate-200 rounded-xl bg-slate-50/50">
               <span className="text-xs text-slate-400 font-medium flex items-center gap-1">
                 <DollarSign className="w-3.5 h-3.5 text-emerald-600" /> Reward / kg
               </span>
-              <p className="text-sm font-bold text-emerald-700 mt-1">${match.reward_per_kg} {match.currency}</p>
+              <p className="text-sm font-bold text-emerald-700 mt-1">
+                ${match.reward_per_kg} {match.currency}
+              </p>
             </div>
           </div>
 
@@ -151,8 +197,12 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
                 />
               )}
               <div>
-                <h5 className="font-bold text-slate-900 text-sm">{match.package_title}</h5>
-                <p className="text-xs text-slate-500">{match.package_pickup_city} → {match.package_destination_city}</p>
+                <h5 className="font-bold text-slate-900 text-sm">
+                  {match.package_title}
+                </h5>
+                <p className="text-xs text-slate-500">
+                  {match.package_pickup_city} → {match.package_destination_city}
+                </p>
               </div>
             </div>
           </div>
@@ -166,16 +216,42 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
           >
             Close
           </button>
+
           <button
             onClick={() => {
               onClose();
               onSendBooking(match);
             }}
-            disabled={match.status !== "AVAILABLE" || isSubmitting}
-            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-bold text-xs rounded-xl transition shadow-xs flex items-center gap-2 cursor-pointer"
+            disabled={isButtonDisabled}
+            className={`px-5 py-2.5 rounded-xl font-bold text-xs transition shadow-xs flex items-center gap-2 ${
+              isButtonDisabled
+                ? "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-200"
+                : "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+            }`}
           >
-            {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            {match.status === "AVAILABLE" ? "Send Booking Request" : "Request Sent"}
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                <span>Processing...</span>
+              </>
+            ) : match.status === "REQUESTED" ? (
+              <>
+                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                <span>Request Sent</span>
+              </>
+            ) : match.status === "ACCEPTED" ? (
+              <>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Booked</span>
+              </>
+            ) : (
+              <>
+                <Send className="w-3.5 h-3.5" />
+                <span>
+                  {match.status === "REJECTED" ? "Re-send Booking Request" : "Send Booking Request"}
+                </span>
+              </>
+            )}
           </button>
         </div>
       </DialogContent>

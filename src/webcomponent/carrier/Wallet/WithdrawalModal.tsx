@@ -21,7 +21,7 @@ import {
 interface WithdrawalModalProps {
   isWithdrawOpen: boolean;
   setIsWithdrawOpen: (open: boolean) => void;
-  maxPayout: number | string; // Handled safely as number or string
+  maxPayout: number | string;
   onSuccess?: () => void;
 }
 
@@ -31,8 +31,8 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
   maxPayout = 0,
   onSuccess,
 }) => {
-  // Ensure numeric value
-  const numericMaxPayout = typeof maxPayout === "string" ? parseFloat(maxPayout) || 0 : maxPayout;
+  const numericMaxPayout =
+    typeof maxPayout === "string" ? parseFloat(maxPayout) || 0 : maxPayout;
 
   // --- UI & Navigation States ---
   const [methods, setMethods] = useState<WithdrawMethod[]>([]);
@@ -41,6 +41,7 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isAddingMethod, setIsAddingMethod] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // --- Dynamic New Method Payload States ---
   const [selectedType, setSelectedType] = useState<MethodType>("BANK");
@@ -58,12 +59,53 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
     }
   }, [isWithdrawOpen]);
 
+  /**
+   * Helper to parse and extract backend error messages (Django / DRF format)
+   */
+  const parseBackendError = (err: any): string => {
+    if (!err?.response?.data) {
+      return err?.message || "An unexpected error occurred.";
+    }
+
+    const data = err.response.data;
+
+    if (typeof data === "string") return data;
+
+    if (data.detail && typeof data.detail === "string") return data.detail;
+    if (data.message && typeof data.message === "string") return data.message;
+    if (data.error && typeof data.error === "string") return data.error;
+
+    // Handle non_field_errors array
+    if (Array.isArray(data.non_field_errors) && data.non_field_errors.length > 0) {
+      return data.non_field_errors.join(" ");
+    }
+
+    // Handle object field errors
+    if (typeof data === "object") {
+      const messages: string[] = [];
+      Object.keys(data).forEach((key) => {
+        const val = data[key];
+        const fieldName = key !== "non_field_errors" ? `${key.replace("_", " ")}: ` : "";
+        if (Array.isArray(val)) {
+          messages.push(`${fieldName}${val.join(" ")}`);
+        } else if (typeof val === "string") {
+          messages.push(`${fieldName}${val}`);
+        }
+      });
+
+      if (messages.length > 0) {
+        return messages.join(" | ");
+      }
+    }
+
+    return "Failed to process request.";
+  };
+
   const fetchMethods = async () => {
     try {
       setErrorMessage(null);
       const data = await getWithdrawalMethods();
 
-      // Deduplicate methods array by ID
       const uniqueMethods = Array.from(
         new Map(data.map((item) => [item.id, item])).values()
       );
@@ -73,14 +115,14 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
         setSelectedMethodId(uniqueMethods[0].id);
       }
     } catch (err: any) {
-      setErrorMessage(
-        err?.response?.data?.message || "Failed to load withdrawal methods."
-      );
+      setErrorMessage(parseBackendError(err));
     }
   };
 
   const resetForms = () => {
     setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsLoading(false);
     setIsAddingMethod(false);
     setWithdrawAmount("");
     setSelectedType("BANK");
@@ -95,6 +137,7 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
     e.preventDefault();
     setIsLoading(true);
     setErrorMessage(null);
+    setSuccessMessage(null);
 
     let payload: CreateWithdrawMethodPayload;
 
@@ -120,13 +163,13 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
       const newMethod = res.data || (res as any);
 
       if (newMethod && newMethod.id) {
-        // Prevent duplicate entries on creation
         setMethods((prev) => {
           const exists = prev.some((m) => m.id === newMethod.id);
           return exists ? prev : [...prev, newMethod];
         });
         setSelectedMethodId(newMethod.id);
         setIsAddingMethod(false);
+        setSuccessMessage("Withdrawal route added successfully!");
         setAccountName("");
         setAccountNumber("");
         setBankName("");
@@ -134,11 +177,7 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
         setRoutingNumber("");
       }
     } catch (err: any) {
-      setErrorMessage(
-        err?.response?.data?.error ||
-          err?.response?.data?.message ||
-          "Failed to save withdrawal method."
-      );
+      setErrorMessage(parseBackendError(err));
     } finally {
       setIsLoading(false);
     }
@@ -146,6 +185,8 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
 
   const handleWithdrawSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
+    setSuccessMessage(null);
 
     if (!selectedMethodId) {
       setErrorMessage("Please select or add a payout destination.");
@@ -158,13 +199,17 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
       return;
     }
 
+    if (amountNum < 10.00) {
+      setErrorMessage("Minimum withdrawal amount is $10.00.");
+      return;
+    }
+
     if (amountNum > numericMaxPayout) {
-      setErrorMessage(`Maximum available balance is $${numericMaxPayout.toFixed(2)}.`);
+      setErrorMessage(`Available balance is only $${numericMaxPayout.toFixed(2)}.`);
       return;
     }
 
     setIsLoading(true);
-    setErrorMessage(null);
 
     try {
       const res = await requestWithdrawal({
@@ -172,17 +217,18 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
         amount: amountNum.toFixed(2),
       });
 
-      if (res.success || res) {
-        setIsWithdrawOpen(false);
-        if (onSuccess) onSuccess();
+      if (res) {
+        setSuccessMessage("Withdrawal request submitted successfully!");
+        // Keep isLoading true so the button stays on "Processing..." until modal closes
+        setTimeout(() => {
+          setIsWithdrawOpen(false);
+          if (onSuccess) onSuccess();
+        }, 1200);
+      } else {
+        setIsLoading(false);
       }
     } catch (err: any) {
-      setErrorMessage(
-        err?.response?.data?.error ||
-          err?.response?.data?.message ||
-          "Failed to initiate withdrawal request."
-      );
-    } finally {
+      setErrorMessage(parseBackendError(err));
       setIsLoading(false);
     }
   };
@@ -207,21 +253,27 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
           </div>
         )}
 
+        {successMessage && (
+          <div className="p-3 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs rounded-md font-medium">
+            {successMessage}
+          </div>
+        )}
+
         {!isAddingMethod ? (
           <form onSubmit={handleWithdrawSubmit} className="flex flex-col gap-4 mt-2">
-            <div className="text-sm bg-blue-50/60 p-4 rounded-xl border border-blue-100/50 flex justify-between items-center">
+            <div className="text-sm bg-amber-50/60 p-4 rounded-xl border border-amber-200/60 flex justify-between items-center">
               <div>
-                <p className="text-xs text-blue-700 font-medium uppercase tracking-wider">
+                <p className="text-xs text-amber-700 font-semibold uppercase tracking-wider">
                   Available Total
                 </p>
-                <p className="text-2xl font-extrabold text-blue-900 mt-0.5">
+                <p className="text-2xl font-extrabold text-amber-900 mt-0.5">
                   ${numericMaxPayout.toFixed(2)}
                 </p>
               </div>
               <Button
                 type="button"
                 variant="ghost"
-                className="text-xs text-blue-600 hover:text-blue-700 font-bold underline p-0"
+                className="text-xs text-amber-600 hover:text-amber-700 font-bold underline p-0"
                 onClick={() => setWithdrawAmount(numericMaxPayout.toString())}
               >
                 Use Max Total
@@ -235,11 +287,12 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
               <Input
                 type="number"
                 step="0.01"
-                placeholder="0.00"
+                placeholder="Minimum $10.00"
                 max={numericMaxPayout}
-                min="0.01"
+                min="10.00"
                 value={withdrawAmount}
                 onChange={(e) => setWithdrawAmount(e.target.value)}
+                disabled={isLoading || !!successMessage}
                 required
               />
             </div>
@@ -251,8 +304,13 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
                 </label>
                 <button
                   type="button"
-                  onClick={() => setIsAddingMethod(true)}
-                  className="text-xs text-blue-600 hover:underline font-semibold"
+                  disabled={isLoading || !!successMessage}
+                  onClick={() => {
+                    setErrorMessage(null);
+                    setSuccessMessage(null);
+                    setIsAddingMethod(true);
+                  }}
+                  className="text-xs text-amber-600 hover:text-amber-700 hover:underline font-semibold disabled:opacity-50"
                 >
                   + Add New Route
                 </button>
@@ -266,7 +324,8 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
                 <select
                   value={selectedMethodId}
                   onChange={(e) => setSelectedMethodId(e.target.value)}
-                  className="w-full text-sm rounded-md border border-input bg-background px-3 py-2 text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  disabled={isLoading || !!successMessage}
+                  className="w-full text-sm rounded-md border border-input bg-background px-3 py-2 text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 disabled:opacity-50"
                 >
                   {methods.map((pm) => (
                     <option key={pm.id} value={pm.id}>
@@ -284,16 +343,17 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
                 <Button
                   variant="outline"
                   type="button"
+                  disabled={isLoading || !!successMessage}
                   onClick={() => setIsWithdrawOpen(false)}
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
-                  disabled={isLoading || methods.length === 0}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                  disabled={isLoading || methods.length === 0 || !!successMessage}
+                  className="bg-amber-400 hover:bg-amber-500 text-white font-semibold transition-colors disabled:opacity-70"
                 >
-                  {isLoading ? "Processing..." : "Confirm Payout"}
+                  {isLoading || !!successMessage ? "Processing..." : "Confirm Payout"}
                 </Button>
               </div>
             </DialogFooter>
@@ -305,7 +365,7 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
               <select
                 value={selectedType}
                 onChange={(e) => setSelectedType(e.target.value as MethodType)}
-                className="w-full text-sm rounded-md border border-input bg-background px-3 py-2 text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="w-full text-sm rounded-md border border-input bg-background px-3 py-2 text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
               >
                 <option value="BANK">BANK (Bank Transfer)</option>
                 <option value="BKASH">BKASH (bKash)</option>
@@ -375,7 +435,11 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setIsAddingMethod(false)}
+                onClick={() => {
+                  setErrorMessage(null);
+                  setSuccessMessage(null);
+                  setIsAddingMethod(false);
+                }}
               >
                 Back
               </Button>
@@ -383,7 +447,7 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
                 type="submit"
                 size="sm"
                 disabled={isLoading}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-amber-400 hover:bg-amber-500 text-white font-semibold transition-colors disabled:opacity-70"
               >
                 {isLoading ? "Saving..." : "Save Route"}
               </Button>

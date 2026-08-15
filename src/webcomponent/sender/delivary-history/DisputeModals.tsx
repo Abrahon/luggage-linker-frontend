@@ -11,10 +11,9 @@ import {
   ArrowLeft,
   FileText,
   Image as ImageIcon,
-  CheckCircle2,
   Paperclip,
 } from "lucide-react";
-import { toast } from "sonner";
+import Swal from "sweetalert2";
 import { createDispute, uploadDisputeEvidence } from "@/api/disputes.api";
 
 // --- OPTIONS ---
@@ -75,6 +74,32 @@ export const OpenDisputeModal: React.FC<OpenDisputeModalProps> = ({
 
   if (!isOpen) return null;
 
+  // Helper function to extract Django/DRF error messages dynamically
+  const parseBackendError = (err: any, fallbackMessage: string) => {
+    if (!err?.response?.data) return fallbackMessage;
+
+    const data = err.response.data;
+    if (typeof data === "string") return data;
+    if (data.detail) return data.detail;
+    if (data.message) return data.message;
+    if (Array.isArray(data.non_field_errors) && data.non_field_errors.length > 0) {
+      return data.non_field_errors[0];
+    }
+    if (Array.isArray(data.booking) && data.booking.length > 0) {
+      return `Booking error: ${data.booking[0]}`;
+    }
+
+    // Process object field errors e.g. { reason: ["This field is required."] }
+    if (typeof data === "object") {
+      const firstKey = Object.keys(data)[0];
+      if (firstKey && Array.isArray(data[firstKey]) && data[firstKey].length > 0) {
+        return `${firstKey.toUpperCase()}: ${data[firstKey][0]}`;
+      }
+    }
+
+    return fallbackMessage;
+  };
+
   const handleResetAndClose = () => {
     setStep(1);
     setDescription("");
@@ -90,8 +115,20 @@ export const OpenDisputeModal: React.FC<OpenDisputeModalProps> = ({
   const handleStep1Continue = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Prevent double execution if already created or currently submitting
+    if (isSubmittingDispute) return;
+    if (createdDisputeId) {
+      setStep(2);
+      return;
+    }
+
     if (!description.trim()) {
-      toast.error("Please explain what happened in the description field.");
+      Swal.fire({
+        icon: "warning",
+        title: "Missing Description",
+        text: "Please explain what happened in the description field.",
+        confirmButtonColor: "#e11d48",
+      });
       return;
     }
 
@@ -108,24 +145,43 @@ export const OpenDisputeModal: React.FC<OpenDisputeModalProps> = ({
         disputed_amount: Number(disputedAmount),
       });
 
-      const disputeId = newDispute?.id || (newDispute as any)?.data?.id;
+      // Flexible extraction supporting direct payload or nested dispute wrapper
+      const disputeId =
+        newDispute?.id ||
+        newDispute?.dispute?.id ||
+        (newDispute as any)?.data?.id ||
+        (newDispute as any)?.data?.dispute?.id;
 
       if (!disputeId) {
         throw new Error("Failed to obtain dispute ID from response.");
       }
 
+      // Immediately set dispute ID and transition to Step 2
       setCreatedDisputeId(disputeId);
-      toast.success("Dispute initialized. Proceed to attach evidence.");
-      setStep(2); // Move to Step 2
+      setStep(2);
+
+      // Non-blocking toast alert
+      Swal.fire({
+        icon: "success",
+        title: "Dispute Initialized!",
+        text: "Your dispute case has been recorded. Next, please attach supporting evidence.",
+        confirmButtonColor: "#0f172a",
+        timer: 1800,
+        showConfirmButton: false,
+      });
     } catch (err: any) {
       console.error("Create Dispute Error:", err);
-      const data = err?.response?.data;
-      const errorMessage =
-        data?.booking?.[0] ||
-        data?.non_field_errors?.[0] ||
-        data?.detail ||
-        "A dispute for this booking may already exist or invalid details were provided.";
-      toast.error(errorMessage);
+      const errorMessage = parseBackendError(
+        err,
+        "A dispute for this booking may already exist or invalid details were provided."
+      );
+
+      Swal.fire({
+        icon: "error",
+        title: "Failed to Open Dispute",
+        text: errorMessage,
+        confirmButtonColor: "#e11d48",
+      });
     } finally {
       setIsSubmittingDispute(false);
     }
@@ -138,12 +194,22 @@ export const OpenDisputeModal: React.FC<OpenDisputeModalProps> = ({
     e.preventDefault();
 
     if (!createdDisputeId) {
-      toast.error("Dispute record missing. Please restart the process.");
+      Swal.fire({
+        icon: "error",
+        title: "Missing Dispute ID",
+        text: "Dispute record missing. Please restart the process.",
+        confirmButtonColor: "#e11d48",
+      });
       return;
     }
 
     if (!file) {
-      toast.error("Please attach a photo or document before submitting.");
+      Swal.fire({
+        icon: "warning",
+        title: "No File Selected",
+        text: "Please attach a photo or document before submitting, or click 'Skip for Now'.",
+        confirmButtonColor: "#e11d48",
+      });
       return;
     }
 
@@ -158,23 +224,42 @@ export const OpenDisputeModal: React.FC<OpenDisputeModalProps> = ({
         evidenceDesc.trim() || description
       );
 
-      toast.success("Dispute claim and evidence submitted successfully!");
+      await Swal.fire({
+        icon: "success",
+        title: "Dispute Submitted!",
+        text: "Your dispute claim and evidence attachments were successfully logged for review.",
+        confirmButtonColor: "#0f172a",
+      });
+
       onDisputeCreated();
       handleResetAndClose();
     } catch (err: any) {
       console.error("Upload Evidence Error:", err);
-      toast.error(
-        err?.response?.data?.detail ||
-          "Failed to upload evidence attachment. Please try again."
+      const errorMessage = parseBackendError(
+        err,
+        "Failed to upload evidence attachment. Please try again."
       );
+
+      Swal.fire({
+        icon: "error",
+        title: "Evidence Upload Failed",
+        text: errorMessage,
+        confirmButtonColor: "#e11d48",
+      });
     } finally {
       setIsUploadingEvidence(false);
     }
   };
 
   // Finish dispute creation without evidence attachment
-  const handleSkipEvidence = () => {
-    toast.success("Dispute created successfully without additional evidence.");
+  const handleSkipEvidence = async () => {
+    await Swal.fire({
+      icon: "success",
+      title: "Dispute Case Created",
+      text: "Your dispute has been logged without evidence. You can attach evidence files later if needed.",
+      confirmButtonColor: "#0f172a",
+    });
+
     onDisputeCreated();
     handleResetAndClose();
   };
@@ -196,7 +281,7 @@ export const OpenDisputeModal: React.FC<OpenDisputeModalProps> = ({
           <button
             type="button"
             onClick={handleResetAndClose}
-            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition"
+            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -358,7 +443,7 @@ export const OpenDisputeModal: React.FC<OpenDisputeModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setFile(null)}
-                    className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition"
+                    className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -403,7 +488,7 @@ export const OpenDisputeModal: React.FC<OpenDisputeModalProps> = ({
               <button
                 type="button"
                 onClick={handleSkipEvidence}
-                className="text-xs font-bold text-slate-400 hover:text-slate-600 px-2 py-1 transition"
+                className="text-xs font-bold text-slate-400 hover:text-slate-600 px-2 py-1 transition cursor-pointer"
               >
                 Skip for Now
               </button>
@@ -438,3 +523,5 @@ export const OpenDisputeModal: React.FC<OpenDisputeModalProps> = ({
     </div>
   );
 };
+
+export default OpenDisputeModal;

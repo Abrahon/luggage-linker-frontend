@@ -375,7 +375,7 @@ export const NavBar = () => {
 
   const formatBadgeCount = (count: number) => {
     if (count > 99) return "99+";
-    if (count > 9) return "9+";
+    // if (count > 9) return "9+";
     return count.toString();
   };
 
@@ -588,7 +588,7 @@ export const NavBar = () => {
                   <User className="w-4 h-4 text-gray-500" /> Profile
                 </Link>
                 <Link
-                  href={role === "admin" ? "/admin" : "/dashboard"}
+                  href={role === "ADMIN" ? "/admin" : "/dashboard"}
                   onClick={() => setUserMenuOpen(false)}
                   className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition"
                 >

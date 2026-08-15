@@ -70,7 +70,7 @@ export const CarrierMessage = () => {
   const selectedConv = conversations.find((c) => c.id === selectedConvId);
   const partnerUser = selectedConv?.participant || null;
 
-  // Real-time presence callback
+  // 1. Real-time presence callback
   const handlePresenceChanged = useCallback(
     (userId: string, isOnline: boolean) => {
       setConversations((prev) =>
@@ -94,21 +94,9 @@ export const CarrierMessage = () => {
     []
   );
 
-  const {
-    messages,
-    setMessages,
-    isTyping,
-    partnerPresence,
-    sendMessage,
-    sendTyping,
-    editMessage,
-    deleteMessage,
-  } = useChatWebSocket({
-    roomId: selectedConvId,
-    currentUserId,
-    partnerUserId: partnerUser?.id ? String(partnerUser.id) : null,
-    onPresenceChanged: handlePresenceChanged,
-    onMessageReceived: (newMsg) => {
+  // 2. Real-time message receipt callback
+  const handleMessageReceived = useCallback(
+    (newMsg: ExtendedChatMessage) => {
       setConversations((prev) =>
         prev.map((conv) => {
           if (conv.id === newMsg.room_id) {
@@ -124,6 +112,24 @@ export const CarrierMessage = () => {
         })
       );
     },
+    [selectedConvId]
+  );
+
+  const {
+    messages,
+    setMessages,
+    isTyping,
+    partnerPresence,
+    sendMessage,
+    sendTyping,
+    editMessage,
+    deleteMessage,
+  } = useChatWebSocket({
+    roomId: selectedConvId,
+    currentUserId,
+    partnerUserId: partnerUser?.id ? String(partnerUser.id) : null,
+    onPresenceChanged: handlePresenceChanged,
+    onMessageReceived: handleMessageReceived,
   });
 
   // Load Rooms
@@ -232,7 +238,6 @@ export const CarrierMessage = () => {
 
     try {
       setIsUploading(true);
-      // Upload without attaching filename text caption
       const uploaded = await uploadChatAttachment(
         selectedConvId,
         file,
@@ -260,7 +265,7 @@ export const CarrierMessage = () => {
       msg.sender_id ?? senderObj?.id ?? rawMsg.sender ?? rawMsg.user_id ?? ""
     ).trim();
 
-    return msgSenderId === String(currentUserId).trim();
+    return msgSenderId.toLowerCase() === String(currentUserId).trim().toLowerCase();
   };
 
   const isPartnerOnline = partnerPresence || Boolean(partnerUser?.is_online);
@@ -494,7 +499,7 @@ export const CarrierMessage = () => {
                                   : "bg-white text-gray-900 border border-gray-200/80 rounded-bl-xs"
                               }`}
                             >
-                              {/* If Deleted: Render Deleted State for ALL message types */}
+                              {/* Deleted Message State */}
                               {isDeleted ? (
                                 <div className="flex items-center gap-1.5 text-gray-400 font-normal text-xs italic px-3 py-2">
                                   <Trash2 className="w-3.5 h-3.5 shrink-0" />
@@ -502,7 +507,7 @@ export const CarrierMessage = () => {
                                 </div>
                               ) : (
                                 <>
-                                  {/* Edge-to-Edge Image Attachment */}
+                                  {/* Image Attachment */}
                                   {msg.attachment &&
                                     msg.message_type === "IMAGE" && (
                                       <div className="overflow-hidden">
@@ -540,7 +545,7 @@ export const CarrierMessage = () => {
                                       </div>
                                     )}
 
-                                  {/* Padded Text (Only if message text is present) */}
+                                  {/* Text Message */}
                                   {msg.message && (
                                     <p className="px-4 py-2.5 leading-relaxed whitespace-pre-wrap">
                                       {msg.message}
@@ -558,7 +563,7 @@ export const CarrierMessage = () => {
                             </div>
                           </div>
 
-                          {/* Timestamp & Status */}
+                          {/* Timestamp & Delivery Status */}
                           <div
                             className={`flex items-center gap-1 text-[10px] mt-1 px-1 text-gray-400 ${
                               isMe ? "justify-end" : "justify-start"

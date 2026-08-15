@@ -32,6 +32,7 @@ export interface ChatMessageData {
   receiver_id: string;
   message: string;
   message_type: "TEXT" | "IMAGE" | "FILE" | "VIDEO" | "AUDIO" | "SYSTEM";
+  
   attachment: string | null;
   is_read: boolean;
   is_deleted: boolean;

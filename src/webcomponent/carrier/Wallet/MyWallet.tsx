@@ -7,9 +7,6 @@ import { Input } from "@/components/ui/input";
 import { MonthlyWithdrawalChart, } from "../Wallet/MonthlyWithdrawalChart";
 import { RecentActivityLedger, } from "../Wallet/RecentActivityLedger";
 import { TravelerWalletCard} from "../Wallet/PendingReleasesCard";
-// import {WithdrawalHistory } from "../withdrawal/WithdrawalHistory";
-
-
 
 import {
   Dialog,
@@ -28,7 +25,6 @@ import {
   CheckCircle2, 
   ArrowDownLeft, 
   TrendingUp, 
-  HelpCircle,
 } from "lucide-react";
 
 import {
@@ -41,19 +37,6 @@ import {
   MethodType,
   CreateWithdrawMethodPayload,
 } from "@/api/wallets.api";
-
-// Mock Data for ledger & pending releases
-const initialTransactions = [
-  { id: "TXN-7721", type: "Earnings", booking: "BKO-9921", amount: 120.00, date: "2026-07-05", status: "Completed" },
-  { id: "TXN-7610", type: "Earnings", booking: "BKO-4821", amount: 130.00, date: "2026-07-02", status: "Completed" },
-  { id: "TXN-7402", type: "Withdrawal", booking: "—", amount: -200.00, date: "2026-06-28", status: "Completed" },
-  { id: "TXN-7399", type: "Earnings", booking: "BKO-1029", amount: 250.00, date: "2026-06-15", status: "Completed" },
-];
-
-const pendingEarnings = [
-  { id: "PEND-01", booking: "BKO-3341", amount: 70.00, releaseDate: "Expected 2026-08-05", source: "Delivery Escrow" },
-  { id: "PEND-02", booking: "BKO-8812", amount: 50.00, releaseDate: "Expected 2026-08-10", source: "Luggage Spacing Premium" },
-];
 
 export default function MyWallet() {
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
@@ -143,6 +126,7 @@ export default function MyWallet() {
 
   const resetForms = () => {
     setErrorMessage(null);
+    setIsSubmitting(false);
     setIsAddingMethod(false);
     setWithdrawAmount("");
     setSelectedType("BANK");
@@ -239,8 +223,13 @@ export default function MyWallet() {
       });
 
       if (res?.success || res) {
-        setIsWithdrawOpen(false);
         await fetchWalletInfo(); // Re-fetch updated balance
+        setTimeout(() => {
+          setIsWithdrawOpen(false);
+          setIsSubmitting(false);
+        }, 800);
+      } else {
+        setIsSubmitting(false);
       }
     } catch (err: any) {
       const apiData = err?.response?.data;
@@ -249,7 +238,6 @@ export default function MyWallet() {
       } else {
         setErrorMessage("Failed to initiate withdrawal request.");
       }
-    } finally {
       setIsSubmitting(false);
     }
   };
@@ -262,14 +250,14 @@ export default function MyWallet() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 pb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
-            <Wallet className="w-6 h-6 text-blue-600" /> Wallet Dashboard
+            <Wallet className="w-6 h-6 text-amber-500" /> Wallet Dashboard
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">
             Track trip payouts, view pending releases, and manage bank connections.
           </p>
         </div>
         <Button 
-          className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm flex items-center gap-2"
+          className="bg-amber-400 hover:bg-amber-500 text-white font-semibold shadow-sm flex items-center gap-2 transition-colors"
           onClick={() => setIsWithdrawOpen(true)}
         >
           <ArrowUpRight className="w-4 h-4" /> Request Withdrawal
@@ -279,7 +267,7 @@ export default function MyWallet() {
       {/* Dynamic Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1 bg-blue-600" />
+          <div className="absolute top-0 left-0 w-full h-1 bg-amber-400" />
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Available Balance</p>
           <p className="text-3xl font-extrabold text-gray-900 mt-2">
             {isLoadingBalance ? "..." : `$${numericAvailable.toFixed(2)}`}
@@ -325,18 +313,14 @@ export default function MyWallet() {
 
       {/* Chart & Pending Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Takes 2/3 width */}
         <div className="lg:col-span-2">
           <MonthlyWithdrawalChart />
         </div>
-
-        {/* Takes 1/3 width (Same height & layout) */}
         <TravelerWalletCard/>
       </div>
 
       {/* Activity Ledger */}
       <RecentActivityLedger />
-     
 
       {/* Integrated Withdrawal Modal */}
       <Dialog open={isWithdrawOpen} onOpenChange={setIsWithdrawOpen}>
@@ -381,19 +365,19 @@ export default function MyWallet() {
 
           {!isAddingMethod ? (
             <form onSubmit={handleWithdrawSubmit} className="flex flex-col gap-4 mt-2">
-              <div className="text-sm bg-blue-50/60 p-4 rounded-xl border border-blue-100/50 flex justify-between items-center">
+              <div className="text-sm bg-amber-50/60 p-4 rounded-xl border border-amber-200/60 flex justify-between items-center">
                 <div>
-                  <p className="text-xs text-blue-700 font-medium uppercase tracking-wider">
+                  <p className="text-xs text-amber-700 font-semibold uppercase tracking-wider">
                     Available Total
                   </p>
-                  <p className="text-2xl font-extrabold text-blue-900 mt-0.5">
+                  <p className="text-2xl font-extrabold text-amber-900 mt-0.5">
                     ${numericAvailable.toFixed(2)}
                   </p>
                 </div>
                 <Button
                   type="button"
                   variant="ghost"
-                  className="text-xs text-blue-600 hover:text-blue-700 font-bold underline p-0"
+                  className="text-xs text-amber-600 hover:text-amber-700 font-bold underline p-0"
                   onClick={() => setWithdrawAmount(numericAvailable.toString())}
                 >
                   Use Max Total
@@ -412,6 +396,7 @@ export default function MyWallet() {
                   min="0.01"
                   value={withdrawAmount}
                   onChange={(e) => setWithdrawAmount(e.target.value)}
+                  disabled={isSubmitting}
                   className={cn(
                     typeof errorMessage === "object" &&
                       errorMessage?.amount &&
@@ -435,11 +420,12 @@ export default function MyWallet() {
                   </label>
                   <button
                     type="button"
+                    disabled={isSubmitting}
                     onClick={() => {
                       setErrorMessage(null);
                       setIsAddingMethod(true);
                     }}
-                    className="text-xs text-blue-600 hover:underline font-semibold"
+                    className="text-xs text-amber-600 hover:text-amber-700 hover:underline font-semibold disabled:opacity-50"
                   >
                     + Add New Route
                   </button>
@@ -453,7 +439,8 @@ export default function MyWallet() {
                   <select
                     value={selectedMethodId}
                     onChange={(e) => setSelectedMethodId(e.target.value)}
-                    className="w-full text-sm rounded-md border border-input bg-background px-3 py-2 text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    disabled={isSubmitting}
+                    className="w-full text-sm rounded-md border border-input bg-background px-3 py-2 text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 disabled:opacity-50"
                   >
                     {methods.map((pm) => (
                       <option key={pm.id} value={pm.id}>
@@ -471,6 +458,7 @@ export default function MyWallet() {
                   <Button
                     variant="outline"
                     type="button"
+                    disabled={isSubmitting}
                     onClick={() => setIsWithdrawOpen(false)}
                   >
                     Cancel
@@ -478,7 +466,7 @@ export default function MyWallet() {
                   <Button
                     type="submit"
                     disabled={isSubmitting || methods.length === 0}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                    className="bg-amber-400 hover:bg-amber-500 text-white font-semibold transition-colors disabled:opacity-75"
                   >
                     {isSubmitting ? "Processing..." : "Confirm Payout"}
                   </Button>
@@ -492,7 +480,8 @@ export default function MyWallet() {
                 <select
                   value={selectedType}
                   onChange={(e) => setSelectedType(e.target.value as MethodType)}
-                  className="w-full text-sm rounded-md border border-input bg-background px-3 py-2 text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  disabled={isSubmitting}
+                  className="w-full text-sm rounded-md border border-input bg-background px-3 py-2 text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
                 >
                   <option value="BANK">BANK (Bank Transfer)</option>
                   <option value="BKASH">BKASH (bKash)</option>
@@ -508,6 +497,7 @@ export default function MyWallet() {
                   placeholder="e.g. John Doe"
                   value={accountName}
                   onChange={(e) => setAccountName(e.target.value)}
+                  disabled={isSubmitting}
                   className={cn(
                     typeof errorMessage === "object" &&
                       errorMessage?.account_name &&
@@ -533,6 +523,7 @@ export default function MyWallet() {
                   placeholder={selectedType === "BANK" ? "1234567890" : "017XXXXXXXX"}
                   value={accountNumber}
                   onChange={(e) => setAccountNumber(e.target.value)}
+                  disabled={isSubmitting}
                   className={cn(
                     typeof errorMessage === "object" &&
                       errorMessage?.account_number &&
@@ -558,6 +549,7 @@ export default function MyWallet() {
                       placeholder="e.g. City Bank"
                       value={bankName}
                       onChange={(e) => setBankName(e.target.value)}
+                      disabled={isSubmitting}
                       className={cn(
                         typeof errorMessage === "object" &&
                           errorMessage?.bank_name &&
@@ -581,6 +573,7 @@ export default function MyWallet() {
                       placeholder="e.g. Gulshan Branch"
                       value={branchName}
                       onChange={(e) => setBranchName(e.target.value)}
+                      disabled={isSubmitting}
                       className={cn(
                         typeof errorMessage === "object" &&
                           errorMessage?.branch_name &&
@@ -604,6 +597,7 @@ export default function MyWallet() {
                       placeholder="e.g. 020261144"
                       value={routingNumber}
                       onChange={(e) => setRoutingNumber(e.target.value)}
+                      disabled={isSubmitting}
                       className={cn(
                         typeof errorMessage === "object" &&
                           errorMessage?.routing_number &&
@@ -627,6 +621,7 @@ export default function MyWallet() {
                   type="button"
                   variant="outline"
                   size="sm"
+                  disabled={isSubmitting}
                   onClick={() => {
                     setErrorMessage(null);
                     setIsAddingMethod(false);
@@ -638,7 +633,7 @@ export default function MyWallet() {
                   type="submit"
                   size="sm"
                   disabled={isSubmitting}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  className="bg-amber-400 hover:bg-amber-500 text-white font-semibold transition-colors disabled:opacity-75"
                 >
                   {isSubmitting ? "Saving..." : "Save Route"}
                 </Button>

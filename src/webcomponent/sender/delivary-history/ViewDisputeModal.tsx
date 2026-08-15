@@ -15,7 +15,7 @@ import {
   AlertCircle,
   ExternalLink,
 } from "lucide-react";
-import { toast } from "sonner";
+import Swal from "sweetalert2";
 import { uploadDisputeEvidence } from "@/api/disputes.api";
 
 export interface EvidenceItem {
@@ -69,7 +69,12 @@ export const ViewDisputeModal: React.FC<ViewDisputeModalProps> = ({
     e.preventDefault();
 
     if (!file) {
-      toast.error("Please select a file to attach.");
+      Swal.fire({
+        icon: "warning",
+        title: "Missing Attachment",
+        text: "Please select a photo or document to attach.",
+        confirmButtonColor: "#4f46e5",
+      });
       return;
     }
 
@@ -82,19 +87,52 @@ export const ViewDisputeModal: React.FC<ViewDisputeModalProps> = ({
         evidenceDesc.trim() || dispute.description
       );
 
-      toast.success("Additional evidence attached successfully!");
+      // Success Alert
+      await Swal.fire({
+        icon: "success",
+        title: "Evidence Attached!",
+        text: "Your additional evidence file has been successfully uploaded to this dispute file.",
+        confirmButtonColor: "#4f46e5",
+        timer: 3000,
+      });
+
       setFile(null);
       setEvidenceDesc("");
       setShowAddEvidence(false);
       onEvidenceUploaded();
     } catch (err: any) {
       console.error("Upload evidence error:", err);
-      toast.error(
-        err?.response?.data?.detail || "Failed to upload evidence attachment."
-      );
-    } finally {
-      setIsUploading(false);
-    }
+
+      // Parse Backend DRF Error format cleanly
+      let errorMessage = "Failed to upload evidence attachment. Please try again.";
+
+      if (err?.response?.data) {
+        const data = err.response.data;
+        if (typeof data === "string") {
+          errorMessage = data;
+        } else if (data.detail) {
+          errorMessage = data.detail;
+        } else if (data.message) {
+          errorMessage = data.message;
+        } else if (typeof data === "object") {
+          // Extracts field errors (e.g. { file: ["Invalid file format"] })
+          const firstKey = Object.keys(data)[0];
+          if (firstKey && Array.isArray(data[firstKey])) {
+            errorMessage = `${firstKey}: ${data[firstKey][0]}`;
+          }
+        }
+      }
+
+      // Error Alert
+      Swal.fire({
+        icon: "error",
+        title: "Upload Failed",
+        text: errorMessage,
+        confirmButtonColor: "#ef4444",
+      });
+      } finally {
+            setIsUploading(false);
+          }
   };
 
   // Helper for Status Badge

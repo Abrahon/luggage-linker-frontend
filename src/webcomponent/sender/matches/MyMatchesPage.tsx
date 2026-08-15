@@ -1,11 +1,35 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { getMyMatches, sendBookingRequest, MatchItem } from "@/api/matching.api";
-import { Search, SlidersHorizontal, PackageSearch } from "lucide-react";
+import { Search, SlidersHorizontal, PackageSearch, CheckCircle2, AlertCircle, Loader2, X } from "lucide-react";
 import { MatchCard } from "../card/MatchCard";
-import { toast } from "sonner";
 import { MatchDetailModal } from "./MatchDetailModal";
+
+// Import Shadcn UI Alert components
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+
+// Helper to extract clean error messages from Django REST API responses
+const extractErrorMessage = (err: any): string => {
+  const data = err?.response?.data;
+  if (!data) return err?.message || "An unexpected error occurred.";
+
+  if (typeof data === "string") return data;
+  if (data.detail) return data.detail;
+  if (data.message) return data.message;
+  if (data.non_field_errors) {
+    return Array.isArray(data.non_field_errors) ? data.non_field_errors.join(", ") : data.non_field_errors;
+  }
+
+  if (typeof data === "object") {
+    const firstKey = Object.keys(data)[0];
+    const val = data[firstKey];
+    if (Array.isArray(val)) return `${firstKey}: ${val[0]}`;
+    if (typeof val === "string") return `${firstKey}: ${val}`;
+  }
+
+  return "Failed to send booking request. Please try again.";
+};
 
 export default function MyMatchesPage() {
   const [matches, setMatches] = useState<MatchItem[]>([]);
@@ -15,6 +39,15 @@ export default function MyMatchesPage() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [sortBy, setSortBy] = useState("SCORE");
 
+  // Top Alert State (Supports "loading" | "success" | "error")
+  const [alert, setAlert] = useState<{
+    type: "loading" | "success" | "error";
+    title: string;
+    message: string;
+  } | null>(null);
+
+  const topRef = useRef<HTMLDivElement>(null);
+
   // Selected match for the View Details Modal
   const [selectedTripMatch, setSelectedTripMatch] = useState<MatchItem | null>(null);
 
@@ -22,14 +55,25 @@ export default function MyMatchesPage() {
   const fetchMatches = async () => {
     try {
       setLoading(true);
-      const res = await getMyMatches();
-      if (res.success && res.data) {
-        setMatches(res.data);
-      } else {
-        setMatches([]);
-      }
+      
+      // Show top loading alert during initial fetch
+      setAlert({
+        type: "loading",
+        title: "Fetching Matches...",
+        message: "Searching for optimal traveler routes matching your active packages.",
+      });
+
+      const data = await getMyMatches();
+      setMatches(data);
+
+      // Dismiss the loading alert on successful fetch
+      setAlert(null);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || err.message || "Failed to load match recommendations.");
+      setAlert({
+        type: "error",
+        title: "Error Loading Matches",
+        message: extractErrorMessage(err),
+      });
       setMatches([]);
     } finally {
       setLoading(false);
@@ -40,11 +84,19 @@ export default function MyMatchesPage() {
     fetchMatches();
   }, []);
 
-  // Direct Booking Handler with Toast Feedback
+  // Direct Booking Handler
   const handleDirectBooking = async (match: MatchItem) => {
     try {
       setSubmittingId(match.id);
-      
+
+      // 1. Show Loading Alert & Scroll to Top
+      setAlert({
+        type: "loading",
+        title: "Creating Booking Request...",
+        message: `Sending your booking request for "${match.package_title}" to ${match.traveler_name}. Please wait.`,
+      });
+      topRef.current?.scrollIntoView({ behavior: "smooth" });
+
       const payload = {
         match_id: match.id,
         package_id: match.package,
@@ -54,7 +106,13 @@ export default function MyMatchesPage() {
       };
 
       await sendBookingRequest(payload);
-      toast.success(`Booking request sent successfully to ${match.traveler_name}!`);
+
+      // 2. Show Success Alert
+      setAlert({
+        type: "success",
+        title: "Booking Created Successfully!",
+        message: `Your booking request for "${match.package_title}" has been sent to ${match.traveler_name}.`,
+      });
 
       // Update local state to show 'REQUESTED' immediately
       setMatches((prevMatches) =>
@@ -62,8 +120,17 @@ export default function MyMatchesPage() {
           m.id === match.id ? { ...m, status: "REQUESTED" } : m
         )
       );
+
+      if (selectedTripMatch?.id === match.id) {
+        setSelectedTripMatch(null);
+      }
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || err.message || "Failed to send booking request. Please try again.");
+      // 3. Show Error Alert
+      setAlert({
+        type: "error",
+        title: "Booking Request Failed",
+        message: extractErrorMessage(err),
+      });
     } finally {
       setSubmittingId(null);
     }
@@ -97,9 +164,52 @@ export default function MyMatchesPage() {
   }, [matches, statusFilter, searchQuery, sortBy]);
 
   return (
-    <div className="w-full min-h-screen bg-slate-50/50 py-4 sm:py-6 lg:py-8 px-3 sm:px-6 lg:px-10 antialiased text-slate-800">
+    <div ref={topRef} className="w-full min-h-screen bg-slate-50/50 py-4 sm:py-6 lg:py-8 px-3 sm:px-6 lg:px-10 antialiased text-slate-800">
       <div className="w-full max-w-(--breakpoint-2xl) mx-auto space-y-4 sm:space-y-6">
         
+        {/* ================= SHADCN UI ALERT BANNER WITH LOADING ================= */}
+        {alert && (
+          <Alert
+            variant={alert.type === "error" ? "destructive" : "default"}
+            className={`relative pr-12 transition-all duration-300 shadow-xs ${
+              alert.type === "success"
+                ? "border-emerald-300 bg-emerald-50 text-emerald-950 [&>svg]:text-emerald-600"
+                : alert.type === "loading"
+                ? "border-blue-300 bg-blue-50 text-blue-950 [&>svg]:text-blue-600"
+                : ""
+            }`}
+          >
+            {/* Dynamic Alert Icon */}
+            {alert.type === "loading" ? (
+              <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+            ) : alert.type === "success" ? (
+              <CheckCircle2 className="h-4 w-4" />
+            ) : (
+              <AlertCircle className="h-4 w-4" />
+            )}
+            
+            <AlertTitle className="font-bold tracking-tight">
+              {alert.title}
+            </AlertTitle>
+
+            <AlertDescription className="text-xs sm:text-sm mt-1 leading-relaxed opacity-90">
+              {alert.message}
+            </AlertDescription>
+
+            {/* Dismiss Button (disabled while loading) */}
+            {alert.type !== "loading" && (
+              <button
+                onClick={() => setAlert(null)}
+                className="absolute top-3 right-3 p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-black/5 transition-colors"
+                aria-label="Close Alert"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </Alert>
+        )}
+        {/* ====================================================================== */}
+
         {/* Responsive Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-slate-200">
           <div className="space-y-1">
@@ -117,7 +227,6 @@ export default function MyMatchesPage() {
 
         {/* Responsive Filter Controls Bar */}
         <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
-          
           {/* Search Box */}
           <div className="relative w-full lg:flex-1">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -132,7 +241,6 @@ export default function MyMatchesPage() {
 
           {/* Select Controls */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex items-center gap-2.5 w-full lg:w-auto">
-            
             {/* Status Filter Dropdown */}
             <div className="w-full sm:w-auto flex items-center gap-2 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50">
               <SlidersHorizontal className="w-4 h-4 text-slate-400 shrink-0" />
@@ -163,7 +271,7 @@ export default function MyMatchesPage() {
           </div>
         </div>
 
-        {/* Matches Grid: 1 Col Mobile | 2 Col Tablet | 3 Col Desktop */}
+        {/* Matches Grid */}
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {[1, 2, 3, 4, 5, 6].map((n) => (

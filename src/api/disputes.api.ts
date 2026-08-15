@@ -56,6 +56,15 @@ export interface DisputeItem {
   resolved_at?: string | null;
 }
 
+/** 
+ * Flexible API Response Type supporting both flat DisputeItem payloads
+ * and nested wrapper objects returned by Django REST Framework serializers.
+ */
+export type CreateDisputeResponse = DisputeItem & {
+  dispute?: DisputeItem;
+  message?: string;
+};
+
 export interface CreateDisputePayload {
   booking: string;       // Booking ID required by backend serializer
   booking_id?: string;   // Fallback key
@@ -80,10 +89,10 @@ export const getMyDisputes = async (): Promise<{
   return response.data;
 };
 
-/** 2. Open a new dispute claim (Returns the created Dispute object containing `id`) */
+/** 2. Open a new dispute claim (Returns the created Dispute object or wrapped payload containing `id`) */
 export const createDispute = async (
   payload: CreateDisputePayload
-): Promise<DisputeItem> => {
+): Promise<CreateDisputeResponse> => {
   const response = await axiosInstance.post("/api/disputes/", payload);
   return response.data;
 };

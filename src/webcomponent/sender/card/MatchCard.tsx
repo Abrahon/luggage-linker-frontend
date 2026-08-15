@@ -3,7 +3,25 @@
 import React from "react";
 import Image from "next/image";
 import { MatchItem } from "@/api/matching.api";
-import { Calendar, Briefcase, CircleDollarSign, Star, Package, ArrowRight, Loader2 } from "lucide-react";
+import {
+  Calendar,
+  Briefcase,
+  CircleDollarSign,
+  Star,
+  Package,
+  ArrowRight,
+  Loader2,
+  Send,
+  CheckCircle2,
+  Clock,
+  XCircle,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface MatchCardProps {
   match: MatchItem;
@@ -12,12 +30,40 @@ interface MatchCardProps {
   onSendBooking: (match: MatchItem) => void;
 }
 
-const statusConfig: Record<string, { label: string; bg: string; text: string; dot: string }> = {
-  AVAILABLE: { label: "Available", bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-700", dot: "bg-emerald-500" },
-  REQUESTED: { label: "Requested", bg: "bg-amber-50 border-amber-200", text: "text-amber-700", dot: "bg-amber-500" },
-  ACCEPTED: { label: "Accepted", bg: "bg-blue-50 border-blue-200", text: "text-blue-700", dot: "bg-blue-500" },
-  REJECTED: { label: "Rejected", bg: "bg-red-50 border-red-200", text: "text-red-700", dot: "bg-red-500" },
-  EXPIRED: { label: "Expired", bg: "bg-slate-100 border-slate-300", text: "text-slate-600", dot: "bg-slate-400" },
+const statusConfig: Record<
+  string,
+  { label: string; bg: string; text: string; dot: string }
+> = {
+  AVAILABLE: {
+    label: "Available",
+    bg: "bg-emerald-50 border-emerald-200",
+    text: "text-emerald-700",
+    dot: "bg-emerald-500",
+  },
+  REQUESTED: {
+    label: "Requested",
+    bg: "bg-amber-50 border-amber-200",
+    text: "text-amber-700",
+    dot: "bg-amber-500",
+  },
+  ACCEPTED: {
+    label: "Accepted",
+    bg: "bg-blue-50 border-blue-200",
+    text: "text-blue-700",
+    dot: "bg-blue-500",
+  },
+  REJECTED: {
+    label: "Rejected",
+    bg: "bg-rose-50 border-rose-200",
+    text: "text-rose-700",
+    dot: "bg-rose-500",
+  },
+  EXPIRED: {
+    label: "Expired",
+    bg: "bg-slate-100 border-slate-300",
+    text: "text-slate-600",
+    dot: "bg-slate-400",
+  },
 };
 
 export const MatchCard: React.FC<MatchCardProps> = ({
@@ -28,6 +74,11 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 }) => {
   const status = statusConfig[match.status] || statusConfig.AVAILABLE;
   const matchScore = Math.round(parseFloat(match.score || "0"));
+
+  // Enabled only when available, rejected, or expired
+  const isRequestedOrAccepted =
+    match.status === "REQUESTED" || match.status === "ACCEPTED";
+  const isButtonDisabled = isSubmitting || isRequestedOrAccepted;
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "";
@@ -44,7 +95,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             <span>🎯</span>
             <span>{matchScore}% Match</span>
           </div>
-          <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-semibold ${status.bg} ${status.text}`}>
+          <div
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-semibold ${status.bg} ${status.text}`}
+          >
             <span className={`w-2 h-2 rounded-full ${status.dot}`} />
             <span>{status.label}</span>
           </div>
@@ -60,9 +113,14 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         </div>
 
         <div className="flex items-center justify-between text-xs sm:text-sm font-semibold text-slate-600 bg-slate-50 px-3 py-2 rounded-xl">
-          <span>{match.package_pickup_city}, {match.package_pickup_country}</span>
+          <span>
+            {match.package_pickup_city}, {match.package_pickup_country}
+          </span>
           <ArrowRight className="w-4 h-4 text-slate-400 shrink-0 mx-1" />
-          <span>{match.package_destination_city}, {match.package_destination_country}</span>
+          <span>
+            {match.package_destination_city},{" "}
+            {match.package_destination_country}
+          </span>
         </div>
       </div>
 
@@ -92,7 +150,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           <div className="flex items-center gap-1 text-xs font-bold text-slate-800 shrink-0">
             <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
             <span>{parseFloat(match.traveler_rating || "0").toFixed(1)}</span>
-            <span className="text-slate-400 font-normal">({match.total_reviews})</span>
+            <span className="text-slate-400 font-normal">
+              ({match.total_reviews})
+            </span>
           </div>
         </div>
 
@@ -111,11 +171,21 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-medium pt-1">
           <div className="flex items-center gap-1.5 text-slate-700 bg-white p-2 rounded-lg border border-slate-200/80">
             <Briefcase className="w-4 h-4 text-slate-500 shrink-0" />
-            <span className="truncate">Capacity: <strong className="text-slate-900">{match.remaining_weight} kg</strong></span>
+            <span className="truncate">
+              Capacity:{" "}
+              <strong className="text-slate-900">
+                {match.remaining_weight} kg
+              </strong>
+            </span>
           </div>
           <div className="flex items-center gap-1.5 text-slate-700 bg-white p-2 rounded-lg border border-slate-200/80">
             <CircleDollarSign className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span className="truncate">Reward: <strong className="text-emerald-700">${parseFloat(match.reward_per_kg || "0").toFixed(0)} / kg</strong></span>
+            <span className="truncate">
+              Reward:{" "}
+              <strong className="text-emerald-700">
+                ${parseFloat(match.reward_per_kg || "0").toFixed(0)} / kg
+              </strong>
+            </span>
           </div>
         </div>
       </div>
@@ -125,27 +195,44 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       {/* Action Footer */}
       <div className="p-4 flex items-center gap-3">
         <button
-        onClick={() => onViewTrip(match)}
-        className="flex-1 py-2.5 px-3 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 transition cursor-pointer"
+          onClick={() => onViewTrip(match)}
+          className="flex-1 py-2.5 px-3 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 transition cursor-pointer"
         >
-        View Trip
+          View Trip
         </button>
+
         <button
-        onClick={() => onSendBooking(match)}
-        disabled={match.status !== "AVAILABLE" || isSubmitting}
-        className={`flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
-            match.status === "AVAILABLE" && !isSubmitting
-            ? "bg-amber-400 hover:bg-amber-500 text-white active:scale-98 shadow-xs"
-            : "bg-slate-200 text-slate-400 cursor-not-allowed"
-        }`}
+          onClick={() => onSendBooking(match)}
+          disabled={isButtonDisabled}
+          className={`flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 ${
+            isButtonDisabled
+              ? "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-200"
+              : "bg-amber-400 hover:bg-amber-500 text-white active:scale-98 shadow-xs cursor-pointer"
+          }`}
         >
-        {isSubmitting ? (
-            <Loader2 className="w-4 h-4 animate-spin text-white" />
-        ) : match.status === "AVAILABLE" ? (
-            "Send Booking Request"
-        ) : (
-            "Request Sent"
-        )}
+          {isSubmitting ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin text-white" />
+              <span>Sending...</span>
+            </>
+          ) : match.status === "REQUESTED" ? (
+            <>
+              <Clock className="w-4 h-4 text-amber-600" />
+              <span>Request Sent</span>
+            </>
+          ) : match.status === "ACCEPTED" ? (
+            <>
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span>Booked</span>
+            </>
+          ) : (
+            <>
+              <Send className="w-3.5 h-3.5" />
+              <span>
+                {match.status === "REJECTED" ? "Re-send Request" : "Send Booking Request"}
+              </span>
+            </>
+          )}
         </button>
       </div>
     </div>

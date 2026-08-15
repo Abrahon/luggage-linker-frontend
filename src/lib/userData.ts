@@ -66,11 +66,11 @@ export const carrierLink = [
 ];
 
 export const senderLink = [
-  {
-    label: "Matching Travelers",
-    href: "/find-travelers",
-    icon: Search,
-  },
+  // {
+  //   label: "Matching Travelers",
+  //   href: "/find-travelers",
+  //   icon: Search,
+  // },
   {
     label: "My Package",
     href: "/package-list",

@@ -17,7 +17,6 @@ export const TravelerDisputesDashboard = () => {
       const fetchedDisputes = res.results || [];
       setDisputes(fetchedDisputes);
 
-      // Keep selected dispute updated if modal is currently open
       if (selectedDispute) {
         const updated = fetchedDisputes.find((d) => d.id === selectedDispute.id);
         if (updated) setSelectedDispute(updated);
@@ -35,7 +34,7 @@ export const TravelerDisputesDashboard = () => {
 
   return (
     <div className="w-full min-h-screen bg-gray-50 p-6 space-y-6">
-      {/* Title Header (Read-Only context for traveler) */}
+      {/* Title Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
@@ -89,6 +88,24 @@ export const TravelerDisputesDashboard = () => {
                         ? item.booking?.package_details || "Shipment Item"
                         : "Shipment Item";
 
+                    // --- AMOUNT FORMATTING LOGIC ---
+                    const rawAmount = String(item.disputed_amount || "");
+                    const isNegative = rawAmount.startsWith("-");
+                    const isPositive = rawAmount.startsWith("+");
+                    const numericValue = rawAmount.replace(/^[+-]/, "");
+
+                    const formattedAmount = isNegative
+                      ? `-$${numericValue}`
+                      : isPositive
+                      ? `+$${numericValue}`
+                      : `$${numericValue}`;
+
+                    const amountColorClass = isNegative
+                      ? "text-red-600"
+                      : isPositive
+                      ? "text-emerald-600"
+                      : "text-gray-900";
+
                     return (
                       <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                         <td className="py-3 px-4 font-mono text-gray-900 font-semibold">
@@ -108,8 +125,8 @@ export const TravelerDisputesDashboard = () => {
                             {item.reason_display || item.reason}
                           </span>
                         </td>
-                        <td className="py-3 px-4 font-bold text-gray-900">
-                          ${item.disputed_amount}
+                        <td className={`py-3 px-4 font-bold ${amountColorClass}`}>
+                          {formattedAmount}
                         </td>
                         <td className="py-3 px-4">
                           <span

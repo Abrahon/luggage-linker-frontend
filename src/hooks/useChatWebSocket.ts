@@ -63,11 +63,32 @@ export const useChatWebSocket = ({
   const ws = useRef<WebSocket | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Derive partner presence
+  const partnerPresence =
+    partnerUserId && presenceMap[partnerUserId.toLowerCase()] !== undefined
+      ? presenceMap[partnerUserId.toLowerCase()]
+      : false;
+
+  // Refs for persistent state access inside WebSocket handlers
   const currentUserIdRef = useRef(currentUserId);
+  const partnerPresenceRef = useRef(partnerPresence);
+  const onMessageReceivedRef = useRef(onMessageReceived);
+  const onPresenceChangedRef = useRef(onPresenceChanged);
+
   useEffect(() => {
     currentUserIdRef.current = currentUserId;
   }, [currentUserId]);
+
+  useEffect(() => {
+    partnerPresenceRef.current = partnerPresence;
+  }, [partnerPresence]);
+
+  useEffect(() => {
+    onMessageReceivedRef.current = onMessageReceived;
+    onPresenceChangedRef.current = onPresenceChanged;
+  }, [onMessageReceived, onPresenceChanged]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -91,16 +112,24 @@ export const useChatWebSocket = ({
 
       socket.onopen = () => {
         console.log(`[WS] Connected to room: ${roomId}`);
+
+        if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+        pingIntervalRef.current = setInterval(() => {
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ event: "ping" }));
+          }
+        }, 25000);
       };
 
       socket.onmessage = (event) => {
         try {
           const payload = JSON.parse(event.data);
 
-          // Support event name resolution across 'event', 'type', and 'action'
           const eventType = String(
             payload.event || payload.type || payload.action || ""
           ).toLowerCase();
+
+          if (eventType === "pong") return;
 
           const data = payload.data || payload;
 
@@ -131,12 +160,15 @@ export const useChatWebSocket = ({
                 [eventUserId]: isOnline,
               }));
 
-              onPresenceChanged?.(eventUserId, isOnline);
+              onPresenceChangedRef.current?.(eventUserId, isOnline);
 
+              // Upgrade all unread "sent" messages to "delivered" when partner comes online
               if (isOnline) {
                 setMessages((prev) =>
                   prev.map((msg) =>
-                    msg.status === "sent" ? { ...msg, status: "delivered" } : msg
+                    msg.status === "sent" && !msg.is_read
+                      ? { ...msg, status: "delivered", is_delivered: true }
+                      : msg
                   )
                 );
               }
@@ -148,24 +180,46 @@ export const useChatWebSocket = ({
           // 2. MESSAGE EVENT
           // -------------------------------------------------------------
           if (eventType === "message" || eventType === "chat_message") {
-            const msgData = data.message || data;
+            const msgData =
+              typeof data.message === "object" && data.message !== null
+                ? data.message
+                : data;
+
+            const messageContent =
+              typeof data.message === "string"
+                ? data.message
+                : msgData.message || "";
+
+            const senderId = String(msgData.sender_id || msgData.sender || "");
+            const isMe =
+              senderId.toLowerCase() ===
+              String(currentUserIdRef.current).toLowerCase();
+
+            // Calculate status based on read state and active presence
+            let messageStatus: "sent" | "delivered" | "read" = "sent";
+            if (msgData.is_read) {
+              messageStatus = "read";
+            } else if (msgData.is_delivered || (isMe && partnerPresenceRef.current)) {
+              messageStatus = "delivered";
+            }
 
             const newMsg: ExtendedChatMessage = {
               id: String(msgData.id),
               room_id: String(msgData.room_id || msgData.room || roomId),
-              sender_id: String(msgData.sender_id || msgData.sender),
+              sender_id: senderId,
               receiver_id: String(msgData.receiver_id || msgData.receiver || ""),
-              message: msgData.is_deleted ? "" : msgData.message || "",
+              message: msgData.is_deleted ? "" : messageContent,
               message_type: msgData.message_type || "TEXT",
               attachment: msgData.is_deleted ? null : msgData.attachment ?? null,
               audio_duration: msgData.audio_duration ?? 0,
               reply_to: msgData.reply_to ?? null,
               is_read: Boolean(msgData.is_read),
+              is_delivered: Boolean(msgData.is_delivered || messageStatus === "delivered"),
               is_deleted: Boolean(msgData.is_deleted),
               is_edited: Boolean(msgData.is_edited),
               created_at: msgData.created_at || new Date().toISOString(),
               edited_at: msgData.edited_at ?? null,
-              status: msgData.is_read ? "read" : "sent",
+              status: messageStatus,
             };
 
             setMessages((prev) => {
@@ -174,7 +228,8 @@ export const useChatWebSocket = ({
                   String(m.id) === String(newMsg.id) ||
                   (m.id.startsWith("temp-") &&
                     m.message === newMsg.message &&
-                    String(m.sender_id) === String(newMsg.sender_id))
+                    String(m.sender_id).toLowerCase() ===
+                      newMsg.sender_id.toLowerCase())
               );
 
               if (existingIndex !== -1) {
@@ -185,12 +240,12 @@ export const useChatWebSocket = ({
               return [...prev, newMsg];
             });
 
-            onMessageReceived?.(newMsg);
+            onMessageReceivedRef.current?.(newMsg);
             return;
           }
 
           // -------------------------------------------------------------
-          // 3. EDIT / DELETE / TYPING / READ RECEIPTS
+          // 3. EDIT / DELETE / TYPING / READ / DELIVERED RECEIPTS
           // -------------------------------------------------------------
           if (eventType === "edit_message") {
             const msgId = String(data.message_id || data.id);
@@ -209,7 +264,6 @@ export const useChatWebSocket = ({
             return;
           }
 
-          // Real-time Delete Sync
           if (eventType === "delete_message") {
             const msgId = String(data.message_id || data.id);
             setMessages((prev) =>
@@ -262,6 +316,16 @@ export const useChatWebSocket = ({
             setUnreadCount(Number(data.count || 0));
             return;
           }
+
+          if (eventType === "pin_message") {
+            setPinnedMessage(data);
+            return;
+          }
+
+          if (eventType === "unpin_message") {
+            setPinnedMessage(null);
+            return;
+          }
         } catch (err) {
           console.error("[WS] Error parsing message:", err);
         }
@@ -272,13 +336,13 @@ export const useChatWebSocket = ({
       socket.onclose = (e) => {
         console.warn(`[WS] Connection closed with code: ${e.code}`);
 
-        // PREVENT INSTANT RECONNECT LOOP: Stop reconnecting if unauthorized/forbidden
+        if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+
         if (e.code === 4003 || e.code === 4001 || e.code === 4000) {
           console.error("[WS] Authentication or permission failure. Stopping reconnects.");
           return;
         }
 
-        // Delay reconnection by 3 seconds to avoid overwhelming Redis or Server
         if (isMounted && e.code !== 1000) {
           reconnectTimeoutRef.current = setTimeout(connect, 3000);
         }
@@ -291,14 +355,10 @@ export const useChatWebSocket = ({
       isMounted = false;
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
       if (ws.current) ws.current.close(1000, "Unmounted");
     };
-  }, [roomId, onMessageReceived, onPresenceChanged]);
-
-  const partnerPresence =
-    partnerUserId && presenceMap[partnerUserId.toLowerCase()] !== undefined
-      ? presenceMap[partnerUserId.toLowerCase()]
-      : false;
+  }, [roomId]);
 
   // Actions
   const sendMessage = useCallback(
@@ -311,6 +371,7 @@ export const useChatWebSocket = ({
     ) => {
       const activeUserId = currentUserIdRef.current;
       const tempId = `temp-${Date.now()}`;
+      const isOnline = partnerPresenceRef.current;
 
       const optimisticMsg: ExtendedChatMessage = {
         id: tempId,
@@ -323,10 +384,11 @@ export const useChatWebSocket = ({
         audio_duration: audioDuration,
         reply_to: replyToId ? { id: replyToId, message: "", sender_id: "", message_type: "TEXT" } : null,
         is_read: false,
+        is_delivered: isOnline,
         is_deleted: false,
         is_edited: false,
         created_at: new Date().toISOString(),
-        status: partnerPresence ? "delivered" : "sent",
+        status: isOnline ? "delivered" : "sent",
       };
 
       setMessages((prev) => [...prev, optimisticMsg]);
@@ -346,7 +408,7 @@ export const useChatWebSocket = ({
         );
       }
     },
-    [roomId, partnerPresence]
+    [roomId]
   );
 
   const sendTyping = useCallback((isTypingStatus: boolean) => {
@@ -378,7 +440,6 @@ export const useChatWebSocket = ({
   }, []);
 
   const deleteMessage = useCallback((messageId: string) => {
-    // Optimistic Delete: Immediate local update
     setMessages((prev) =>
       prev.map((msg) =>
         String(msg.id) === String(messageId)

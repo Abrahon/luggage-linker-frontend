@@ -1,6 +1,12 @@
 import axiosInstance from "@/api/axios";
 
-// --- Status & Resolution Types ---
+// ==============================================================================
+// STATUS & WORKFLOW TYPES (Synchronized with Django Models)
+// ==============================================================================
+
+/**
+ * Workflow status matching `DisputeStatus` text choices in Django.
+ */
 export type DisputeStatusType =
   | "OPEN"
   | "UNDER_REVIEW"
@@ -9,13 +15,60 @@ export type DisputeStatusType =
   | "REJECTED"
   | "CLOSED";
 
+/**
+ * Resolution decisions matching `ResolutionType` text choices in Django.
+ * Note: Escrow release value is 'RELEASE_PAYMENT' in backend models.
+ */
+/**
+ * Resolution decisions matching `ResolutionType` text choices in Django.
+ */
 export type ResolutionType =
-  | "RELEASE_TO_TRAVELER"
   | "FULL_REFUND"
   | "PARTIAL_REFUND"
-  | "REJECT";
+  | "RELEASE_PAYMENT"
+  | "NO_ACTION";
 
-// --- Domain Interfaces ---
+/**
+ * Reasons matching `DisputeReason` text choices in Django.
+ */
+export type DisputeReasonType =
+  | "DAMAGED"
+  | "LOST_PACKAGE"
+  | "ITEM_MISSING"
+  | "NO_SHOW"
+  | "DELAYED_DELIVERY"
+  | "OTHER";
+
+/**
+ * Media categories matching `EvidenceType` text choices in Django.
+ */
+export type EvidenceType =
+  | "IMAGE"
+  | "DAMAGE_PHOTO"
+  | "RECEIPT"
+  | "CHAT_LOG"
+  | "OTHER";
+
+/**
+ * Immutable audit log actions matching `DisputeHistoryAction` in Django.
+ */
+export type DisputeHistoryActionType =
+  | "OPEN"
+  | "OPENED"
+  | "CREATED"
+  | "ASSIGNED"
+  | "EVIDENCE_ADDED"
+  | "EVIDENCE_REQUESTED"
+  | "RESOLVED_REFUND"
+  | "RESOLVED_RELEASE"
+  | "RESOLVED_PARTIAL"
+  | "REJECTED"
+  | "CLOSED";
+
+// ==============================================================================
+// DOMAIN INTERFACES
+// ==============================================================================
+
 export interface DisputeUser {
   id: string;
   email: string;
@@ -38,7 +91,7 @@ export interface DisputeEvidence {
   uploaded_by: string;
   uploaded_by_email: string;
   file_url: string;
-  evidence_type: string;
+  evidence_type: EvidenceType | string;
   evidence_type_display: string;
   description: string;
   created_at: string;
@@ -58,7 +111,7 @@ export interface DisputeHistoryItem {
   id: string;
   actor: string;
   actor_name: string;
-  action: string;
+  action: DisputeHistoryActionType | string;
   action_display: string;
   status_from: DisputeStatusType;
   status_from_display: string;
@@ -82,7 +135,10 @@ export interface DisputeTimeline {
   resolved_at: string | null;
 }
 
-// --- Main Dispute Detail Interface ---
+// ==============================================================================
+// MAIN DISPUTE DETAIL INTERFACE
+// ==============================================================================
+
 export interface DisputeDetailItem {
   id: string;
   booking: DisputeBooking;
@@ -90,7 +146,7 @@ export interface DisputeDetailItem {
   against_user: DisputeUser;
   assigned_admin: DisputeUser | null;
   resolved_by?: DisputeUser | null;
-  reason: string;
+  reason: DisputeReasonType | string;
   reason_display: string;
   description: string;
   disputed_amount: string;
@@ -101,10 +157,8 @@ export interface DisputeDetailItem {
   admin_notes?: string;
   settlement?: DisputeSettlement;
   
-  // Supports list/detail endpoint format
   timeline?: DisputeTimeline;
   
-  // Supports creation payload response format
   created_at?: string;
   updated_at?: string;
   resolved_at?: string | null;
@@ -121,7 +175,10 @@ export interface DisputesListResponse {
   results: DisputeDetailItem[];
 }
 
-// --- Request Payloads ---
+// ==============================================================================
+// REQUEST PAYLOADS
+// ==============================================================================
+
 export interface ResolvePayload {
   resolution_type: ResolutionType;
   admin_notes: string;
@@ -132,7 +189,9 @@ export interface RequestEvidencePayload {
   request_message: string;
 }
 
-// --- API Calls ---
+// ==============================================================================
+// API CALLS
+// ==============================================================================
 
 // 1. Fetch All Admin Disputes with Filters
 export const getAdminDisputes = async (
