@@ -29,7 +29,7 @@ export const Dashboard = () => {
   }
 
   const isTravelerOrCarrier =
-    role === "TRAVELER" || role === "TRAVELLER" || role === "CARRIER";
+    role === "TRAVELER" || role === "TRAVELLER";
 
   if (isTravelerOrCarrier) {
     return <CarrierDashboard />;

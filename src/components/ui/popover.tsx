@@ -24,13 +24,7 @@ type PopoverAnchorProps = React.HTMLAttributes<HTMLDivElement> & {
   children?: React.ReactNode
 }
 
-const Popover = React.forwardRef<
-  React.ElementRef<typeof PopoverPrimitive.Root>,
-  PopoverProps
->(({ ...props }, ref) => (
-  <PopoverPrimitive.Root ref={ref} data-slot="popover" {...props} />
-))
-Popover.displayName = PopoverPrimitive.Root.displayName || "Popover"
+const Popover = PopoverPrimitive.Root
 
 const PopoverTrigger = React.forwardRef<
   React.ElementRef<typeof PopoverPrimitive.Trigger>,

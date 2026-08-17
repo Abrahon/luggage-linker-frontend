@@ -136,8 +136,8 @@ export default function VerificationLayOut({
   };
 
   // --------- Conditional Heading & Subheading ---------
-  let heading = "";
-  let subheading: string | React.ReactNode = "";
+  let heading: React.ReactNode = "";
+  let subheading: React.ReactNode = "";
 
   switch (steps[currentStep]?.key) {
     case "personal":

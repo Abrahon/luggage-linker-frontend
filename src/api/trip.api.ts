@@ -217,6 +217,8 @@ import axiosInstance from "./axios";
 export interface BackendTrip {
   id: string;
   traveler?: string | number;
+  traveler_email?: string;
+  user_id?: string | number;
   title: string;
   description?: string;
   from_country: string;

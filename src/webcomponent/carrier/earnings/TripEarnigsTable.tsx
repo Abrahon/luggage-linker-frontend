@@ -3,6 +3,7 @@
 "use client";
 
 import { useState } from "react";
+import { BookingData } from "@/api/booking.api";
 import { DelivaryData } from "@/interface/DelivaryData";
 import { deliveryData } from "@/lib/delivarydata";
 import { AcceptDeliveryDialog } from "../delivaries/AcceptDeliveryDialog";
@@ -131,15 +132,14 @@ export const TripEarnigsTable = () => {
           <AcceptDeliveryDialog
             open={openDialog}
             setOpen={setOpenDialog}
-            delivery={selectedDelivery}
-            showCheckbox={selectedDelivery.status === "pending"}
+            delivery={selectedDelivery as unknown as BookingData}
           />
         ) : (
           selectedDelivery && (
             <CompleteDilog
               open={openDialog}
               setOpen={setOpenDialog}
-              delivery={selectedDelivery}
+              delivery={selectedDelivery as unknown as BookingData}
             />
           )
         )}

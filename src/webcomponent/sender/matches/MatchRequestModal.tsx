@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-// import { SendRequestDialog } from "@/webcomponent/sender/find-travellers"; 
+import { BackendTrip } from "@/api/trip.api";
 import { MatchItem } from "@/api/matching.api";
 import {
   Dialog,
@@ -48,14 +48,26 @@ export const MatchRequestModal: React.FC<MatchRequestModalProps> = ({
             setOpen={(openState: boolean) => {
               if (!openState) onClose();
             }}
-            open={isOpen}
-            from={`${match.traveler_from_city}, ${match.traveler_from_country}`}
-            to={`${match.traveler_to_city}, ${match.traveler_to_country}`}
-            date={match.departure_date}
-            returnDate={match.arrival_date}
-            price={pricePerKg}
-            transportType="Flight"
-            luggageSpace={capacityKg}
+            trip={
+              {
+                id: match.trip,
+                title: match.trip_title,
+                description: "",
+                from_country: match.traveler_from_country,
+                from_city: match.traveler_from_city,
+                to_country: match.traveler_to_country,
+                to_city: match.traveler_to_city,
+                departure_date: match.departure_date,
+                arrival_date: match.arrival_date,
+                max_weight_kg: capacityKg,
+                available_weight_kg: capacityKg,
+                reward_per_kg: pricePerKg,
+                currency: match.currency || "USD",
+                status: match.trip_status || "PLANNED",
+                is_active: match.is_active,
+                is_public: true,
+              } as BackendTrip
+            }
           />
         </div>
       </DialogContent>

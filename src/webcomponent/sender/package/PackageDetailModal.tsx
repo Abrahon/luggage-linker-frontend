@@ -145,7 +145,7 @@ export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
                 </h3>
               </div>
               <div className="flex items-center gap-2">
-                {getStatusBadge(details.status)}
+                {getStatusBadge(details.status || "DRAFT")}
               </div>
             </div>
 

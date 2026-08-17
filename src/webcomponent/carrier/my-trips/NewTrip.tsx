@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { Country, City, ICountry, ICity } from "country-state-city";
 
 import {
@@ -117,7 +116,20 @@ export const tripSchema = z
     }
   );
 
-export type TripFormValues = z.infer<typeof tripSchema>;
+export type TripFormValues = {
+  title: string;
+  description?: string;
+  from_country: string;
+  from_city: string;
+  to_country: string;
+  to_city: string;
+  departure_date: Date;
+  arrival_date: Date;
+  max_weight_kg: number;
+  reward_per_kg: number;
+  currency: string;
+  is_public: boolean;
+};
 
 export interface NewTripProps {
   setOpenDialog: React.Dispatch<React.SetStateAction<boolean>>;
@@ -164,7 +176,6 @@ export const NewTrip = ({ setOpenDialog, initialData, onSuccess }: NewTripProps)
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const form = useForm<TripFormValues>({
-    resolver: zodResolver(tripSchema),
     defaultValues: {
       title: "",
       description: "",
@@ -227,6 +238,19 @@ export const NewTrip = ({ setOpenDialog, initialData, onSuccess }: NewTripProps)
   }, [initialData, form]);
 
   const onSubmit: SubmitHandler<TripFormValues> = async (values) => {
+    const parsed = tripSchema.safeParse(values);
+
+    if (!parsed.success) {
+      parsed.error.issues.forEach((issue) => {
+        const path = issue.path[0]?.toString() || "root";
+        form.setError(path as keyof TripFormValues, {
+          type: "manual",
+          message: issue.message,
+        });
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     setApiError(null);
     setSuccessMessage(null);

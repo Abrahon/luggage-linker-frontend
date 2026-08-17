@@ -13,7 +13,7 @@ const idTypes = [
   { label: "Driver's License", value: "drivers_license" },
 ] as const;
 
-export interface IDVerificationData {
+interface AddressFormData {
   idType: string;
   idNumber: string;
   front?: File;
@@ -21,10 +21,10 @@ export interface IDVerificationData {
 }
 
 interface Props {
-  onChange?: (data: IDVerificationData) => void;
+  onChange?: (data: AddressFormData) => void;
 }
 
-export const IDVerification = ({ onChange }: Props) => {
+export const Address = ({ onChange }: Props) => {
   const { setStepComplete } = useVerification();
   const [activeTab, setActiveTab] = useState<string>("national_id");
   const [idNumber, setIdNumber] = useState<string>("");

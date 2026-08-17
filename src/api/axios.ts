@@ -6,7 +6,8 @@ import { getAccessToken } from "@/lib/token";
 import { clearAuthStorage } from "@/lib/auth";
 
 const axiosInstance = axios.create({
-  baseURL: "https://z4f6lxvp-8001.asse.devtunnels.ms",
+  // baseURL: "https://lug-api.abrahon.site",
+  baseURL: "https://z4f6lxvp-8001.asse.devtunnels.ms/",
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",
