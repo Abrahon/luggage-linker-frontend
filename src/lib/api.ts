@@ -1,5 +1,5 @@
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "https://z4f6lxvp-8001.asse.devtunnels.ms";
+  process.env.NEXT_PUBLIC_API_BASE_URL;
 
 export async function postJson<T = unknown>(path: string, data: unknown): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
