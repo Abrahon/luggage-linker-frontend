@@ -10,6 +10,8 @@ export const VerifyEmail = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email") ?? "";
+  const role = searchParams.get("role") ?? ""; // Reads the role (sender/traveler) passed from signup
+
   const [otp, setOtp] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -28,23 +30,54 @@ export const VerifyEmail = () => {
 
     setIsSubmitting(true);
 
-    try {
-      await verifyEmail(email, otp.trim());
-      toast.success("Email verified! Please log in.");
-      router.push("/login");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Verification failed.";
-      toast.error(message);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  try {
+        // Cast response to any object dictionary to satisfy TypeScript
+        const response = (await verifyEmail(email, otp.trim())) as Record<string, any>;
+
+        // Safely check and store access token across common API response formats
+        const token =
+          response?.access ||
+          response?.accessToken ||
+          response?.token ||
+          response?.data?.access ||
+          response?.data?.token;
+
+        if (token) {
+          localStorage.setItem("accessToken", token);
+        }
+
+        toast.success("Email verified successfully!");
+
+        // Extract user role safely from backend response or URL query parameter fallback
+        const userRole = (
+          response?.role ||
+          response?.user?.role ||
+          response?.data?.role ||
+          role ||
+          ""
+        ).toLowerCase();
+        // Redirect BOTH Sender and Traveler to /profile
+        router.push(
+          `/profile?email=${encodeURIComponent(email)}&role=${encodeURIComponent(userRole)}`
+        );
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Verification failed.";
+        toast.error(message);
+      } finally {
+        setIsSubmitting(false);
+      }
+    };
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-md mx-auto text-white">
       <h2 className="text-2xl font-semibold text-center">Verify Your Email</h2>
       <p className="text-sm text-center text-gray-300">
-        Enter the OTP sent to <span className="font-semibold text-white">{email || "your email"}</span>.
+        Enter the OTP sent to{" "}
+        <span className="font-semibold text-white">
+          {email || "your email"}
+        </span>
+        .
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -82,7 +115,10 @@ export const VerifyEmail = () => {
 
       {!email && (
         <p className="text-sm text-center text-red-400">
-          Email query is missing. <Link href="/signup" className="text-primary underline">Return to Sign Up</Link>
+          Email query is missing.{" "}
+          <Link href="/signup" className="text-primary underline">
+            Return to Sign Up
+          </Link>
         </p>
       )}
     </div>

@@ -75,20 +75,25 @@ export const SignUp = () => {
       return;
     }
 
-    try {
-      await postJson("/api/signup/", {
-        email: data.email,
-        password: data.password,
-        confirm_password: data.confirmPassword,
-        role: roleValue,
-      });
+  // Inside onSubmit in SignUp component:
+  try {
+    await postJson("/api/signup/", {
+      email: data.email,
+      password: data.password,
+      confirm_password: data.confirmPassword,
+      role: roleValue,
+    });
 
-      toast.success("Signup successful! Please check your email for the OTP.");
-      router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Signup failed.";
-      toast.error(message);
-    }
+    toast.success("Signup successful! Please check your email for the OTP.");
+    
+    // Pass BOTH email AND role to the verify-email page
+    router.push(
+      `/verify-email?email=${encodeURIComponent(data.email)}&role=${encodeURIComponent(data.role || "")}`
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Signup failed.";
+    toast.error(message);
+  }
   };
 
   return (

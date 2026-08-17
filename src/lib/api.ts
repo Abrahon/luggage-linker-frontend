@@ -1,6 +1,6 @@
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL;
+export const API_BASE_URL =process.env.NEXT_PUBLIC_API_URL;
 
+  
 export async function postJson<T = unknown>(path: string, data: unknown): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",

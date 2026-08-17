@@ -3,6 +3,7 @@
 import { Camera, Loader2, Edit3, X, Save, CheckCircle2, MapPin, User as UserIcon, Mail } from "lucide-react";
 import Image from "next/image";
 import { useState, useMemo, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { stringToColor } from "@/lib/stringToColor";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -29,6 +30,10 @@ const profileSchema = z.object({
 type ProfileForm = z.infer<typeof profileSchema>;
 
 export const Profile = () => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const roleFromUrl = searchParams.get("role") ?? "";
+
   const { profile, isLoading, error, updateProfile } = useProfile();
   
   // Local state for edit mode toggle
@@ -72,6 +77,11 @@ export const Profile = () => {
         dateOfBirth: profile.date_of_birth || "",
         bio: profile.bio || "",
       });
+
+      // Auto-enable edit mode for new users who have incomplete profile details
+      if (!profile.country || !profile.city || !profile.first_name) {
+        setIsEditing(true);
+      }
     }
   };
 
@@ -102,11 +112,22 @@ export const Profile = () => {
         bio: data.bio,
         profile_picture: profilePhoto,
       });
+
       setSuccessMsg("Profile updated successfully!");
       setIsEditing(false);
-      
-      // Clear success notification after 4s
-      setTimeout(() => setSuccessMsg(null), 4000);
+
+      // Determine user role from profile API or URL fallback
+      const userRole = (profile?.role || roleFromUrl || "").toLowerCase();
+
+      // Redirect based on role after short delay
+      setTimeout(() => {
+        if (userRole === "traveler") {
+          router.push("/verification");
+        } else {
+          router.push("/dashboard");
+        }
+      }, 1000);
+
     } catch (err: any) {
       setSubmitError(err.message || "Failed to update profile");
     }
@@ -139,7 +160,7 @@ export const Profile = () => {
   const getProfilePictureUrl = (url: string | null | undefined): string | null => {
     if (!url) return null;
     if (url.startsWith("http://") || url.startsWith("https://")) return url;
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
     return `${baseUrl}${url}`;
   };
 

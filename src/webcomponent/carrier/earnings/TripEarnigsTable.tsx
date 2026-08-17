@@ -1,11 +1,8 @@
-
-
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BookingData } from "@/api/booking.api";
 import { DelivaryData } from "@/interface/DelivaryData";
-import { deliveryData } from "@/lib/delivarydata";
 import { AcceptDeliveryDialog } from "../delivaries/AcceptDeliveryDialog";
 import { CompleteDilog } from "../delivaries/CompleteDilog";
 import { statusStyles } from "@/lib/statusColor";
@@ -18,20 +15,80 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { PlaneTakeoff, Scale, DollarSign, Eye } from "lucide-react";
+import { PlaneTakeoff, Scale, DollarSign, Eye, Loader2 } from "lucide-react";
 
 export const TripEarnigsTable = () => {
+  const [deliveries, setDeliveries] = useState<DelivaryData[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedDelivery, setSelectedDelivery] = useState<DelivaryData | null>(
     null
   );
+
+  // Fetch data from backend API
+  useEffect(() => {
+    const fetchDeliveries = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const token = localStorage.getItem("accessToken");
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
+
+        // Adjust API endpoint to your backend route
+        const response = await fetch(`${baseUrl}/api/deliveries/`, {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to load delivery earnings data.");
+        }
+
+        const data = await response.json();
+        setDeliveries(Array.isArray(data) ? data : data.results || []);
+      } catch (err: any) {
+        setError(err.message || "Failed to fetch deliveries.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDeliveries();
+  }, []);
 
   const handleView = (delivery: DelivaryData) => {
     setSelectedDelivery(delivery);
     setOpenDialog(true);
   };
 
-  const allDeliveries = deliveryData;
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center py-16 bg-white rounded-2xl border border-gray-100 shadow-sm w-full">
+        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 text-center text-red-500 bg-red-50 border border-red-200 rounded-2xl w-full">
+        <p className="text-sm font-medium">{error}</p>
+      </div>
+    );
+  }
+
+  if (deliveries.length === 0) {
+    return (
+      <div className="p-12 text-center text-gray-500 bg-white rounded-2xl border border-gray-100 shadow-sm w-full">
+        <p className="text-sm font-medium">No trip earnings or deliveries found.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden w-full">
@@ -58,8 +115,12 @@ export const TripEarnigsTable = () => {
           </TableHeader>
 
           <TableBody>
-            {allDeliveries.map((delivery) => {
-              const style = statusStyles[delivery.status];
+            {deliveries.map((delivery) => {
+              const style = statusStyles[delivery.status] || {
+                bg: "bg-gray-100",
+                text: "text-gray-700",
+                label: delivery.status,
+              };
 
               return (
                 <TableRow 
@@ -74,10 +135,10 @@ export const TripEarnigsTable = () => {
                       </div>
                       <div className="flex flex-col">
                         <span className="font-bold text-sm text-gray-900 font-mono tracking-wide">
-                          {delivery.tripData.from} → {delivery.tripData.to}
+                          {delivery.tripData?.from} → {delivery.tripData?.to}
                         </span>
                         <span className="text-[11px] font-medium text-gray-400 mt-0.5">
-                          {typeof delivery.tripData.date === "string" && delivery.tripData.date}
+                          {typeof delivery.tripData?.date === "string" && delivery.tripData.date}
                         </span>
                       </div>
                     </div>
@@ -87,7 +148,7 @@ export const TripEarnigsTable = () => {
                   <TableCell className="align-middle py-4">
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
                       <Scale className="w-3.5 h-3.5 text-gray-400" />
-                      <span>{delivery.tripData.carryWeight} kg</span>
+                      <span>{delivery.tripData?.carryWeight} kg</span>
                     </div>
                   </TableCell>
 
@@ -95,7 +156,7 @@ export const TripEarnigsTable = () => {
                   <TableCell className="align-middle py-4">
                     <div className="flex items-center gap-0.5 text-xs font-extrabold text-slate-900">
                       <DollarSign className="w-3.5 h-3.5 text-slate-400 -mr-0.5" />
-                      <span>{delivery.tripData.price}</span>
+                      <span>{delivery.tripData?.price}</span>
                     </div>
                   </TableCell>
 
@@ -109,12 +170,12 @@ export const TripEarnigsTable = () => {
                     </div>
                   </TableCell>
 
-                  {/* Enhanced Interactive Action Button */}
+                  {/* Action Button */}
                   <TableCell className="align-middle py-4 pr-5 text-right">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="text-xs font-semibold px-3 h-8 border-gray-200 text-gray-600 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50/30 rounded-lg transition-all shadow-sm flex items-center gap-1.5 ml-auto"
+                      className="text-xs font-semibold px-3 h-8 border-gray-200 text-gray-600 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50/30 rounded-lg transition-all shadow-sm flex items-center gap-1.5 ml-auto cursor-pointer"
                       onClick={() => handleView(delivery)}
                     >
                       <Eye className="w-3.5 h-3.5" />
@@ -133,6 +194,7 @@ export const TripEarnigsTable = () => {
             open={openDialog}
             setOpen={setOpenDialog}
             delivery={selectedDelivery as unknown as BookingData}
+            showCheckbox={selectedDelivery.status === "pending"}
           />
         ) : (
           selectedDelivery && (

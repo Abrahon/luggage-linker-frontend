@@ -33,27 +33,29 @@ interface AcceptDeliveryDialogProps {
   setOpen: (open: boolean) => void;
   delivery: BookingData | null;
   onBookingUpdated?: (updatedData?: BookingData) => void;
+  showCheckbox?: boolean; // <-- Added showCheckbox property
 }
 
-export const AcceptDeliveryDialog = ({
-  open,
-  setOpen,
-  delivery,
-  onBookingUpdated,
-}: AcceptDeliveryDialogProps) => {
-  // Modal Visibility States
-  const [showPickupPinModal, setShowPickupPinModal] = useState<boolean>(false);
-  const [showDeliveryPinModal, setShowDeliveryPinModal] = useState<boolean>(false);
-  const [showRejectModal, setShowRejectModal] = useState<boolean>(false);
+  export const AcceptDeliveryDialog = ({
+    open,
+    setOpen,
+    delivery,
+    onBookingUpdated,
+    showCheckbox = false, // <-- Added with default value
+  }: AcceptDeliveryDialogProps) => {
+    // Modal Visibility States
+    const [showPickupPinModal, setShowPickupPinModal] = useState<boolean>(false);
+    const [showDeliveryPinModal, setShowDeliveryPinModal] = useState<boolean>(false);
+    const [showRejectModal, setShowRejectModal] = useState<boolean>(false);
 
-  // Form Input States
-  const [pickupPin, setPickupPin] = useState<string[]>(Array(6).fill(""));
-  const [deliveryPin, setDeliveryPin] = useState<string[]>(Array(6).fill(""));
-  const [refusalReason, setRefusalReason] = useState<string>("");
+    // Form Input States
+    const [pickupPin, setPickupPin] = useState<string[]>(Array(6).fill(""));
+    const [deliveryPin, setDeliveryPin] = useState<string[]>(Array(6).fill(""));
+    const [refusalReason, setRefusalReason] = useState<string>("");
 
-  // Loading & Error States
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [modalError, setModalError] = useState<string | null>(null);
+    // Loading & Error States
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+    const [modalError, setModalError] = useState<string | null>(null);
 
   if (!delivery) return null;
 
