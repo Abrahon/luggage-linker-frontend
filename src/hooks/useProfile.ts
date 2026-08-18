@@ -2,27 +2,35 @@
 import { useState, useEffect, useCallback } from "react";
 import { getProfileApi, updateProfileApi } from "@/api/profile.api";
 import { UserProfile, UpdateProfilePayload } from "@/types/profile";
+import { getAccessToken } from "@/lib/token";
+import { useAuth } from "@/context/AuthContext";
 
 export const useProfile = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth(); // React to auth state updates
 
   const fetchProfile = useCallback(async () => {
+    const token = getAccessToken();
+
+    // Guard check: Do not execute fetch if token is absent
+    if (!token) {
+      setIsLoading(false);
+      setError("No authentication token found. Please log in.");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
+
     try {
       const res = await getProfileApi();
-      
-      // Support both wrapped response { data: { ... } } and direct response { ... }
       const profileData = res?.data || res;
       setProfile(profileData);
     } catch (err: any) {
-      // 1. Log exact error object to browser console for immediate debugging
       console.error("Profile Fetch Error:", err);
-      console.error("Backend Error Response Data:", err.response?.data);
 
-      // 2. Extract error message across standard backend formats (DRF uses 'detail')
       const backendMessage =
         err.response?.data?.detail ||
         err.response?.data?.message ||
@@ -31,14 +39,15 @@ export const useProfile = () => {
         "Failed to load profile.";
 
       setError(backendMessage);
-    } finally {
+    }
+    {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
     fetchProfile();
-  }, [fetchProfile]);
+  }, [fetchProfile, user]); // Re-fetch when user context updates
 
   const updateProfile = async (data: UpdateProfilePayload) => {
     try {

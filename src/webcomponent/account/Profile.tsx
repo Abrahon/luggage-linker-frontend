@@ -1,6 +1,16 @@
 "use client";
 
-import { Camera, Loader2, Edit3, X, Save, CheckCircle2, MapPin, User as UserIcon, Mail } from "lucide-react";
+import {
+  Camera,
+  Loader2,
+  Edit3,
+  X,
+  Save,
+  CheckCircle2,
+  MapPin,
+  User as UserIcon,
+  Mail,
+} from "lucide-react";
 import Image from "next/image";
 import { useState, useMemo, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -35,8 +45,7 @@ export const Profile = () => {
   const roleFromUrl = searchParams.get("role") ?? "";
 
   const { profile, isLoading, error, updateProfile } = useProfile();
-  
-  // Local state for edit mode toggle
+
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -62,7 +71,6 @@ export const Profile = () => {
     resolver: zodResolver(profileSchema),
   });
 
-  // Populate form values when backend data arrives
   const populateFields = () => {
     if (profile) {
       reset({
@@ -78,7 +86,6 @@ export const Profile = () => {
         bio: profile.bio || "",
       });
 
-      // Auto-enable edit mode for new users who have incomplete profile details
       if (!profile.country || !profile.city || !profile.first_name) {
         setIsEditing(true);
       }
@@ -93,7 +100,7 @@ export const Profile = () => {
     setIsEditing(false);
     setProfilePhoto(null);
     setSubmitError(null);
-    populateFields(); // Reset fields back to saved backend values
+    populateFields();
   };
 
   const onSubmit = async (data: ProfileForm) => {
@@ -113,23 +120,20 @@ export const Profile = () => {
         profile_picture: profilePhoto,
       });
 
-      setSuccessMsg("Profile updated successfully!");
+      setSuccessMsg("Profile onboarding complete!");
       setIsEditing(false);
 
-      // Determine user role from profile API or URL fallback
       const userRole = (profile?.role || roleFromUrl || "").toLowerCase();
 
-      // Redirect based on role after short delay
       setTimeout(() => {
         if (userRole === "traveler") {
           router.push("/verification");
         } else {
           router.push("/dashboard");
         }
-      }, 1000);
-
+      }, 1200);
     } catch (err: any) {
-      setSubmitError(err.message || "Failed to update profile");
+      setSubmitError(err.message || "Failed to save profile details");
     }
   };
 
@@ -151,13 +155,21 @@ export const Profile = () => {
     return (
       <div className="p-8 text-center text-red-500 max-w-lg mx-auto bg-red-50 border border-red-200 rounded-xl my-10">
         <p className="font-medium">{error}</p>
+        <button
+          onClick={() => router.push("/login")}
+          className="mt-4 px-4 py-2 bg-slate-900 text-white rounded-lg text-xs"
+        >
+          Re-login to Continue
+        </button>
       </div>
     );
   }
 
   const fallbackLetter = profile?.first_name ? profile.first_name[0] : "A";
 
-  const getProfilePictureUrl = (url: string | null | undefined): string | null => {
+  const getProfilePictureUrl = (
+    url: string | null | undefined,
+  ): string | null => {
     if (!url) return null;
     if (url.startsWith("http://") || url.startsWith("https://")) return url;
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
@@ -168,15 +180,11 @@ export const Profile = () => {
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6">
-      {/* Container Box */}
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-        {/* Banner Section - Amber Gradient */}
         <div className="h-32 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 relative" />
 
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 sm:p-8 -mt-16">
-          {/* Header Bar */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 pb-6 border-b border-gray-100">
-            {/* Avatar & Info */}
             <div className="flex items-end gap-5">
               <div className="relative group">
                 <label
@@ -205,14 +213,15 @@ export const Profile = () => {
                     <div
                       className="w-full h-full flex items-center justify-center text-white text-3xl font-bold"
                       style={{
-                        backgroundColor: stringToColor(profile?.first_name || "A"),
+                        backgroundColor: stringToColor(
+                          profile?.first_name || "A",
+                        ),
                       }}
                     >
                       {fallbackLetter.toUpperCase()}
                     </div>
                   )}
 
-                  {/* Camera overlay only active in edit mode */}
                   {isEditing && (
                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <Camera className="text-white w-7 h-7" />
@@ -242,7 +251,6 @@ export const Profile = () => {
               </div>
             </div>
 
-            {/* Toggle Button in Header */}
             {!isEditing ? (
               <button
                 type="button"
@@ -264,7 +272,6 @@ export const Profile = () => {
             )}
           </div>
 
-          {/* Feedback Alerts */}
           {submitError && (
             <div className="mt-6 p-3.5 bg-red-50 text-red-700 border border-red-200 rounded-xl text-xs font-medium flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
@@ -279,18 +286,18 @@ export const Profile = () => {
             </div>
           )}
 
-          {/* Form Content Sections */}
           <div className="mt-8 space-y-8">
-            {/* Personal Information */}
             <div>
               <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                 <UserIcon className="w-4 h-4 text-gray-400" /> Personal Details
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {/* First Name */}
                 <div>
-                  <label htmlFor="first-name" className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  <label
+                    htmlFor="first-name"
+                    className="block text-xs font-semibold text-gray-700 mb-1.5"
+                  >
                     First Name
                   </label>
                   <input
@@ -306,13 +313,17 @@ export const Profile = () => {
                     }`}
                   />
                   {errors.firstName && (
-                    <p className="text-red-500 text-xs mt-1">{errors.firstName.message}</p>
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.firstName.message}
+                    </p>
                   )}
                 </div>
 
-                {/* Last Name */}
                 <div>
-                  <label htmlFor="last-name" className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  <label
+                    htmlFor="last-name"
+                    className="block text-xs font-semibold text-gray-700 mb-1.5"
+                  >
                     Last Name
                   </label>
                   <input
@@ -328,14 +339,21 @@ export const Profile = () => {
                     }`}
                   />
                   {errors.lastName && (
-                    <p className="text-red-500 text-xs mt-1">{errors.lastName.message}</p>
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.lastName.message}
+                    </p>
                   )}
                 </div>
 
-                {/* Email (Always Readonly) */}
                 <div>
-                  <label htmlFor="email" className="block text-xs font-semibold text-gray-700 mb-1.5">
-                    Email Address <span className="text-gray-400 font-normal">(Non-editable)</span>
+                  <label
+                    htmlFor="email"
+                    className="block text-xs font-semibold text-gray-700 mb-1.5"
+                  >
+                    Email Address{" "}
+                    <span className="text-gray-400 font-normal">
+                      (Non-editable)
+                    </span>
                   </label>
                   <input
                     type="email"
@@ -346,9 +364,11 @@ export const Profile = () => {
                   />
                 </div>
 
-                {/* Phone */}
                 <div>
-                  <label htmlFor="phone" className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  <label
+                    htmlFor="phone"
+                    className="block text-xs font-semibold text-gray-700 mb-1.5"
+                  >
                     Phone Number
                   </label>
                   <input
@@ -364,13 +384,17 @@ export const Profile = () => {
                     }`}
                   />
                   {errors.phone && (
-                    <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.phone.message}
+                    </p>
                   )}
                 </div>
 
-                {/* Date of Birth */}
                 <div>
-                  <label htmlFor="date-of-birth" className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  <label
+                    htmlFor="date-of-birth"
+                    className="block text-xs font-semibold text-gray-700 mb-1.5"
+                  >
                     Date of Birth
                   </label>
                   <input
@@ -385,22 +409,25 @@ export const Profile = () => {
                     }`}
                   />
                   {errors.dateOfBirth && (
-                    <p className="text-red-500 text-xs mt-1">{errors.dateOfBirth.message}</p>
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.dateOfBirth.message}
+                    </p>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Location & Address Section */}
             <div>
               <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-gray-400" /> Location Details
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                {/* Country */}
                 <div>
-                  <label htmlFor="country" className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  <label
+                    htmlFor="country"
+                    className="block text-xs font-semibold text-gray-700 mb-1.5"
+                  >
                     Country
                   </label>
                   <input
@@ -416,13 +443,17 @@ export const Profile = () => {
                     }`}
                   />
                   {errors.country && (
-                    <p className="text-red-500 text-xs mt-1">{errors.country.message}</p>
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.country.message}
+                    </p>
                   )}
                 </div>
 
-                {/* City */}
                 <div>
-                  <label htmlFor="city" className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  <label
+                    htmlFor="city"
+                    className="block text-xs font-semibold text-gray-700 mb-1.5"
+                  >
                     City
                   </label>
                   <input
@@ -438,13 +469,17 @@ export const Profile = () => {
                     }`}
                   />
                   {errors.city && (
-                    <p className="text-red-500 text-xs mt-1">{errors.city.message}</p>
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.city.message}
+                    </p>
                   )}
                 </div>
 
-                {/* Postal Code */}
                 <div>
-                  <label htmlFor="postal-code" className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  <label
+                    htmlFor="postal-code"
+                    className="block text-xs font-semibold text-gray-700 mb-1.5"
+                  >
                     Postal Code
                   </label>
                   <input
@@ -460,13 +495,17 @@ export const Profile = () => {
                     }`}
                   />
                   {errors.postalCode && (
-                    <p className="text-red-500 text-xs mt-1">{errors.postalCode.message}</p>
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.postalCode.message}
+                    </p>
                   )}
                 </div>
 
-                {/* Street Address */}
                 <div className="md:col-span-3">
-                  <label htmlFor="address" className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  <label
+                    htmlFor="address"
+                    className="block text-xs font-semibold text-gray-700 mb-1.5"
+                  >
                     Street Address
                   </label>
                   <input
@@ -482,15 +521,19 @@ export const Profile = () => {
                     }`}
                   />
                   {errors.address && (
-                    <p className="text-red-500 text-xs mt-1">{errors.address.message}</p>
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.address.message}
+                    </p>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Bio Section */}
             <div>
-              <label htmlFor="bio" className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+              <label
+                htmlFor="bio"
+                className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2"
+              >
                 About Bio
               </label>
               <textarea
@@ -506,12 +549,13 @@ export const Profile = () => {
                 }`}
               />
               {errors.bio && (
-                <p className="text-red-500 text-xs mt-1">{errors.bio.message}</p>
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.bio.message}
+                </p>
               )}
             </div>
           </div>
 
-          {/* Footer Action Bar */}
           <div className="mt-8 pt-5 border-t border-gray-100 flex flex-col sm:flex-row justify-end items-center gap-4">
             {isEditing && (
               <button
@@ -521,11 +565,11 @@ export const Profile = () => {
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving Changes...
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...
                   </>
                 ) : (
                   <>
-                    <Save className="w-3.5 h-3.5" /> Save Changes
+                    <Save className="w-3.5 h-3.5" /> Complete Onboarding
                   </>
                 )}
               </button>
