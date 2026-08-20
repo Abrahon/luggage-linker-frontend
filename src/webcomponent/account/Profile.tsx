@@ -12,7 +12,7 @@ import {
   Mail,
 } from "lucide-react";
 import Image from "next/image";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { stringToColor } from "@/lib/stringToColor";
 import { z } from "zod";
@@ -39,7 +39,7 @@ const profileSchema = z.object({
 
 type ProfileForm = z.infer<typeof profileSchema>;
 
-export const Profile = () => {
+export const ProfileContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const roleFromUrl = searchParams.get("role") ?? "";
@@ -578,5 +578,19 @@ export const Profile = () => {
         </form>
       </div>
     </div>
+  );
+};
+
+export const Profile = () => {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex justify-center items-center min-h-[500px]">
+          <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+        </div>
+      }
+    >
+      <ProfileContent />
+    </Suspense>
   );
 };
