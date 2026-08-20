@@ -49,7 +49,7 @@ export const FindTravelers = () => {
   const [trips, setTrips] = useState<BackendTrip[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Track loading per individual trip ID (prevents all cards from spinning)
+  // Track loading per individual trip ID
   const [requestingTripId, setRequestingTripId] = useState<string | null>(null);
 
   // Dialog Controls for Trips
@@ -94,16 +94,13 @@ export const FindTravelers = () => {
 
   // Handle Booking Request Execution
   const handleBookingRequest = async (trip: BackendTrip) => {
-    // Always close trip details modal if open
     setDetailDialogOpen(false);
 
-    // 1. Authenticate user check
     if (!user) {
       router.push(`/login?redirectTo=/find-travelers&action=booking_request`);
       return;
     }
 
-    // 2. Prevent trip owner from booking their own trip
     const isOwner =
       (user.email && trip.traveler_email && user.email.toLowerCase() === trip.traveler_email.toLowerCase()) ||
       (user.id && (trip as { user_id?: string; traveler_id?: string }).user_id === user.id) ||
@@ -117,14 +114,11 @@ export const FindTravelers = () => {
     try {
       setRequestingTripId(trip.id);
 
-      // 3. Fetch Sender Packages
       const packages: APIPackageItem[] = await getMyPackages();
 
-      // Normalize cities for route comparison
       const tripFrom = trip.from_city.trim().toLowerCase();
       const tripTo = trip.to_city.trim().toLowerCase();
 
-      // 4. Find packages matching trip route using pickup_city & destination_city
       const routeMatchingPackages = packages.filter((pkg) => {
         const pkgFrom = pkg.pickup_city?.trim().toLowerCase();
         const pkgTo = pkg.destination_city?.trim().toLowerCase();
@@ -132,7 +126,6 @@ export const FindTravelers = () => {
       });
 
       if (routeMatchingPackages.length > 0) {
-        // Look for an active/verified matching package
         const validPackage = routeMatchingPackages.find(
           (pkg) =>
             pkg.status === "PUBLISHED" ||
@@ -141,13 +134,11 @@ export const FindTravelers = () => {
         );
 
         if (validPackage) {
-          // DIRECT BOOKING REQUEST DIALOG OPEN
           setSelectedTripForRequest(trip);
           setRequestDialogOpen(true);
           return;
         }
 
-        // Check if matching package is under review
         const pendingPackage = routeMatchingPackages.find(
           (pkg) =>
             pkg.verification_status === "PENDING" ||
@@ -161,7 +152,6 @@ export const FindTravelers = () => {
           return;
         }
 
-        // Check if matching package is rejected
         const rejectedPackage = routeMatchingPackages.find(
           (pkg) => pkg.verification_status === "REJECTED"
         );
@@ -175,7 +165,6 @@ export const FindTravelers = () => {
         }
       }
 
-      // 5. No matching package exists -> Direct redirect to create package page
       toast.info(
         `No package found matching route (${trip.from_city} → ${trip.to_city}). Redirecting to package creation...`
       );
@@ -396,9 +385,15 @@ export const FindTravelers = () => {
                       </span>
                       <CheckCircle2 className="w-4 h-4 text-blue-500 shrink-0" />
                     </div>
+                    
+                    {/* Dynamic Average Rating */}
                     <div className="flex items-center gap-1 text-sm font-semibold text-yellow-500 shrink-0">
                       <Star className="w-4 h-4 fill-yellow-500" />
-                      <span>4.9</span>
+                      <span>
+                        {trip.average_rating !== undefined && trip.average_rating !== null
+                          ? Number(trip.average_rating).toFixed(1)
+                          : "0.0"}
+                      </span>
                     </div>
                   </div>
 
@@ -427,7 +422,9 @@ export const FindTravelers = () => {
 
                   <div className="flex justify-between items-center text-sm font-bold border-t pt-3 mb-4">
                     <span className="text-gray-700">🧳 {trip.available_weight_kg} KG</span>
-                    <span className="text-emerald-600">💰 ${trip.reward_per_kg} / kg</span>
+                    <span className="text-emerald-600">
+                      💰 {trip.currency || "$"} {trip.reward_per_kg} / kg
+                    </span>
                   </div>
 
                   <p className="text-xs text-gray-500 line-clamp-2 mb-4 italic">
