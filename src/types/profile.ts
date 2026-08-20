@@ -29,6 +29,7 @@ export interface ProfileApiResponse {
 export interface UpdateProfilePayload {
   first_name: string;
   last_name: string;
+  gender?: string; // Add this line
   phone?: string;
   country: string;
   city: string;

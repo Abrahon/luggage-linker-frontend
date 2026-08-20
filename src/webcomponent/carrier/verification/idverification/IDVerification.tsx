@@ -1,116 +1,90 @@
+
+
 "use client";
 
-import { useState, useEffect } from "react";
-import { useVerification } from "@/app/(protected)/(carrier)/verification/(verification)/VerificationLayOut";
+import { useEffect } from "react";
 import { FileUpload } from "@/webcomponent/reusable/FileUpload";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useVerification } from "@/app/(protected)/(carrier)/verification/(verification)/VerificationLayOut";
 
 const idTypes = [
   { label: "National ID", value: "national_id" },
   { label: "Passport", value: "passport" },
-  { label: "Driver's License", value: "drivers_license" },
+  { label: "Driver's License", value: "driving_license" },
 ] as const;
 
-export interface IDVerificationData {
-  idType: string;
-  idNumber: string;
-  front?: File;
-  back?: File;
-}
-
-interface Props {
-  onChange?: (data: IDVerificationData) => void;
-}
-
-export const IDVerification = ({ onChange }: Props) => {
-  const { setStepComplete } = useVerification();
-  const [activeTab, setActiveTab] = useState<string>("national_id");
-  const [idNumber, setIdNumber] = useState<string>("");
-  const [files, setFiles] = useState<{ front?: File; back?: File }>({});
+export const IDVerification = () => {
+  const { setStepComplete, idData, setIdData } = useVerification();
 
   useEffect(() => {
+    const hasValidNumber = idData.idNumber.trim().length >= 6;
     let isValid = false;
-    const hasNumber = idNumber.trim().length > 3;
 
-    if (activeTab === "passport") {
-      isValid = hasNumber && !!files.front;
+    if (idData.idType === "passport") {
+      isValid = hasValidNumber && !!idData.front;
     } else {
-      isValid = hasNumber && !!files.front && !!files.back;
+      isValid = hasValidNumber && !!idData.front && !!idData.back;
     }
 
     setStepComplete(isValid);
+  }, [idData, setStepComplete]);
 
-    if (onChange) {
-      onChange({
-        idType: activeTab,
-        idNumber,
-        front: files.front,
-        back: files.back,
-      });
-    }
-  }, [files, activeTab, idNumber, setStepComplete, onChange]);
+  const handleTypeChange = (val: string) => {
+    setIdData((prev) => ({
+      ...prev,
+      idType: val as any,
+      front: undefined,
+      back: undefined,
+    }));
+  };
 
   const handleFileChange = (key: "front" | "back", file: File | null) => {
-    setFiles((prev) => ({ ...prev, [key]: file || undefined }));
+    setIdData((prev) => ({ ...prev, [key]: file || undefined }));
   };
 
   return (
-    <div className="flex flex-col gap-6 py-6 max-w-2xl mx-auto">
-      <h2 className="text-lg font-bold">Document Details</h2>
-
-      {/* ID Number Input */}
+    <div className="flex flex-col gap-6 w-full">
       <div className="flex flex-col gap-2">
-        <Label htmlFor="idNumber" className="font-bold text-sm tracking-wide">
-          Document ID / Registration Number
+        <Label htmlFor="idNumber" className="font-semibold text-sm">
+          Document Registration Number (Min 6 characters)
         </Label>
         <Input
           id="idNumber"
-          placeholder="Enter ID number"
-          value={idNumber}
-          onChange={(e) => setIdNumber(e.target.value)}
+          placeholder="e.g. A123456789"
+          value={idData.idNumber}
+          onChange={(e) => setIdData((prev) => ({ ...prev, idNumber: e.target.value }))}
           className="h-11"
         />
       </div>
 
-      <h2 className="text-lg font-bold mt-2">Select Document Type</h2>
+      <div className="flex flex-col gap-3">
+        <Label className="font-semibold text-sm">Document Type</Label>
+        <Tabs value={idData.idType} onValueChange={handleTypeChange}>
+          <TabsList className="grid grid-cols-3 w-full bg-gray-100 p-1 rounded-xl">
+            {idTypes.map((type) => (
+              <TabsTrigger key={type.value} value={type.value} className="rounded-lg text-xs font-semibold">
+                {type.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
 
-       <Tabs value={activeTab} onValueChange={(v: string) => setActiveTab(v)}>
-        <TabsList className="flex gap-2 border rounded-lg p-1 bg-white">
-          {idTypes.map((type) => (
-            <TabsTrigger
-              key={type.value}
-              value={type.value}
-              className={`rounded-lg px-4 py-2 font-medium transition-colors duration-200 ${
-                activeTab === type.value ? "bg-[#EFF6FF]" : "bg-white hover:bg-gray-100"
-              }`}
-            >
-              {type.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+          <TabsContent value="national_id" className="flex flex-col gap-4 mt-4">
+            <FileUpload label="ID Front Side" onFileChange={(f) => handleFileChange("front", f)} />
+            <FileUpload label="ID Back Side" onFileChange={(f) => handleFileChange("back", f)} />
+          </TabsContent>
 
-        <TabsContent value="national_id">
-          <div className="flex flex-col gap-4 mt-4">
-            <FileUpload label="Front Side" onFileChange={(file) => handleFileChange("front", file)} />
-            <FileUpload label="Back Side" onFileChange={(file) => handleFileChange("back", file)} />
-          </div>
-        </TabsContent>
+          <TabsContent value="passport" className="flex flex-col gap-4 mt-4">
+            <FileUpload label="Passport Information Page" onFileChange={(f) => handleFileChange("front", f)} />
+          </TabsContent>
 
-        <TabsContent value="passport">
-          <div className="flex flex-col gap-4 mt-4">
-            <FileUpload label="Passport Information Page" onFileChange={(file) => handleFileChange("front", file)} />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="drivers_license">
-          <div className="flex flex-col gap-4 mt-4">
-            <FileUpload label="Front Side" onFileChange={(file) => handleFileChange("front", file)} />
-            <FileUpload label="Back Side" onFileChange={(file) => handleFileChange("back", file)} />
-          </div>
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="driving_license" className="flex flex-col gap-4 mt-4">
+            <FileUpload label="License Front Side" onFileChange={(f) => handleFileChange("front", f)} />
+            <FileUpload label="License Back Side" onFileChange={(f) => handleFileChange("back", f)} />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 };

@@ -19,10 +19,56 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useProfile } from "@/hooks/useProfile";
+import { Country, City, ICountry, ICity } from "country-state-city";
 
+// ------------------- Interfaces -------------------
+export interface UserProfile {
+  id: string;
+  first_name: string;
+  last_name: string;
+  gender: string;
+  phone: string;
+  country: string;
+  city: string;
+  address: string;
+  postal_code: string;
+  date_of_birth: string;
+  profile_picture: string | null;
+  bio: string;
+  average_rating: string;
+  total_reviews: number;
+  completed_deliveries: number;
+  cancelled_deliveries: number;
+  created_at: string;
+  updated_at: string;
+  email?: string;
+  role?: string;
+}
+
+export interface ProfileApiResponse {
+  message: string;
+  data: UserProfile;
+}
+
+export interface UpdateProfilePayload {
+  first_name: string;
+  last_name: string;
+  gender?: string;
+  phone?: string;
+  country: string;
+  city: string;
+  address: string;
+  postal_code: string;
+  date_of_birth: string;
+  bio?: string;
+  profile_picture?: File | null;
+}
+
+// ------------------- Schema -------------------
 const profileSchema = z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters"),
   lastName: z.string().min(2, "Last name must be at least 2 characters"),
+  gender: z.string().min(1, "Gender is required"),
   email: z.string().email("Invalid email address").optional().or(z.literal("")),
   phone: z.string().min(5, "Invalid phone number").optional().or(z.literal("")),
   country: z.string().min(1, "Country is required"),
@@ -66,16 +112,41 @@ export const ProfileContent = () => {
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
   });
+
+  // Get all countries from country-state-city package
+  const allCountries: ICountry[] = useMemo(() => Country.getAllCountries(), []);
+
+  // Watch the selected country input
+  const watchedCountry = watch("country");
+
+  // Find country object by Name or ISO Code
+  const selectedCountryObj = useMemo(() => {
+    if (!watchedCountry) return null;
+    return allCountries.find(
+      (c) =>
+        c.name.toLowerCase() === watchedCountry.toLowerCase() ||
+        c.isoCode.toLowerCase() === watchedCountry.toLowerCase()
+    );
+  }, [watchedCountry, allCountries]);
+
+  // Get cities only for the selected country
+  const countryCities: ICity[] = useMemo(() => {
+    if (!selectedCountryObj?.isoCode) return [];
+    return City.getCitiesOfCountry(selectedCountryObj.isoCode) || [];
+  }, [selectedCountryObj]);
 
   const populateFields = () => {
     if (profile) {
       reset({
         firstName: profile.first_name || "",
         lastName: profile.last_name || "",
+        gender: profile.gender || "",
         email: profile.email || "",
         phone: profile.phone || "",
         country: profile.country || "",
@@ -86,7 +157,7 @@ export const ProfileContent = () => {
         bio: profile.bio || "",
       });
 
-      if (!profile.country || !profile.city || !profile.first_name) {
+      if (!profile.country || !profile.city || !profile.first_name || !profile.gender) {
         setIsEditing(true);
       }
     }
@@ -95,6 +166,13 @@ export const ProfileContent = () => {
   useEffect(() => {
     populateFields();
   }, [profile, reset]);
+
+  const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newCountry = e.target.value;
+    setValue("country", newCountry);
+    // Reset city field whenever country changes
+    setValue("city", "");
+  };
 
   const handleCancel = () => {
     setIsEditing(false);
@@ -107,9 +185,10 @@ export const ProfileContent = () => {
     setSubmitError(null);
     setSuccessMsg(null);
     try {
-      await updateProfile({
+      const payload: UpdateProfilePayload = {
         first_name: data.firstName,
         last_name: data.lastName,
+        gender: data.gender,
         phone: data.phone,
         country: data.country,
         city: data.city,
@@ -118,7 +197,10 @@ export const ProfileContent = () => {
         date_of_birth: data.dateOfBirth,
         bio: data.bio,
         profile_picture: profilePhoto,
-      });
+      };
+
+      // Type cast to bypass strict update payload checks if types are mismatched
+      await updateProfile(payload as any);
 
       setSuccessMsg("Profile onboarding complete!");
       setIsEditing(false);
@@ -168,7 +250,7 @@ export const ProfileContent = () => {
   const fallbackLetter = profile?.first_name ? profile.first_name[0] : "A";
 
   const getProfilePictureUrl = (
-    url: string | null | undefined,
+    url: string | null | undefined
   ): string | null => {
     if (!url) return null;
     if (url.startsWith("http://") || url.startsWith("https://")) return url;
@@ -214,7 +296,7 @@ export const ProfileContent = () => {
                       className="w-full h-full flex items-center justify-center text-white text-3xl font-bold"
                       style={{
                         backgroundColor: stringToColor(
-                          profile?.first_name || "A",
+                          profile?.first_name || "A"
                         ),
                       }}
                     >
@@ -347,6 +429,36 @@ export const ProfileContent = () => {
 
                 <div>
                   <label
+                    htmlFor="gender"
+                    className="block text-xs font-semibold text-gray-700 mb-1.5"
+                  >
+                    Gender
+                  </label>
+                  <select
+                    id="gender"
+                    disabled={!isEditing}
+                    {...register("gender")}
+                    className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
+                      isEditing
+                        ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                        : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
+                    }`}
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                    <option value="prefer_not_to_say">Prefer not to say</option>
+                  </select>
+                  {errors.gender && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.gender.message}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label
                     htmlFor="email"
                     className="block text-xs font-semibold text-gray-700 mb-1.5"
                   >
@@ -423,6 +535,7 @@ export const ProfileContent = () => {
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {/* Country Dropdown */}
                 <div>
                   <label
                     htmlFor="country"
@@ -430,18 +543,24 @@ export const ProfileContent = () => {
                   >
                     Country
                   </label>
-                  <input
-                    type="text"
+                  <select
                     id="country"
                     disabled={!isEditing}
                     {...register("country")}
-                    placeholder="Enter country"
+                    onChange={handleCountryChange}
                     className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
                       isEditing
                         ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
                         : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
                     }`}
-                  />
+                  >
+                    <option value="">Select Country</option>
+                    {allCountries.map((c) => (
+                      <option key={c.isoCode} value={c.name}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
                   {errors.country && (
                     <p className="text-red-500 text-xs mt-1">
                       {errors.country.message}
@@ -449,6 +568,7 @@ export const ProfileContent = () => {
                   )}
                 </div>
 
+                {/* Filtered City Dropdown */}
                 <div>
                   <label
                     htmlFor="city"
@@ -456,18 +576,45 @@ export const ProfileContent = () => {
                   >
                     City
                   </label>
-                  <input
-                    type="text"
-                    id="city"
-                    disabled={!isEditing}
-                    {...register("city")}
-                    placeholder="Enter city"
-                    className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
-                      isEditing
-                        ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
-                        : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
-                    }`}
-                  />
+                  {countryCities.length > 0 ? (
+                    <select
+                      id="city"
+                      disabled={!isEditing || !watchedCountry}
+                      {...register("city")}
+                      className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
+                        isEditing && watchedCountry
+                          ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                          : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
+                      }`}
+                    >
+                      <option value="">Select City</option>
+                      {countryCities.map((cityObj, idx) => (
+                        <option
+                          key={`${cityObj.name}-${idx}`}
+                          value={cityObj.name}
+                        >
+                          {cityObj.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      id="city"
+                      disabled={!isEditing || !watchedCountry}
+                      {...register("city")}
+                      placeholder={
+                        watchedCountry
+                          ? "Enter city name"
+                          : "Select country first"
+                      }
+                      className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
+                        isEditing && watchedCountry
+                          ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                          : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
+                      }`}
+                    />
+                  )}
                   {errors.city && (
                     <p className="text-red-500 text-xs mt-1">
                       {errors.city.message}

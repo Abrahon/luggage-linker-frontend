@@ -130,7 +130,7 @@ export const Verification = () => {
         <Button
           className="mt-4 w-fit self-center"
           size="lg"
-          onClick={() => router.push("/verification/personal")}
+          onClick={() => router.push("/verification/idverification")}
           disabled={kycData?.status === "pending"}
         >
           {kycData?.status === "rejected"

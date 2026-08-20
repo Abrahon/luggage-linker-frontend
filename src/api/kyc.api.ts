@@ -15,7 +15,7 @@ export interface KYCUser {
 export interface KYCData {
   id: string;
   user?: KYCUser;
-  id_type: "national_id" | "passport" | "drivers_license";
+  id_type: "national_id" | "passport" | "driving_license";
   id_number: string;
   document_front: string;
   document_back: string | null;
@@ -23,7 +23,6 @@ export interface KYCData {
   status: KYCStatusType; 
   rejection_reason: string | null;
   verified_at: string | null;
-  verified_by_email?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -58,23 +57,19 @@ export const getMyKYCApi = async (): Promise<KYCData | null> => {
     return response.data;
   } catch (error: any) {
     if (error?.response?.status === 404) {
-      return null; // Return null if no record exists yet
+      return null;
     }
     throw error;
   }
 };
 
-/**
- * Submit KYC verification documents
- * Route: POST /api/kyc/
- */
 export const submitKYCApi = async (payload: KYCSubmitPayload): Promise<KYCData> => {
   const formData = new FormData();
   formData.append("id_type", payload.id_type);
   formData.append("id_number", payload.id_number);
   formData.append("document_front", payload.document_front);
   
-  if (payload.document_back) {
+  if (payload.document_back && payload.id_type !== "passport") {
     formData.append("document_back", payload.document_back);
   }
   
@@ -89,6 +84,25 @@ export const submitKYCApi = async (payload: KYCSubmitPayload): Promise<KYCData> 
   return response.data;
 };
 
+
+export const updateKYCApi = async (payload: Partial<KYCSubmitPayload>): Promise<KYCData> => {
+  const formData = new FormData();
+  if (payload.id_type) formData.append("id_type", payload.id_type);
+  if (payload.id_number) formData.append("id_number", payload.id_number);
+  if (payload.document_front) formData.append("document_front", payload.document_front);
+  if (payload.document_back && payload.id_type !== "passport") {
+    formData.append("document_back", payload.document_back);
+  }
+  if (payload.selfie) formData.append("selfie", payload.selfie);
+
+  const response = await axiosInstance.patch<KYCData>("/api/kyc/me/", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+
+  return response.data;
+};
 
 // ==========================================
 // --- Admin Specific API Endpoints ---
