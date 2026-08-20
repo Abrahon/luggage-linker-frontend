@@ -76,7 +76,6 @@ export const IDVerification = ({ onChange }: Props) => {
 
       <h2 className="text-lg font-bold mt-2">Select Document Type</h2>
 
-      // ✅ AFTER
        <Tabs value={activeTab} onValueChange={(v: string) => setActiveTab(v)}>
         <TabsList className="flex gap-2 border rounded-lg p-1 bg-white">
           {idTypes.map((type) => (

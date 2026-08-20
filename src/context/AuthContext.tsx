@@ -41,8 +41,6 @@ export const AuthProvider = ({
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  console.log("the user:",user)
-
   /**
    * Restore authentication when application starts.
    */

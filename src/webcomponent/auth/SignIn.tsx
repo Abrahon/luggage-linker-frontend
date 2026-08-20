@@ -119,21 +119,17 @@ export const SignIn = () => {
         profile_picture: response.user?.profile_picture,
       };
 
+      authLogin(accessToken || "", userPayload);
+
       // SUCCESS TOAST
       toast.success(
         response.message ||
           "Logged in successfully! Redirecting..."
       );
-      authLogin(accessToken || "", userPayload);
 
-
-      setTimeout(() => {
-        if (mappedRole === "ADMIN") {
-          router.push("/admin");
-        } else {
-          router.push("/dashboard");
-        }
-      }, 800);
+      const dashboardRoute =
+        mappedRole === "ADMIN" ? "/admin" : "/dashboard";
+      router.replace(dashboardRoute);
     } catch (error: any) {
       const resData = error?.response?.data || error;
       const fieldErrors = resData?.errors || resData;

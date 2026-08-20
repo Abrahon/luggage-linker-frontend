@@ -107,22 +107,23 @@ export default function VerificationLayOut({
     }
   };
 
-  // Navigate next
+
+// Navigate next
   const handleNext = async () => {
     if (!isStepComplete || isSubmitting) return;
 
     const currentStepKey = steps[currentStep]?.key;
 
-    // Trigger API call when leaving the selfie step or submitting
-    if (currentStepKey === "selfie" || currentStepKey === "address") {
+    // Trigger API call when submitting after the selfie step
+    if (currentStepKey === "selfie") {
       const success = await handleFinalSubmission();
-      if (!success) return; // Halt navigation if submission failed
+      if (!success) return; // Halt navigation if API submission fails
     }
 
     if (currentStep < steps.length - 1) {
       const next = steps[currentStep + 1].key;
       setCompleted((prev) => [...new Set([...prev, steps[currentStep].key])]);
-      setStepComplete(false); // reset for next step
+      setStepComplete(false); // Reset completion status for next step
       router.push(`/verification/${next}`);
     }
   };

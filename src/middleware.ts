@@ -7,8 +7,10 @@ export function middleware(request: NextRequest) {
   // 1. Keep your existing header logic
   res.headers.set("x-pathname", request.nextUrl.pathname);
 
-  // 2. Read authentication token from cookies
-  const token = request.cookies.get("token")?.value;
+  // 2. Read the same cookie written by setAccessToken during sign-in.
+  const token =
+    request.cookies.get("accessToken")?.value ||
+    request.cookies.get("token")?.value;
   const { pathname } = request.nextUrl;
 
   // 3. Define protected pages
