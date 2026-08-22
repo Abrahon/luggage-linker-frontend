@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import Swal from "sweetalert2";
 import { MyBookingItem, getMyBookings, cancelBooking } from "@/api/booking.api";
 import { BookingTimelineModal } from "./BookingTimelineModal";
 import { MyBookingCard } from "../card/MyBookingCard";
 import { Loader2, PackageX, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
-import { toast } from "sonner";
 
 export const MyBookingsList: React.FC = () => {
   const [bookings, setBookings] = useState<MyBookingItem[]>([]);
@@ -26,9 +26,18 @@ export const MyBookingsList: React.FC = () => {
       setLoading(true);
       const response = await getMyBookings(page);
       setBookings(response.results || []);
-      setTotalPages(Math.ceil(response.count / 10) || 1);
+      setTotalPages(Math.ceil((response.count || 0) / 10) || 1);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to fetch bookings.");
+      Swal.fire({
+        title: "Error",
+        text: err?.response?.data?.message || "Failed to fetch bookings.",
+        icon: "error",
+        confirmButtonColor: "#ef4444",
+        customClass: {
+          popup: "rounded-3xl font-sans",
+          confirmButton: "rounded-xl font-bold px-4 py-2",
+        },
+      });
     } finally {
       setLoading(false);
     }
@@ -46,20 +55,64 @@ export const MyBookingsList: React.FC = () => {
 
   // Handle Cancellation
   const handleCancelBooking = async (bookingId: string) => {
+    const confirm = await Swal.fire({
+      title: "Cancel Booking?",
+      text: "Are you sure you want to cancel this booking request?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#64748b",
+      confirmButtonText: "Yes, Cancel It",
+      customClass: {
+        popup: "rounded-3xl font-sans",
+        confirmButton: "rounded-xl font-bold px-4 py-2",
+        cancelButton: "rounded-xl font-bold px-4 py-2",
+      },
+    });
+
+    if (!confirm.isConfirmed) return;
+
     try {
       const res = await cancelBooking(bookingId);
       if (res.success) {
-        toast.success(res.message);
+        Swal.fire({
+          title: "Cancelled!",
+          text: res.message || "Booking request cancelled successfully.",
+          icon: "success",
+          confirmButtonColor: "#f59e0b",
+          customClass: {
+            popup: "rounded-3xl font-sans",
+            confirmButton: "rounded-xl font-bold px-4 py-2",
+          },
+        });
         fetchBookings(currentPage);
       }
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to cancel booking.");
+      Swal.fire({
+        title: "Error",
+        text: err?.response?.data?.message || "Failed to cancel booking.",
+        icon: "error",
+        confirmButtonColor: "#ef4444",
+        customClass: {
+          popup: "rounded-3xl font-sans",
+          confirmButton: "rounded-xl font-bold px-4 py-2",
+        },
+      });
     }
   };
 
   // Handle Chat Action
   const handleOpenChat = (booking: MyBookingItem) => {
-    toast.info(`Opening chat with traveler: ${booking.traveler_name}`);
+    Swal.fire({
+      title: "Opening Chat",
+      text: `Opening chat with traveler: ${booking.traveler_name || "Traveler"}`,
+      icon: "info",
+      confirmButtonColor: "#f59e0b",
+      customClass: {
+        popup: "rounded-3xl font-sans",
+        confirmButton: "rounded-xl font-bold px-4 py-2",
+      },
+    });
   };
 
   // Filter Bookings by Selected Tab
@@ -131,6 +184,7 @@ export const MyBookingsList: React.FC = () => {
                 booking={booking}
                 onOpenTimeline={handleOpenTimeline}
                 onCancelBooking={handleCancelBooking}
+                onRefreshBookings={() => fetchBookings(currentPage)}
               />
             ))}
           </div>

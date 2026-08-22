@@ -11,6 +11,8 @@ export interface RouteInfo {
   to_city: string;
 }
 
+
+
 export interface BookingData {
   id: string;
   tracking_number: string;
@@ -134,13 +136,39 @@ export interface VerifyDeliveryResponse {
   delivered_at?: string;
 }
 
+// ----------------------------------------------------------------------
+// Types & Interfaces
+// ----------------------------------------------------------------------
+
+export interface RouteInfo {
+  from_country: string;
+  from_city: string;
+  to_country: string;
+  to_city: string;
+}
+
+// Updated status choices matching Django models.TextChoices
+export interface PendingPriceOffer {
+  id: string;
+  offer_reward: string;
+  currency: string;
+  status: "PENDING" | "ACCEPTED" | "REJECTED" | "EXPIRED";
+  message?: string | null;
+  created_at: string;
+  expires_at: string;
+}
+
+// Updated MyBookingItem to support sender/traveler data from API JSON
 export interface MyBookingItem {
   id: string;
   tracking_number: string;
   package_title: string;
   trip_title: string;
-  traveler_name: string;
-  traveler_email: string;
+  sender_name?: string;
+  sender_email?: string;
+  sender_profile_picture?: string | null;
+  traveler_name?: string;
+  traveler_email?: string;
   route: RouteInfo;
   package_image: string | null;
   status:
@@ -155,22 +183,40 @@ export interface MyBookingItem {
     | "CANCELLED"
     | string;
   payment_status: "UNPAID" | "PAID" | "REFUNDED" | string;
-  escrow_status: "NOT_FUNDED" | "HELD" | "RELEASED" | "REFUNDED" | string;
+  escrow_status?: "NOT_FUNDED" | "PENDING" | "HELD" | "RELEASED" | "REFUNDED" | string;
   currency: string;
+  pending_price_offer?: PendingPriceOffer | null;
   agreed_reward: string;
-  created_date: string;
-  current_step: number;
-  can_pay: boolean;
-  can_track: boolean;
-  can_chat: boolean;
-  can_verify_delivery: boolean;
-  can_cancel: boolean;
-  can_review: boolean;
-  can_view_receipt: boolean;
-  show_progress: boolean;
-  show_payment_required: boolean;
-  show_delivery_verification: boolean;
+  agreed_weight_kg?: string;
+  created_at?: string;
+  updated_at?: string;
+  created_date?: string; // Fallback support
+  expires_at?: string | null;
+  current_step?: number;
+  can_pay?: boolean;
+  can_track?: boolean;
+  can_chat?: boolean;
+  can_verify_delivery?: boolean;
+  can_cancel?: boolean;
+  can_review?: boolean;
+  can_view_receipt?: boolean;
+  show_progress?: boolean;
+  show_payment_required?: boolean;
+  show_delivery_verification?: boolean;
 }
+
+export interface PriceOfferResponse {
+  success: boolean;
+  message: string;
+  data: {
+    offer_id: string;
+    offer_status: string;
+    booking_id: string;
+    agreed_reward: string;
+    currency: string;
+  };
+}
+
 
 export interface TimelineStep {
   title: string;
@@ -289,6 +335,21 @@ export const bookingApi = {
     const response = await axiosInstance.post(
       `api/bookings/${bookingId}/price-offers/`,
       payload
+    );
+    return response.data;
+  },
+
+
+  /**
+ * Accept or Reject a traveler's price offer
+ */
+respondToPriceOffer: async (
+    offerId: string,
+    action: "accept" | "reject"
+  ): Promise<PriceOfferResponse> => {
+    const response = await axiosInstance.patch<PriceOfferResponse>(
+      `/api/price-offers/${offerId}/`,
+      { action }
     );
     return response.data;
   },

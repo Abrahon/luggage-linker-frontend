@@ -2,24 +2,29 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
-import { MyBookingItem } from "@/api/booking.api";
-import { Clock, Ban, User, Calendar, CircleDollarSign } from "lucide-react";
+import Swal from "sweetalert2";
+import { MyBookingItem, bookingApi } from "@/api/booking.api";
+import { Clock, Ban, User, Calendar, CircleDollarSign, Tag, ChevronRight } from "lucide-react";
 import { CancelBookingModal } from "../my-bookings/CancellBookingModal";
-
 
 interface MyBookingCardProps {
   booking: MyBookingItem;
   onOpenTimeline: (booking: MyBookingItem) => void;
   onCancelBooking: (bookingId: string) => Promise<void>;
+  onRefreshBookings?: () => void;
 }
 
 export const MyBookingCard: React.FC<MyBookingCardProps> = ({
   booking,
   onOpenTimeline,
   onCancelBooking,
+  onRefreshBookings,
 }) => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+
+  const offer = booking.pending_price_offer;
+  const hasPendingOffer = offer && offer.status === "PENDING";
 
   const handleConfirmCancel = async () => {
     try {
@@ -31,9 +36,126 @@ export const MyBookingCard: React.FC<MyBookingCardProps> = ({
     }
   };
 
+  // Open clean SweetAlert modal to review and accept/reject offer
+  const handleOpenOfferModal = () => {
+    if (!offer) return;
+
+    Swal.fire({
+      title: "New Price Offer Received!",
+      html: `
+        <div className="text-left space-y-3 font-sans text-sm mt-2">
+          ${
+            offer.message
+              ? `<div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-slate-700 italic text-xs">
+                   "${offer.message}"
+                 </div>`
+              : ""
+          }
+          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
+            <div>
+              <span className="text-xs text-slate-400 block">Current Reward</span>
+              <span className="line-through font-semibold text-slate-500">$${parseFloat(
+                booking.agreed_reward || "0"
+              ).toFixed(2)}</span>
+            </div>
+            <div className="text-right">
+              <span className="text-xs text-amber-600 font-bold block">New Offer</span>
+              <span className="text-lg font-black text-emerald-600">$${parseFloat(
+                offer.offer_reward
+              ).toFixed(2)} ${offer.currency}</span>
+            </div>
+          </div>
+        </div>
+      `,
+      showCancelButton: true,
+      showDenyButton: true,
+      confirmButtonText: "Accept Offer",
+      denyButtonText: "Reject Offer",
+      cancelButtonText: "Close",
+      confirmButtonColor: "#10b981",
+      denyButtonColor: "#ef4444",
+      cancelButtonColor: "#64748b",
+      customClass: {
+        popup: "rounded-3xl p-6",
+        confirmButton: "rounded-xl font-bold px-4 py-2",
+        denyButton: "rounded-xl font-bold px-4 py-2",
+        cancelButton: "rounded-xl font-bold px-4 py-2",
+      },
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        await executeOfferResponse("accept");
+      } else if (result.isDenied) {
+        await executeOfferResponse("reject");
+      }
+    });
+  };
+
+  const executeOfferResponse = async (action: "accept" | "reject") => {
+    if (!offer?.id) return;
+
+    try {
+      Swal.fire({
+        title: action === "accept" ? "Accepting Offer..." : "Rejecting Offer...",
+        text: "Please wait...",
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+      });
+
+      const res = await bookingApi.respondToPriceOffer(offer.id, action);
+
+      await Swal.fire({
+        title: action === "accept" ? "Accepted!" : "Rejected",
+        text: res?.message || `Offer successfully ${action}ed.`,
+        icon: action === "accept" ? "success" : "info",
+        confirmButtonColor: "#f59e0b",
+        customClass: { popup: "rounded-3xl font-sans" },
+      });
+
+      if (onRefreshBookings) onRefreshBookings();
+    } catch (err: any) {
+      Swal.fire({
+        title: "Failed",
+        text: err?.response?.data?.message || err?.message || "Operation failed.",
+        icon: "error",
+        confirmButtonColor: "#ef4444",
+      });
+    }
+  };
+
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return "N/A";
+    try {
+      return new Date(dateStr).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
   return (
     <>
-      <div className="w-full bg-white rounded-3xl border border-slate-200 shadow-xs hover:shadow-md transition duration-200 flex flex-col justify-between overflow-hidden">
+      <div className="w-full bg-white rounded-3xl border border-slate-200 shadow-xs hover:shadow-md transition duration-200 flex flex-col justify-between overflow-hidden relative">
+        
+        {/* OPTION 1: Sleek Top Offer Bar */}
+        {hasPendingOffer && (
+          <button
+            type="button"
+            onClick={handleOpenOfferModal}
+            className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 text-xs font-bold flex items-center justify-between cursor-pointer hover:opacity-95 transition"
+          >
+            <div className="flex items-center gap-1.5">
+              <Tag className="w-3.5 h-3.5" />
+              <span>New Price Offer: ${parseFloat(offer.offer_reward).toFixed(2)} {offer.currency}</span>
+            </div>
+            <span className="flex items-center text-[11px] bg-white/20 px-2 py-0.5 rounded-full">
+              Review <ChevronRight className="w-3 h-3 ml-0.5" />
+            </span>
+          </button>
+        )}
+
         {/* Card Header & Status */}
         <div className="p-4 sm:p-5 space-y-3">
           <div className="flex items-center justify-between gap-2">
@@ -42,7 +164,7 @@ export const MyBookingCard: React.FC<MyBookingCardProps> = ({
             </span>
             <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-              {booking.status.replace("_", " ")}
+              {booking.status.replace(/_/g, " ")}
             </span>
           </div>
 
@@ -69,42 +191,59 @@ export const MyBookingCard: React.FC<MyBookingCardProps> = ({
           </div>
         </div>
 
-        {/* Traveler & Reward Grid */}
+        {/* User & Reward Grid */}
         <div className="p-4 sm:p-5 bg-slate-50/50 space-y-2.5 border-t border-slate-100">
           <div className="flex items-center justify-between text-xs font-semibold">
             <span className="text-slate-500 flex items-center gap-1">
-              <User className="w-3.5 h-3.5 text-slate-400" /> Traveler:
+              <User className="w-3.5 h-3.5 text-slate-400" /> User:
             </span>
-            <span className="font-bold text-slate-900">{booking.traveler_name}</span>
+            <span className="font-bold text-slate-900">
+              {booking.sender_name || booking.traveler_name || "N/A"}
+            </span>
           </div>
 
           <div className="flex items-center justify-between text-xs font-semibold">
             <span className="text-slate-500 flex items-center gap-1">
               <CircleDollarSign className="w-3.5 h-3.5 text-slate-400" /> Reward:
             </span>
-            <span className="font-extrabold text-emerald-600">${booking.agreed_reward} {booking.currency}</span>
+            <span className="font-extrabold text-emerald-600">
+              ${parseFloat(booking.agreed_reward || "0").toFixed(2)} {booking.currency}
+            </span>
           </div>
 
           <div className="flex items-center justify-between text-xs font-semibold">
             <span className="text-slate-500 flex items-center gap-1">
               <Calendar className="w-3.5 h-3.5 text-slate-400" /> Created:
             </span>
-            <span className="font-medium text-slate-700">{booking.created_date}</span>
+            <span className="font-medium text-slate-700">
+              {formatDate(booking.created_at || booking.created_date)}
+            </span>
           </div>
         </div>
 
         {/* Actions Bar */}
         <div className="p-4 border-t border-slate-100 flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => onOpenTimeline(booking)}
-            className="flex-1 py-2.5 px-3 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-          >
-            <Clock className="w-4 h-4 text-slate-500" />
-            <span>Timeline</span>
-          </button>
+          {hasPendingOffer ? (
+            <button
+              type="button"
+              onClick={handleOpenOfferModal}
+              className="flex-1 py-2.5 px-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+            >
+              <Tag className="w-4 h-4" />
+              <span>Review Offer</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onOpenTimeline(booking)}
+              className="flex-1 py-2.5 px-3 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+            >
+              <Clock className="w-4 h-4 text-slate-500" />
+              <span>Timeline</span>
+            </button>
+          )}
 
-          {booking.can_cancel && (
+          {(booking.can_cancel ?? booking.status.includes("PENDING")) && (
             <button
               type="button"
               onClick={() => setShowCancelModal(true)}
