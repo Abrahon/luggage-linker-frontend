@@ -42,10 +42,33 @@ export interface ChatMessageData {
   reply_to?: ChatMessageData | null;
 }
 
+// api/chat.api.ts
+
+export interface ContactTravelerResponse {
+  success: boolean;
+  message: string;
+  data: {
+    room_id: string;
+    booking_id: string;
+    created: boolean;
+    action_url: string;
+  };
+}
+
 // Fetch Chat Rooms
 export const fetchChatRooms = async (): Promise<ChatRoom[]> => {
   const response = await axiosInstance.get("/api/chat/rooms/");
   return response.data.results || response.data;
+};
+
+export const contactTraveler = async (
+  travelerId: string
+): Promise<ContactTravelerResponse> => {
+  const response = await axiosInstance.post(
+    `/api/chat/rooms/contact-traveler/${travelerId}/`
+  );
+
+  return response.data;
 };
 
 // Fetch Chat History

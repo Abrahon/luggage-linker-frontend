@@ -1,4 +1,3 @@
-// app/(protected)/(carrier)/travelers/[id]/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -18,9 +17,11 @@ import {
   AlertCircle,
   Quote,
   Sparkles,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getTravelerProfileApi } from "@/api/profile.api";
+import { contactTraveler } from "@/api/chat.api";
 import { PublicTravelerProfile } from "@/types/profile";
 
 export default function TravelerProfilePage() {
@@ -31,6 +32,8 @@ export default function TravelerProfilePage() {
   const [profile, setProfile] = useState<PublicTravelerProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [contacting, setContacting] = useState<boolean>(false);
+  const [bookingNotice, setBookingNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (!travelerId) return;
@@ -48,13 +51,46 @@ export default function TravelerProfilePage() {
       } catch (err) {
         console.error("Error fetching traveler profile:", err);
         setError("Unable to load traveler profile. Please try again.");
-      } finally {
+      }  {
         setLoading(false);
       }
     };
 
     fetchProfile();
   }, [travelerId]);
+
+    // Handle Contact Traveler with query string redirect
+    const handleContactTraveler = async () => {
+    if (!travelerId) return;
+
+    try {
+        setContacting(true);
+        setBookingNotice(null);
+
+        const response = await contactTraveler(travelerId);
+
+        if (response?.success && response?.data?.room_id) {
+        // Fixed URL route from /messaeg to /messages
+        router.push(`/messages?room=${response.data.room_id}`);
+        return;
+        }
+
+        setBookingNotice(
+        response?.message || "Unable to open chat room."
+        );
+    } catch (err: any) {
+        console.error("Failed to initiate chat session:", err);
+
+        const backendMessage =
+        err?.response?.data?.message ||
+        err?.response?.data?.detail ||
+        "Please create a booking with this traveler first to initiate a chat.";
+
+        setBookingNotice(backendMessage);
+    } finally {
+        setContacting(false);
+    }
+    };
 
   if (loading) {
     return (
@@ -113,7 +149,6 @@ export default function TravelerProfilePage() {
   return (
     <div className="w-full min-h-screen bg-white font-montserrat text-slate-900 py-8 px-4 sm:px-6 lg:px-12">
       <div className="max-w-7xl mx-auto space-y-8">
-        
         {/* Navigation Bar */}
         <div>
           <Button
@@ -125,17 +160,30 @@ export default function TravelerProfilePage() {
           </Button>
         </div>
 
+        {/* Backend Message Alert Banner */}
+        {bookingNotice && (
+          <div className="w-full bg-amber-50 border border-amber-200 text-amber-900 p-4 rounded-2xl flex items-center justify-between gap-4 shadow-2xs">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+              <p className="text-xs sm:text-sm font-bold leading-tight">
+                {bookingNotice}
+              </p>
+            </div>
+            <button
+              onClick={() => setBookingNotice(null)}
+              className="text-amber-500 hover:text-amber-800 p-1 rounded-lg transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* Main Header Profile Card */}
         <div className="w-full bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-xs relative overflow-hidden">
-          {/* Accent Background Gradient Flare */}
           <div className="absolute top-0 right-0 w-96 h-96 bg-amber-100/40 rounded-full blur-3xl -z-10 pointer-events-none" />
 
           <div className="flex flex-col md:flex-row items-start justify-between gap-6">
-            
-            {/* Top Left Profile Avatar & Identity Details */}
             <div className="flex flex-col sm:flex-row items-start gap-6 w-full md:w-auto">
-              
-              {/* Fully Rounded Profile Avatar Container */}
               <div className="relative shrink-0">
                 <div className="p-1 rounded-full bg-gradient-to-tr from-amber-400 via-amber-200 to-slate-200 shadow-sm">
                   {profile.profile_image ? (
@@ -153,7 +201,6 @@ export default function TravelerProfilePage() {
                   )}
                 </div>
 
-                {/* Verified Badge */}
                 <div
                   className="absolute bottom-1 right-1 bg-white rounded-full p-1 shadow-md border border-emerald-100"
                   title="Verified Traveler"
@@ -162,7 +209,6 @@ export default function TravelerProfilePage() {
                 </div>
               </div>
 
-              {/* Traveler Information Stack */}
               <div className="space-y-3 flex-1 pt-1">
                 <div className="flex flex-wrap items-center gap-3">
                   <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
@@ -174,13 +220,11 @@ export default function TravelerProfilePage() {
                   </span>
                 </div>
 
-                {/* Location */}
                 <div className="flex items-center gap-1.5 text-sm font-bold text-slate-500">
                   <MapPin className="w-4 h-4 text-amber-500 shrink-0" />
                   <span>{profile.country || "Global Traveler"}</span>
                 </div>
 
-                {/* Dynamic About Section directly under location */}
                 {profile.about && (
                   <div className="pt-2 border-t border-slate-100 max-w-2xl">
                     <div className="bg-slate-50/80 border border-slate-100 rounded-2xl p-3.5 flex items-start gap-3">
@@ -194,10 +238,21 @@ export default function TravelerProfilePage() {
               </div>
             </div>
 
-            {/* Direct Contact Button */}
             <div className="w-full md:w-auto shrink-0 pt-2 md:pt-0">
-              <Button className="w-full md:w-auto bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-black px-8 py-6 rounded-2xl shadow-xs transition-all flex items-center justify-center gap-2 text-base">
-                <MessageSquare className="w-5 h-5" /> Contact Traveler
+              <Button
+                onClick={handleContactTraveler}
+                disabled={contacting}
+                className="w-full md:w-auto bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-black px-8 py-6 rounded-2xl shadow-xs transition-all flex items-center justify-center gap-2 text-base disabled:opacity-70"
+              >
+                {contacting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" /> Starting Chat...
+                  </>
+                ) : (
+                  <>
+                    <MessageSquare className="w-5 h-5" /> Contact Traveler
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -205,8 +260,7 @@ export default function TravelerProfilePage() {
 
         {/* Statistics Metric Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs hover:border-slate-300 transition-colors flex flex-col justify-between">
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
             <div className="flex items-center justify-between text-slate-400 mb-2">
               <span className="text-xs font-extrabold uppercase tracking-wider">Rating</span>
               <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
@@ -222,7 +276,7 @@ export default function TravelerProfilePage() {
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs hover:border-slate-300 transition-colors flex flex-col justify-between">
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
             <div className="flex items-center justify-between text-slate-400 mb-2">
               <span className="text-xs font-extrabold uppercase tracking-wider">Deliveries</span>
               <PackageCheck className="w-4 h-4 text-blue-500" />
@@ -237,7 +291,7 @@ export default function TravelerProfilePage() {
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs hover:border-slate-300 transition-colors flex flex-col justify-between">
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
             <div className="flex items-center justify-between text-slate-400 mb-2">
               <span className="text-xs font-extrabold uppercase tracking-wider">Trips</span>
               <Plane className="w-4 h-4 text-amber-500" />
@@ -252,7 +306,7 @@ export default function TravelerProfilePage() {
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs hover:border-slate-300 transition-colors flex flex-col justify-between">
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
             <div className="flex items-center justify-between text-slate-400 mb-2">
               <span className="text-xs font-extrabold uppercase tracking-wider">Success Rate</span>
               <TrendingUp className="w-4 h-4 text-emerald-500" />
@@ -267,7 +321,7 @@ export default function TravelerProfilePage() {
             </div>
           </div>
 
-          <div className="col-span-2 lg:col-span-1 bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs hover:border-slate-300 transition-colors flex flex-col justify-between">
+          <div className="col-span-2 lg:col-span-1 bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
             <div className="flex items-center justify-between text-slate-400 mb-2">
               <span className="text-xs font-extrabold uppercase tracking-wider">Disputes</span>
               <ShieldAlert className="w-4 h-4 text-slate-400" />
@@ -281,13 +335,10 @@ export default function TravelerProfilePage() {
               </span>
             </div>
           </div>
-
         </div>
 
         {/* Content Layout: Ratings Breakdown & Reviews */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-          
-          {/* Left Rating Summary Card */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-xs space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-black text-slate-900">
@@ -312,7 +363,6 @@ export default function TravelerProfilePage() {
               </div>
             </div>
 
-            {/* Distribution Bars */}
             <div className="space-y-2.5">
               {[5, 4, 3, 2, 1].map((stars) => {
                 const count =
@@ -339,7 +389,6 @@ export default function TravelerProfilePage() {
             </div>
           </div>
 
-          {/* Right Reviews Timeline */}
           <div className="lg:col-span-2 bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <h3 className="text-lg font-black text-slate-900">
@@ -358,7 +407,7 @@ export default function TravelerProfilePage() {
                 {profile.recent_reviews.map((review) => (
                   <div
                     key={review.id}
-                    className="p-5 border border-slate-100 rounded-2xl bg-slate-50/40 hover:bg-slate-50/80 transition-colors space-y-3"
+                    className="p-5 border border-slate-100 rounded-2xl bg-slate-50/40 space-y-3"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -400,9 +449,7 @@ export default function TravelerProfilePage() {
               </div>
             )}
           </div>
-
         </div>
-
       </div>
     </div>
   );
