@@ -281,6 +281,18 @@ export const bookingApi = {
     return response.data;
   },
 
+  // Inside booking.api.ts
+  sendPriceOffer: async (
+    bookingId: string,
+    payload: { offer_reward: string; message?: string }
+  ) => {
+    const response = await axiosInstance.post(
+      `api/bookings/${bookingId}/price-offers/`,
+      payload
+    );
+    return response.data;
+  },
+
   /**
    * Accept or Reject a booking request
    * Route: /api/bookings/<uuid:id>/respond/
