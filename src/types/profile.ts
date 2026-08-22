@@ -44,6 +44,28 @@ export interface UpdateProfilePayload {
   profile_picture?: File | null;
 }
 
+
+export interface SenderProfileData {
+  id: string;
+  name: string;
+  country: string;
+  email: string;
+  phone: string;
+  profile_image: string | null;
+  member_since: string;
+  is_email_verified: boolean;
+  total_packages: number;
+  successful_deliveries: number;
+  cancelled_deliveries: number;
+  success_rate: number;
+}
+
+export interface SenderProfileResponse {
+  success: boolean;
+  message: string;
+  data: SenderProfileData;
+}
+
 // ==========================================
 // Public Traveler Profile Interfaces (Added)
 // ==========================================

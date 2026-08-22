@@ -3,7 +3,8 @@ import axiosInstance from "@/api/axios";
 import { 
   ProfileApiResponse, 
   UpdateProfilePayload, 
-  TravelerProfileApiResponse 
+  TravelerProfileApiResponse,
+  SenderProfileResponse
 } from "@/types/profile";
 
 export const getProfileApi = async (): Promise<ProfileApiResponse> => {
@@ -36,6 +37,20 @@ export const updateProfileApi = async (
     },
   );
 
+  return response.data;
+};
+
+
+/**
+ * Get public profile of a Sender by ID
+ * @param senderId - UUID of the sender
+ */
+export const getSenderProfileApi = async (
+  senderId: string
+): Promise<SenderProfileResponse> => {
+  const response = await axiosInstance.get<SenderProfileResponse>(
+    `/api/senders/${senderId}/profile/`
+  );
   return response.data;
 };
 

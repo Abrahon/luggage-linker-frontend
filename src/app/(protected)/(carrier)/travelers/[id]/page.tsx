@@ -18,6 +18,7 @@ import {
   Quote,
   Sparkles,
   X,
+  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getTravelerProfileApi } from "@/api/profile.api";
@@ -51,7 +52,7 @@ export default function TravelerProfilePage() {
       } catch (err) {
         console.error("Error fetching traveler profile:", err);
         setError("Unable to load traveler profile. Please try again.");
-      }  {
+      } finally {
         setLoading(false);
       }
     };
@@ -59,38 +60,58 @@ export default function TravelerProfilePage() {
     fetchProfile();
   }, [travelerId]);
 
-    // Handle Contact Traveler with query string redirect
-    const handleContactTraveler = async () => {
+  // Handle Contact Traveler with query string redirect
+  const handleContactTraveler = async () => {
     if (!travelerId) return;
 
     try {
-        setContacting(true);
-        setBookingNotice(null);
+      setContacting(true);
+      setBookingNotice(null);
 
-        const response = await contactTraveler(travelerId);
+      const response = await contactTraveler(travelerId);
 
-        if (response?.success && response?.data?.room_id) {
-        // Fixed URL route from /messaeg to /messages
+      if (response?.success && response?.data?.room_id) {
         router.push(`/messages?room=${response.data.room_id}`);
         return;
-        }
+      }
 
-        setBookingNotice(
+      setBookingNotice(
         response?.message || "Unable to open chat room."
-        );
+      );
     } catch (err: any) {
-        console.error("Failed to initiate chat session:", err);
+      console.error("Failed to initiate chat session:", err);
 
-        const backendMessage =
+      const backendMessage =
         err?.response?.data?.message ||
         err?.response?.data?.detail ||
         "Please create a booking with this traveler first to initiate a chat.";
 
-        setBookingNotice(backendMessage);
+      setBookingNotice(backendMessage);
     } finally {
-        setContacting(false);
+      setContacting(false);
     }
-    };
+  };
+
+  // Fetch API endpoint and navigate to Sender Profile
+  const handleNavigateToSender = async (senderId?: string) => {
+    if (!senderId) return;
+
+    try {
+      const response = await fetch(`/api/senders/${senderId}/profile/`);
+      
+      if (response.ok) {
+        router.push(`/senders/${senderId}`);
+      } else {
+        console.error("Failed to fetch sender profile details.");
+        // Fallback navigation in case status is non-200
+        router.push(`/senders/${senderId}`);
+      }
+    } catch (err) {
+      console.error("Error navigating to sender profile:", err);
+      // Fallback navigation on network error
+      router.push(`/senders/${senderId}`);
+    }
+  };
 
   if (loading) {
     return (
@@ -404,48 +425,69 @@ export default function TravelerProfilePage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {profile.recent_reviews.map((review) => (
-                  <div
-                    key={review.id}
-                    className="p-5 border border-slate-100 rounded-2xl bg-slate-50/40 space-y-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        {review.reviewer_profile_image ? (
-                          <Image
-                            src={review.reviewer_profile_image}
-                            alt={review.reviewer}
-                            width={40}
-                            height={40}
-                            className="w-10 h-10 rounded-full object-cover border border-white shadow-2xs"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-700 font-black text-sm flex items-center justify-center">
-                            {review.reviewer?.charAt(0).toUpperCase()}
+                {profile.recent_reviews.map((review) => {
+                  const senderId = (review as any).reviewer_id || (review as any).sender_id;
+
+                  return (
+                    <div
+                      key={review.id}
+                      className="p-5 border border-slate-100 rounded-2xl bg-slate-50/40 space-y-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        {/* Clickable Sender/Reviewer Header Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleNavigateToSender(senderId)}
+                          disabled={!senderId}
+                          className={`flex items-center gap-3 text-left focus:outline-hidden ${
+                            senderId
+                              ? "cursor-pointer group"
+                              : "cursor-default"
+                          }`}
+                        >
+                          {review.reviewer_profile_image ? (
+                            <Image
+                              src={review.reviewer_profile_image}
+                              alt={review.reviewer}
+                              width={40}
+                              height={40}
+                              className="w-10 h-10 rounded-full object-cover border border-white shadow-2xs group-hover:ring-2 group-hover:ring-amber-500 transition-all"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-700 font-black text-sm flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all">
+                              {review.reviewer?.charAt(0).toUpperCase() || "U"}
+                            </div>
+                          )}
+
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <h4 className="text-sm font-extrabold text-slate-900 group-hover:text-amber-600 transition-colors">
+                                {review.reviewer}
+                              </h4>
+                              {senderId && (
+                                <User className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-500 transition-colors" />
+                              )}
+                            </div>
+                            <span className="text-[11px] font-medium text-slate-400 block">
+                              {formatDate(review.created_at)}
+                            </span>
                           </div>
-                        )}
-                        <div>
-                          <h4 className="text-sm font-extrabold text-slate-900">
-                            {review.reviewer}
-                          </h4>
-                          <span className="text-[11px] font-medium text-slate-400 block">
-                            {formatDate(review.created_at)}
-                          </span>
+                        </button>
+
+                        {/* Rating Display */}
+                        <div className="flex text-amber-400 gap-0.5 bg-white px-2.5 py-1 rounded-full border border-slate-200/60 shadow-2xs">
+                          {[...Array(review.rating)].map((_, i) => (
+                            <Star key={i} className="w-3.5 h-3.5 fill-amber-400" />
+                          ))}
                         </div>
                       </div>
 
-                      <div className="flex text-amber-400 gap-0.5 bg-white px-2.5 py-1 rounded-full border border-slate-200/60 shadow-2xs">
-                        {[...Array(review.rating)].map((_, i) => (
-                          <Star key={i} className="w-3.5 h-3.5 fill-amber-400" />
-                        ))}
-                      </div>
+                      <p className="text-sm font-medium text-slate-700 leading-relaxed pt-1">
+                        {review.comment}
+                      </p>
                     </div>
-
-                    <p className="text-sm font-medium text-slate-700 leading-relaxed pt-1">
-                      {review.comment}
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
