@@ -1,3 +1,7 @@
+// ==========================================
+// Existing User Profile Interfaces
+// ==========================================
+
 export interface UserProfile {
   id: string;
   first_name: string;
@@ -18,7 +22,7 @@ export interface UserProfile {
   created_at: string;
   updated_at: string;
   email?: string;
-  role?: string; 
+  role?: string;
 }
 
 export interface ProfileApiResponse {
@@ -29,7 +33,7 @@ export interface ProfileApiResponse {
 export interface UpdateProfilePayload {
   first_name: string;
   last_name: string;
-  gender?: string; // Add this line
+  gender?: string;
   phone?: string;
   country: string;
   city: string;
@@ -38,4 +42,54 @@ export interface UpdateProfilePayload {
   date_of_birth: string;
   bio?: string;
   profile_picture?: File | null;
+}
+
+// ==========================================
+// Public Traveler Profile Interfaces (Added)
+// ==========================================
+
+/** Single review left by a sender for a traveler */
+export interface TravelerReview {
+  id: string;
+  rating: number;
+  comment: string;
+  reviewer: string;
+  reviewer_profile_image: string;
+  created_at: string;
+}
+
+/** Breakdown of total star ratings (1 through 5) */
+export interface RatingDistribution {
+  "1": number;
+  "2": number;
+  "3": number;
+  "4": number;
+  "5": number;
+}
+
+/** Public profile data returned for a specific traveler */
+export interface PublicTravelerProfile {
+  id: string;
+  name: string;
+  country: string;
+  profile_image: string;
+  about?: string;
+  average_rating: number;
+  total_reviews: number;
+  completed_trips: number;
+  total_deliveries: number;
+  successful_deliveries: number;
+  disputed_deliveries: number;
+  traveler_fault_disputes: number;
+  pending_disputes: number;
+  success_rate: number;
+  rating_distribution: RatingDistribution;
+  recent_reviews: TravelerReview[];
+}
+
+/** API response structure for GET /api/travelers/{id}/profile/ */
+export interface TravelerProfileApiResponse {
+  success: boolean;
+  message: string;
+  data: PublicTravelerProfile;
 }

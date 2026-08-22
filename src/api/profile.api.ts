@@ -1,6 +1,10 @@
 // src/api/profile.api.ts
 import axiosInstance from "@/api/axios";
-import { ProfileApiResponse, UpdateProfilePayload } from "@/types/profile";
+import { 
+  ProfileApiResponse, 
+  UpdateProfilePayload, 
+  TravelerProfileApiResponse 
+} from "@/types/profile";
 
 export const getProfileApi = async (): Promise<ProfileApiResponse> => {
   const response = await axiosInstance.get<ProfileApiResponse>("/api/profile/");
@@ -32,5 +36,17 @@ export const updateProfileApi = async (
     },
   );
 
+  return response.data;
+};
+
+/**
+ * Fetch public traveler profile by ID
+ */
+export const getTravelerProfileApi = async (
+  travelerId: string
+): Promise<TravelerProfileApiResponse> => {
+  const response = await axiosInstance.get<TravelerProfileApiResponse>(
+    `/api/travelers/${travelerId}/profile/`
+  );
   return response.data;
 };

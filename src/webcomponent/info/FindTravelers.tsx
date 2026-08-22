@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +20,9 @@ import {
   Loader2,
   CheckCircle2,
   Star,
+  Luggage,
+  Coins,
+  ArrowRight,
 } from "lucide-react";
 import { HeadingSection } from "@/webcomponent/reusable/HeadingSection";
 import { BackendTrip, getPublicTripsApi } from "@/api/trip.api";
@@ -92,6 +96,13 @@ export const FindTravelers = () => {
     fetchTrips();
   }, [fetchTrips]);
 
+  // Profile navigation handler
+  const handleProfileClick = (travelerId?: string) => {
+    if (travelerId) {
+      router.push(`/travelers/${travelerId}`);
+    }
+  };
+
   // Handle Booking Request Execution
   const handleBookingRequest = async (trip: BackendTrip) => {
     setDetailDialogOpen(false);
@@ -101,10 +112,11 @@ export const FindTravelers = () => {
       return;
     }
 
+    const travelerId = trip.traveler?.id;
     const isOwner =
       (user.email && trip.traveler_email && user.email.toLowerCase() === trip.traveler_email.toLowerCase()) ||
-      (user.id && (trip as { user_id?: string; traveler_id?: string }).user_id === user.id) ||
-      (user.id && (trip as { traveler?: string }).traveler === user.id);
+      (user.id && (trip as { user_id?: string }).user_id === user.id) ||
+      (user.id && travelerId && user.id === travelerId);
 
     if (isOwner) {
       toast.error("You cannot send a booking request for your own trip.");
@@ -220,6 +232,18 @@ export const FindTravelers = () => {
   const handleViewDetails = (tripId: string) => {
     setSelectedTripForDetail(tripId);
     setDetailDialogOpen(true);
+  };
+
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return "N/A";
+    try {
+      return new Date(dateStr).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      });
+    } catch {
+      return dateStr;
+    }
   };
 
   return (
@@ -368,80 +392,169 @@ export const FindTravelers = () => {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 my-6">
             {trips.map((trip) => {
+              const traveler = trip.traveler;
+              const travelerName = traveler?.name || trip.traveler_email || "Traveler";
+              const rating = traveler?.average_rating ?? trip.average_rating ?? 0;
+              const totalReviews = traveler?.total_reviews ?? trip.reviews?.length ?? 0;
+              const isVerified = traveler?.is_verified ?? false;
+
               const isTripOwner =
                 user &&
                 ((user.email && trip.traveler_email && user.email.toLowerCase() === trip.traveler_email.toLowerCase()) ||
-                  (user.id && (trip as { user_id?: string; traveler_id?: string }).user_id === user.id));
+                  (user.id && (trip as { user_id?: string }).user_id === user.id) ||
+                  (user.id && traveler?.id && user.id === traveler.id));
 
               return (
                 <div
                   key={trip.id}
-                  className="border rounded-2xl shadow-sm hover:shadow-md transition-shadow bg-white flex flex-col justify-between p-5"
+                  className="group border border-slate-200 hover:border-amber-300 rounded-3xl shadow-xs hover:shadow-lg transition-all duration-300 bg-white flex flex-col justify-between overflow-hidden"
                 >
-                  <div className="flex justify-between items-center border-b pb-3 mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-gray-800 text-sm truncate max-w-[150px]">
-                        👤 {trip.traveler_email || "Verified Traveler"}
+                  {/* Card Header: Clickable Traveler Profile Info */}
+                  <div
+                    onClick={() => handleProfileClick(traveler?.id)}
+                    className="p-4 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between cursor-pointer hover:bg-amber-50/40 transition-colors group/header"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        {traveler?.profile_image ? (
+                          <Image
+                            src={traveler.profile_image}
+                            alt={travelerName}
+                            width={44}
+                            height={44}
+                            className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-xs group-hover/header:scale-105 transition-transform"
+                          />
+                        ) : (
+                          <div className="w-11 h-11 rounded-full bg-amber-500 text-white font-black text-sm flex items-center justify-center border-2 border-white shadow-xs group-hover/header:scale-105 transition-transform">
+                            {travelerName.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        {isVerified && (
+                          <div
+                            className="absolute -bottom-0.5 -right-0.5 bg-white rounded-full p-0.5 shadow-2xs"
+                            title="Verified Traveler"
+                          >
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 fill-emerald-500 stroke-white stroke-[2.5]" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col">
+                        <span className="font-extrabold text-slate-800 text-sm line-clamp-1 group-hover/header:text-amber-600 transition-colors">
+                          {travelerName}
+                        </span>
+                        <span className="text-[11px] text-slate-400 font-medium">
+                          Traveler
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Rating & Review Badge */}
+                    <div className="flex items-center gap-1 bg-white border border-slate-200/80 px-2.5 py-1 rounded-full shadow-2xs">
+                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                      <span className="text-xs font-black text-slate-800">
+                        {Number(rating).toFixed(1)}
                       </span>
-                      <CheckCircle2 className="w-4 h-4 text-blue-500 shrink-0" />
-                    </div>
-                    
-                    {/* Dynamic Average Rating */}
-                    <div className="flex items-center gap-1 text-sm font-semibold text-yellow-500 shrink-0">
-                      <Star className="w-4 h-4 fill-yellow-500" />
-                      <span>
-                        {trip.average_rating !== undefined && trip.average_rating !== null
-                          ? Number(trip.average_rating).toFixed(1)
-                          : "0.0"}
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        ({totalReviews})
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 mb-3">
-                    <Plane className="w-4 h-4 text-yellow-500 shrink-0" />
-                    <h4 className="font-bold text-slate-800 truncate">{trip.title}</h4>
-                  </div>
-
-                  <div className="bg-slate-50 p-3 rounded-xl border flex justify-between items-center mb-3">
-                    <div className="text-left">
-                      <span className="text-xs text-gray-400 block font-semibold">FROM</span>
-                      <span className="font-bold text-sm text-gray-800">{trip.from_city}</span>
+                  {/* Body Info */}
+                  <div className="p-4 space-y-3.5 flex-1 flex flex-col justify-between">
+                    <div>
+                      <h4 className="font-extrabold text-slate-900 text-base line-clamp-1 group-hover:text-amber-600 transition-colors">
+                        {trip.title}
+                      </h4>
+                      {trip.description && (
+                        <p className="text-xs text-slate-500 line-clamp-2 mt-1 italic">
+                          &quot;{trip.description}&quot;
+                        </p>
+                      )}
                     </div>
-                    <span className="text-gray-400 font-bold">→</span>
-                    <div className="text-right">
-                      <span className="text-xs text-gray-400 block font-semibold">TO</span>
-                      <span className="font-bold text-sm text-gray-800">{trip.to_city}</span>
+
+                    {/* Route Box */}
+                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          From
+                        </span>
+                        <span className="font-extrabold text-xs text-slate-800 truncate block">
+                          {trip.from_city}
+                        </span>
+                        <span className="text-[10px] text-slate-400 truncate block">
+                          {trip.from_country}
+                        </span>
+                      </div>
+
+                      <div className="w-7 h-7 rounded-full bg-amber-100/70 text-amber-600 flex items-center justify-center shrink-0">
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </div>
+
+                      <div className="min-w-0 text-right">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          To
+                        </span>
+                        <span className="font-extrabold text-xs text-slate-800 truncate block">
+                          {trip.to_city}
+                        </span>
+                        <span className="text-[10px] text-slate-400 truncate block">
+                          {trip.to_country}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Departure / Arrival Dates */}
+                    <div className="flex items-center justify-between text-xs font-semibold text-slate-600 px-1">
+                      <span className="flex items-center gap-1.5 text-slate-500">
+                        <Calendar className="w-3.5 h-3.5 text-slate-400" /> Travel Dates
+                      </span>
+                      <span className="font-bold text-slate-800">
+                        {formatDate(trip.departure_date)} → {formatDate(trip.arrival_date)}
+                      </span>
+                    </div>
+
+                    {/* Capacity & Price Metrics */}
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+                      <div className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                        <Luggage className="w-4 h-4 text-amber-500 shrink-0" />
+                        <div>
+                          <span className="text-[10px] text-slate-400 font-semibold block leading-tight">
+                            Capacity
+                          </span>
+                          <span className="text-xs font-black text-slate-800">
+                            {trip.available_weight_kg} KG
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 bg-emerald-50/60 p-2.5 rounded-xl border border-emerald-100/80">
+                        <Coins className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <div>
+                          <span className="text-[10px] text-emerald-600/80 font-semibold block leading-tight">
+                            Reward
+                          </span>
+                          <span className="text-xs font-black text-emerald-700">
+                            ${trip.reward_per_kg}/kg
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex justify-between text-xs font-semibold text-gray-600 mb-3 bg-gray-50/50 p-2 rounded-lg">
-                    <span className="flex items-center gap-1">
-                      📅 {trip.departure_date} → {trip.arrival_date}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center text-sm font-bold border-t pt-3 mb-4">
-                    <span className="text-gray-700">🧳 {trip.available_weight_kg} KG</span>
-                    <span className="text-emerald-600">
-                      💰 {trip.currency || "$"} {trip.reward_per_kg} / kg
-                    </span>
-                  </div>
-
-                  <p className="text-xs text-gray-500 line-clamp-2 mb-4 italic">
-                    &quot;{trip.description}&quot;
-                  </p>
-
-                  <div className="grid grid-cols-2 gap-2 mt-auto">
+                  {/* Footer Action Buttons */}
+                  <div className="p-4 bg-slate-50/50 border-t border-slate-100 grid grid-cols-2 gap-2">
                     <Button
                       variant="outline"
-                      className="font-semibold text-xs border-gray-300"
+                      className="w-full font-bold text-xs border-slate-200 text-slate-700 hover:bg-slate-100 rounded-xl h-9"
                       onClick={() => handleViewDetails(trip.id)}
                     >
-                      View Details
+                      Details
                     </Button>
                     <Button
                       disabled={requestingTripId === trip.id || Boolean(isTripOwner)}
-                      className="font-semibold text-xs bg-yellow-500 hover:bg-yellow-600 text-white disabled:opacity-50"
+                      className="w-full font-bold text-xs bg-amber-500 hover:bg-amber-600 text-white rounded-xl h-9 shadow-2xs disabled:opacity-50"
                       onClick={() => handleBookingRequest(trip)}
                     >
                       {requestingTripId === trip.id ? (
@@ -449,7 +562,7 @@ export const FindTravelers = () => {
                       ) : isTripOwner ? (
                         "Your Trip"
                       ) : (
-                        "Request Booking"
+                        "Request"
                       )}
                     </Button>
                   </div>

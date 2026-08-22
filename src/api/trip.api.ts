@@ -6,9 +6,19 @@ import axiosInstance from "./axios";
 // Types
 // ==========================================
 
+
+export interface TravelerProfile {
+  id: string;
+  name: string;
+  profile_image: string | null;
+  total_reviews: number;
+  average_rating: number;
+  is_verified: boolean;
+}
+
 export interface BackendTrip {
   id: string;
-  traveler?: string | number;
+  traveler?: TravelerProfile;
   traveler_email?: string;
   user_id?: string | number;
   title: string;
@@ -27,6 +37,7 @@ export interface BackendTrip {
   is_active: boolean;
   is_public: boolean;
   average_rating?: number;
+  reviews?: any[];
   created_at?: string;
   updated_at?: string;
 }
