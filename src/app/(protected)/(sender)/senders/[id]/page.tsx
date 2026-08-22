@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -25,10 +25,21 @@ import { getSenderProfileApi } from "@/api/profile.api";
 import { contactTraveler } from "@/api/chat.api";
 import { SenderProfileData } from "@/types/profile";
 
-export default function SenderProfilePage() {
-  const params = useParams();
+export default function SenderProfilePage({
+  params: paramsProp,
+}: {
+  params?: Promise<{ id: string }> | { id: string };
+}) {
   const router = useRouter();
-  const senderId = params?.id as string;
+  const rawParams = useParams();
+
+  // Safely extract parameter across Next.js versions
+  const unwrappedParams =
+    paramsProp && typeof (paramsProp as any).then === "function"
+      ? React.use(paramsProp as Promise<{ id: string }>)
+      : (paramsProp as { id: string });
+
+  const senderId = (unwrappedParams?.id || rawParams?.id) as string;
 
   const [profile, setProfile] = useState<SenderProfileData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -39,21 +50,39 @@ export default function SenderProfilePage() {
   useEffect(() => {
     if (!senderId) return;
 
+    // Console log to debug the extracted sender ID
+    console.log("Current senderId parameter from URL:", senderId);
+
     const fetchProfile = async () => {
       try {
         setLoading(true);
         setError(null);
+
         const response = await getSenderProfileApi(senderId);
-        if (response.success && response.data) {
-          setProfile(response.data);
+
+        // Standardize response payload (Handles { success, message, data: { ... } } structure)
+        const profileData =
+          (response as any)?.data?.data || (response as any)?.data || response;
+
+        if (
+          profileData &&
+          (profileData.name || profileData.email || profileData.id)
+        ) {
+          setProfile(profileData as SenderProfileData);
+        } else if ((response as any)?.success === false) {
+          setError((response as any)?.message || "Failed to load sender profile.");
         } else {
-          setError(response.message || "Failed to load sender profile.");
+          setProfile(profileData as SenderProfileData);
         }
       } catch (err: any) {
         console.error("Error fetching sender profile:", err);
-        setError("Unable to load sender profile. Please try again.");
-      } 
-      finally {
+        const errMsg =
+          err?.response?.data?.message ||
+          err?.response?.data?.detail ||
+          err?.message ||
+          "Unable to load sender profile. Please try again.";
+        setError(errMsg);
+      } finally {
         setLoading(false);
       }
     };
@@ -123,7 +152,7 @@ export default function SenderProfilePage() {
           </p>
           <Button
             onClick={() => router.back()}
-            className="bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl px-6"
+            className="bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl px-6 cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4 mr-2" /> Go Back
           </Button>
@@ -139,7 +168,7 @@ export default function SenderProfilePage() {
         <div>
           <Button
             variant="ghost"
-            className="text-slate-600 hover:text-slate-900 font-extrabold -ml-3 hover:bg-slate-100 rounded-xl transition-all"
+            className="text-slate-600 hover:text-slate-900 font-extrabold -ml-3 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
             onClick={() => router.back()}
           >
             <ArrowLeft className="w-4 h-4 mr-2" /> Back
@@ -155,7 +184,7 @@ export default function SenderProfilePage() {
             </div>
             <button
               onClick={() => setNotice(null)}
-              className="text-amber-500 hover:text-amber-800 p-1 rounded-lg transition-colors"
+              className="text-amber-500 hover:text-amber-800 p-1 rounded-lg transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -174,14 +203,14 @@ export default function SenderProfilePage() {
                   {profile.profile_image ? (
                     <Image
                       src={profile.profile_image}
-                      alt={profile.name}
+                      alt={profile.name || "Sender Profile"}
                       width={120}
                       height={120}
                       className="w-28 h-28 sm:w-32 sm:h-32 rounded-full object-cover border-2 border-white shadow-xs"
                     />
                   ) : (
                     <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 text-white font-black text-4xl flex items-center justify-center border-2 border-white shadow-xs">
-                      {profile.name?.charAt(0).toUpperCase()}
+                      {profile.name?.charAt(0).toUpperCase() || "S"}
                     </div>
                   )}
                 </div>
@@ -200,7 +229,7 @@ export default function SenderProfilePage() {
               <div className="space-y-3 flex-1 pt-1">
                 <div className="flex flex-wrap items-center gap-3">
                   <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                    {profile.name}
+                    {profile.name || "Sender Profile"}
                   </h1>
                   {profile.is_email_verified ? (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-50 text-emerald-600 border border-emerald-200/80">
@@ -248,7 +277,7 @@ export default function SenderProfilePage() {
               <Button
                 onClick={handleContactSender}
                 disabled={contacting}
-                className="w-full md:w-auto bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-black px-8 py-6 rounded-2xl shadow-xs transition-all flex items-center justify-center gap-2 text-base disabled:opacity-70"
+                className="w-full md:w-auto bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-black px-8 py-6 rounded-2xl shadow-xs transition-all flex items-center justify-center gap-2 text-base disabled:opacity-70 cursor-pointer"
               >
                 {contacting ? (
                   <>
@@ -268,7 +297,9 @@ export default function SenderProfilePage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
             <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-extrabold uppercase tracking-wider">Total Packages</span>
+              <span className="text-xs font-extrabold uppercase tracking-wider">
+                Total Packages
+              </span>
               <Package className="w-4 h-4 text-amber-500" />
             </div>
             <div>
@@ -283,7 +314,9 @@ export default function SenderProfilePage() {
 
           <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
             <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-extrabold uppercase tracking-wider">Successful</span>
+              <span className="text-xs font-extrabold uppercase tracking-wider">
+                Successful
+              </span>
               <PackageCheck className="w-4 h-4 text-emerald-500" />
             </div>
             <div>
@@ -298,7 +331,9 @@ export default function SenderProfilePage() {
 
           <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
             <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-extrabold uppercase tracking-wider">Cancelled</span>
+              <span className="text-xs font-extrabold uppercase tracking-wider">
+                Cancelled
+              </span>
               <PackageX className="w-4 h-4 text-rose-500" />
             </div>
             <div>
@@ -313,7 +348,9 @@ export default function SenderProfilePage() {
 
           <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
             <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-extrabold uppercase tracking-wider">Success Rate</span>
+              <span className="text-xs font-extrabold uppercase tracking-wider">
+                Success Rate
+              </span>
               <TrendingUp className="w-4 h-4 text-emerald-500" />
             </div>
             <div>

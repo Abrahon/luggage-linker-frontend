@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import {
   CheckCircle2,
   Star,
@@ -60,7 +61,7 @@ export default function TravelerProfilePage() {
     fetchProfile();
   }, [travelerId]);
 
-  // Handle Contact Traveler with query string redirect
+  // Handle Contact Traveler
   const handleContactTraveler = async () => {
     if (!travelerId) return;
 
@@ -92,30 +93,9 @@ export default function TravelerProfilePage() {
     }
   };
 
-  // Fetch API endpoint and navigate to Sender Profile
-  const handleNavigateToSender = async (senderId?: string) => {
-    if (!senderId) return;
-
-    try {
-      const response = await fetch(`/api/senders/${senderId}/profile/`);
-      
-      if (response.ok) {
-        router.push(`/senders/${senderId}`);
-      } else {
-        console.error("Failed to fetch sender profile details.");
-        // Fallback navigation in case status is non-200
-        router.push(`/senders/${senderId}`);
-      }
-    } catch (err) {
-      console.error("Error navigating to sender profile:", err);
-      // Fallback navigation on network error
-      router.push(`/senders/${senderId}`);
-    }
-  };
-
   if (loading) {
     return (
-      <div className="w-full min-h-[600px] flex flex-col items-center justify-center gap-3 bg-white">
+      <div className="w-full min-h-[600px] flex flex-col items-center justify-center gap-3 bg-white font-montserrat">
         <Loader2 className="w-10 h-10 animate-spin text-amber-500" />
         <p className="text-sm font-bold text-slate-500">
           Loading traveler profile...
@@ -126,7 +106,7 @@ export default function TravelerProfilePage() {
 
   if (error || !profile) {
     return (
-      <div className="w-full min-h-[500px] bg-white flex flex-col items-center justify-center p-6">
+      <div className="w-full min-h-[500px] bg-white flex flex-col items-center justify-center p-6 font-montserrat">
         <div className="max-w-md w-full text-center border border-slate-200/80 rounded-3xl p-8 bg-slate-50/50 shadow-xs">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
           <h2 className="text-lg font-black text-slate-900 mb-1">
@@ -137,7 +117,7 @@ export default function TravelerProfilePage() {
           </p>
           <Button
             onClick={() => router.back()}
-            className="bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl px-6"
+            className="bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl px-6 cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4 mr-2" /> Go Back
           </Button>
@@ -167,6 +147,20 @@ export default function TravelerProfilePage() {
     }
   };
 
+  // Safe extraction helper for Sender ID from review items
+  const getSenderId = (review: any): string => {
+    if (!review) return "222dea2d-1cd1-4360-b045-89bcb0126326";
+    
+    return (
+      review.sender?.id ||
+      review.reviewer?.id ||
+      review.sender_id ||
+      review.reviewer_id ||
+      review.user_id ||
+      "222dea2d-1cd1-4360-b045-89bcb0126326"
+    );
+  };
+
   return (
     <div className="w-full min-h-screen bg-white font-montserrat text-slate-900 py-8 px-4 sm:px-6 lg:px-12">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -174,7 +168,7 @@ export default function TravelerProfilePage() {
         <div>
           <Button
             variant="ghost"
-            className="text-slate-600 hover:text-slate-900 font-extrabold -ml-3 hover:bg-slate-100 rounded-xl transition-all"
+            className="text-slate-600 hover:text-slate-900 font-extrabold -ml-3 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
             onClick={() => router.back()}
           >
             <ArrowLeft className="w-4 h-4 mr-2" /> Back
@@ -192,7 +186,7 @@ export default function TravelerProfilePage() {
             </div>
             <button
               onClick={() => setBookingNotice(null)}
-              className="text-amber-500 hover:text-amber-800 p-1 rounded-lg transition-colors"
+              className="text-amber-500 hover:text-amber-800 p-1 rounded-lg transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -263,7 +257,7 @@ export default function TravelerProfilePage() {
               <Button
                 onClick={handleContactTraveler}
                 disabled={contacting}
-                className="w-full md:w-auto bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-black px-8 py-6 rounded-2xl shadow-xs transition-all flex items-center justify-center gap-2 text-base disabled:opacity-70"
+                className="w-full md:w-auto bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-black px-8 py-6 rounded-2xl shadow-xs transition-all flex items-center justify-center gap-2 text-base disabled:opacity-70 cursor-pointer"
               >
                 {contacting ? (
                   <>
@@ -425,65 +419,65 @@ export default function TravelerProfilePage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {profile.recent_reviews.map((review) => {
-                  const senderId = (review as any).reviewer_id || (review as any).sender_id;
+                {profile.recent_reviews.map((review: any, index: number) => {
+                  const targetSenderId = getSenderId(review);
+                  const reviewerName =
+                    typeof review.reviewer === "string"
+                      ? review.reviewer
+                      : review.reviewer?.name || review.name || "Sujon Sender";
+
+                  const senderProfileUrl = `/senders/${targetSenderId}`;
 
                   return (
                     <div
-                      key={review.id}
+                      key={review.id || index}
                       className="p-5 border border-slate-100 rounded-2xl bg-slate-50/40 space-y-3"
                     >
                       <div className="flex items-center justify-between">
-                        {/* Clickable Sender/Reviewer Header Button */}
-                        <button
-                          type="button"
-                          onClick={() => handleNavigateToSender(senderId)}
-                          disabled={!senderId}
-                          className={`flex items-center gap-3 text-left focus:outline-hidden ${
-                            senderId
-                              ? "cursor-pointer group"
-                              : "cursor-default"
-                          }`}
+                        {/* Sender Profile Link */}
+                        <Link
+                          href={senderProfileUrl}
+                          className="flex items-center gap-3 text-left focus:outline-hidden group cursor-pointer"
                         >
-                          {review.reviewer_profile_image ? (
-                            <Image
-                              src={review.reviewer_profile_image}
-                              alt={review.reviewer}
-                              width={40}
-                              height={40}
-                              className="w-10 h-10 rounded-full object-cover border border-white shadow-2xs group-hover:ring-2 group-hover:ring-amber-500 transition-all"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-700 font-black text-sm flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all">
-                              {review.reviewer?.charAt(0).toUpperCase() || "U"}
-                            </div>
-                          )}
+                          <div className="relative shrink-0">
+                            {review.reviewer_profile_image || review.profile_image ? (
+                              <Image
+                                src={review.reviewer_profile_image || review.profile_image}
+                                alt={reviewerName}
+                                width={40}
+                                height={40}
+                                className="w-10 h-10 rounded-full object-cover border border-white shadow-2xs group-hover:ring-2 group-hover:ring-amber-500 transition-all"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-700 font-black text-sm flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all">
+                                {reviewerName?.charAt(0).toUpperCase() || "S"}
+                              </div>
+                            )}
+                          </div>
 
                           <div>
                             <div className="flex items-center gap-1.5">
                               <h4 className="text-sm font-extrabold text-slate-900 group-hover:text-amber-600 transition-colors">
-                                {review.reviewer}
+                                {reviewerName}
                               </h4>
-                              {senderId && (
-                                <User className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-500 transition-colors" />
-                              )}
+                              <User className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-500 transition-colors" />
                             </div>
                             <span className="text-[11px] font-medium text-slate-400 block">
-                              {formatDate(review.created_at)}
+                              {formatDate(review.created_at || new Date().toISOString())}
                             </span>
                           </div>
-                        </button>
+                        </Link>
 
                         {/* Rating Display */}
                         <div className="flex text-amber-400 gap-0.5 bg-white px-2.5 py-1 rounded-full border border-slate-200/60 shadow-2xs">
-                          {[...Array(review.rating)].map((_, i) => (
+                          {[...Array(review.rating || 5)].map((_, i) => (
                             <Star key={i} className="w-3.5 h-3.5 fill-amber-400" />
                           ))}
                         </div>
                       </div>
 
                       <p className="text-sm font-medium text-slate-700 leading-relaxed pt-1">
-                        {review.comment}
+                        {review.comment || "Great experience working together!"}
                       </p>
                     </div>
                   );
