@@ -10,6 +10,7 @@ import {
   MapPin,
   User as UserIcon,
   Mail,
+  Sparkles,
 } from "lucide-react";
 import Image from "next/image";
 import { useState, useMemo, useEffect, Suspense } from "react";
@@ -20,6 +21,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useProfile } from "@/hooks/useProfile";
 import { Country, City, ICountry, ICity } from "country-state-city";
+import { motion, AnimatePresence } from "framer-motion";
 
 // ------------------- Interfaces -------------------
 export interface UserProfile {
@@ -199,7 +201,6 @@ export const ProfileContent = () => {
         profile_picture: profilePhoto,
       };
 
-      // Type cast to bypass strict update payload checks if types are mismatched
       await updateProfile(payload as any);
 
       setSuccessMsg("Profile onboarding complete!");
@@ -227,23 +228,28 @@ export const ProfileContent = () => {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-[500px]">
-        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+      <div className="flex flex-col items-center justify-center min-h-[500px] gap-3">
+        <Loader2 className="w-10 h-10 animate-spin text-amber-500" />
+        <p className="text-xs font-bold text-slate-400">Loading your profile...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-8 text-center text-red-500 max-w-lg mx-auto bg-red-50 border border-red-200 rounded-xl my-10">
-        <p className="font-medium">{error}</p>
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="p-8 text-center text-red-500 max-w-lg mx-auto bg-red-50/80 backdrop-blur-md border border-red-200 rounded-3xl my-12 shadow-sm"
+      >
+        <p className="font-semibold text-sm">{error}</p>
         <button
           onClick={() => router.push("/login")}
-          className="mt-4 px-4 py-2 bg-slate-900 text-white rounded-lg text-xs"
+          className="mt-4 px-5 py-2.5 bg-slate-900 text-white font-bold rounded-xl text-xs hover:bg-slate-800 transition cursor-pointer shadow-sm"
         >
           Re-login to Continue
         </button>
-      </div>
+      </motion.div>
     );
   }
 
@@ -261,17 +267,27 @@ export const ProfileContent = () => {
   const resolvedPictureUrl = getProfilePictureUrl(profile?.profile_picture);
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6">
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-        <div className="h-32 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 relative" />
+    <motion.div 
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className="w-full max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 font-montserrat"
+    >
+      <div className="bg-white border border-slate-200/80 rounded-3xl shadow-sm overflow-hidden backdrop-blur-sm">
+        {/* Banner with modern decorative blurred background */}
+        <div className="h-44 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full blur-2xl transform translate-x-12 -translate-y-12 pointer-events-none" />
+          <div className="absolute bottom-0 left-1/3 w-60 h-60 bg-amber-300/20 rounded-full blur-xl pointer-events-none" />
+        </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 sm:p-8 -mt-16">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 pb-6 border-b border-gray-100">
-            <div className="flex items-end gap-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="p-6 sm:p-10 -mt-20">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 pb-8 border-b border-slate-100">
+            <div className="flex items-end gap-6">
               <div className="relative group">
-                <label
+                <motion.label
+                  whileHover={isEditing ? { scale: 1.03 } : {}}
                   htmlFor="profile-photo"
-                  className={`flex justify-center items-center w-28 h-28 border-4 border-white rounded-full relative overflow-hidden shrink-0 shadow-md ${
+                  className={`flex justify-center items-center w-32 h-32 border-4 border-white rounded-full relative overflow-hidden shrink-0 shadow-lg ${
                     isEditing ? "cursor-pointer" : "cursor-default"
                   }`}
                 >
@@ -293,7 +309,7 @@ export const ProfileContent = () => {
                     />
                   ) : (
                     <div
-                      className="w-full h-full flex items-center justify-center text-white text-3xl font-bold"
+                      className="w-full h-full flex items-center justify-center text-white text-4xl font-black"
                       style={{
                         backgroundColor: stringToColor(
                           profile?.first_name || "A"
@@ -305,11 +321,11 @@ export const ProfileContent = () => {
                   )}
 
                   {isEditing && (
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Camera className="text-white w-7 h-7" />
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200">
+                      <Camera className="text-white w-8 h-8" />
                     </div>
                   )}
-                </label>
+                </motion.label>
 
                 {isEditing && (
                   <input
@@ -322,63 +338,82 @@ export const ProfileContent = () => {
                 )}
               </div>
 
-              <div className="mb-1">
-                <h1 className="text-2xl font-bold text-gray-900">
-                  {profile?.first_name} {profile?.last_name}
-                </h1>
-                <p className="text-sm text-gray-500 flex items-center gap-1.5 mt-0.5">
-                  <Mail className="w-3.5 h-3.5 text-gray-400" />
+              <div className="mb-2">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                    {profile?.first_name} {profile?.last_name}
+                  </h1>
+                  <Sparkles className="w-5 h-5 text-amber-500 shrink-0" />
+                </div>
+                <p className="text-xs sm:text-sm font-bold text-slate-500 flex items-center gap-2 mt-1">
+                  <Mail className="w-4 h-4 text-amber-500 shrink-0" />
                   {profile?.email || "No email provided"}
                 </p>
               </div>
             </div>
 
             {!isEditing ? (
-              <button
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 type="button"
                 onClick={() => setIsEditing(true)}
-                className="px-4 py-2 bg-amber-400 hover:bg-amber-500 text-slate-900 font-semibold rounded-xl text-xs shadow-sm transition flex items-center gap-2 self-stretch sm:self-auto justify-center cursor-pointer"
+                className="px-6 py-3.5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-black rounded-2xl text-xs shadow-md shadow-amber-500/20 transition-all flex items-center gap-2.5 self-stretch sm:self-auto justify-center cursor-pointer"
               >
-                <Edit3 className="w-3.5 h-3.5" /> Edit Profile
-              </button>
+                <Edit3 className="w-4 h-4 text-white" />
+                <span className="text-white">Edit Profile</span>
+              </motion.button>
             ) : (
-              <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="flex items-center gap-3 w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="flex-1 sm:flex-none px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="flex-1 sm:flex-none px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-black transition flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <X className="w-3.5 h-3.5" /> Cancel
+                  <X className="w-4 h-4" /> Cancel
                 </button>
               </div>
             )}
           </div>
 
-          {submitError && (
-            <div className="mt-6 p-3.5 bg-red-50 text-red-700 border border-red-200 rounded-xl text-xs font-medium flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
-              {submitError}
-            </div>
-          )}
+          <AnimatePresence mode="wait">
+            {submitError && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="mt-6 p-4 bg-red-50 text-red-700 border border-red-200/80 rounded-2xl text-xs font-bold flex items-center gap-2.5 shadow-2xs"
+              >
+                <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" />
+                {submitError}
+              </motion.div>
+            )}
 
-          {successMsg && (
-            <div className="mt-6 p-3.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-medium flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              {successMsg}
-            </div>
-          )}
+            {successMsg && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="mt-6 p-4 bg-emerald-50 text-emerald-800 border border-emerald-200/80 rounded-2xl text-xs font-bold flex items-center gap-2.5 shadow-2xs"
+              >
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                {successMsg}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          <div className="mt-8 space-y-8">
+          <div className="mt-8 space-y-10">
+            {/* Personal Details Section */}
             <div>
-              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                <UserIcon className="w-4 h-4 text-gray-400" /> Personal Details
+              <h2 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-5 flex items-center gap-2">
+                <UserIcon className="w-4 h-4 text-amber-500" /> Personal Details
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div>
                   <label
                     htmlFor="first-name"
-                    className="block text-xs font-semibold text-gray-700 mb-1.5"
+                    className="block text-xs font-bold text-slate-700 mb-2"
                   >
                     First Name
                   </label>
@@ -388,14 +423,14 @@ export const ProfileContent = () => {
                     disabled={!isEditing}
                     {...register("firstName")}
                     placeholder="Enter first name"
-                    className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
+                    className={`w-full text-xs font-bold p-3.5 rounded-2xl border transition-all focus:outline-none ${
                       isEditing
-                        ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
-                        : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
+                        ? "bg-white border-slate-300 focus:border-amber-500 focus:ring-3 focus:ring-amber-500/10 shadow-2xs"
+                        : "bg-slate-50/80 border-slate-200/80 text-slate-800 cursor-not-allowed"
                     }`}
                   />
                   {errors.firstName && (
-                    <p className="text-red-500 text-xs mt-1">
+                    <p className="text-red-500 text-[11px] font-bold mt-1.5">
                       {errors.firstName.message}
                     </p>
                   )}
@@ -404,7 +439,7 @@ export const ProfileContent = () => {
                 <div>
                   <label
                     htmlFor="last-name"
-                    className="block text-xs font-semibold text-gray-700 mb-1.5"
+                    className="block text-xs font-bold text-slate-700 mb-2"
                   >
                     Last Name
                   </label>
@@ -414,14 +449,14 @@ export const ProfileContent = () => {
                     disabled={!isEditing}
                     {...register("lastName")}
                     placeholder="Enter last name"
-                    className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
+                    className={`w-full text-xs font-bold p-3.5 rounded-2xl border transition-all focus:outline-none ${
                       isEditing
-                        ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
-                        : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
+                        ? "bg-white border-slate-300 focus:border-amber-500 focus:ring-3 focus:ring-amber-500/10 shadow-2xs"
+                        : "bg-slate-50/80 border-slate-200/80 text-slate-800 cursor-not-allowed"
                     }`}
                   />
                   {errors.lastName && (
-                    <p className="text-red-500 text-xs mt-1">
+                    <p className="text-red-500 text-[11px] font-bold mt-1.5">
                       {errors.lastName.message}
                     </p>
                   )}
@@ -430,7 +465,7 @@ export const ProfileContent = () => {
                 <div>
                   <label
                     htmlFor="gender"
-                    className="block text-xs font-semibold text-gray-700 mb-1.5"
+                    className="block text-xs font-bold text-slate-700 mb-2"
                   >
                     Gender
                   </label>
@@ -438,10 +473,10 @@ export const ProfileContent = () => {
                     id="gender"
                     disabled={!isEditing}
                     {...register("gender")}
-                    className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
+                    className={`w-full text-xs font-bold p-3.5 rounded-2xl border transition-all focus:outline-none ${
                       isEditing
-                        ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
-                        : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
+                        ? "bg-white border-slate-300 focus:border-amber-500 focus:ring-3 focus:ring-amber-500/10 shadow-2xs cursor-pointer"
+                        : "bg-slate-50/80 border-slate-200/80 text-slate-800 cursor-not-allowed"
                     }`}
                   >
                     <option value="">Select Gender</option>
@@ -451,7 +486,7 @@ export const ProfileContent = () => {
                     <option value="prefer_not_to_say">Prefer not to say</option>
                   </select>
                   {errors.gender && (
-                    <p className="text-red-500 text-xs mt-1">
+                    <p className="text-red-500 text-[11px] font-bold mt-1.5">
                       {errors.gender.message}
                     </p>
                   )}
@@ -460,10 +495,10 @@ export const ProfileContent = () => {
                 <div>
                   <label
                     htmlFor="email"
-                    className="block text-xs font-semibold text-gray-700 mb-1.5"
+                    className="block text-xs font-bold text-slate-700 mb-2"
                   >
                     Email Address{" "}
-                    <span className="text-gray-400 font-normal">
+                    <span className="text-slate-400 font-medium">
                       (Non-editable)
                     </span>
                   </label>
@@ -472,14 +507,14 @@ export const ProfileContent = () => {
                     id="email"
                     disabled
                     {...register("email")}
-                    className="w-full text-xs p-3 rounded-xl border border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed"
+                    className="w-full text-xs font-bold p-3.5 rounded-2xl border border-slate-200/80 bg-slate-100 text-slate-500 cursor-not-allowed"
                   />
                 </div>
 
                 <div>
                   <label
                     htmlFor="phone"
-                    className="block text-xs font-semibold text-gray-700 mb-1.5"
+                    className="block text-xs font-bold text-slate-700 mb-2"
                   >
                     Phone Number
                   </label>
@@ -489,14 +524,14 @@ export const ProfileContent = () => {
                     disabled={!isEditing}
                     {...register("phone")}
                     placeholder="Enter phone number"
-                    className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
+                    className={`w-full text-xs font-bold p-3.5 rounded-2xl border transition-all focus:outline-none ${
                       isEditing
-                        ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
-                        : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
+                        ? "bg-white border-slate-300 focus:border-amber-500 focus:ring-3 focus:ring-amber-500/10 shadow-2xs"
+                        : "bg-slate-50/80 border-slate-200/80 text-slate-800 cursor-not-allowed"
                     }`}
                   />
                   {errors.phone && (
-                    <p className="text-red-500 text-xs mt-1">
+                    <p className="text-red-500 text-[11px] font-bold mt-1.5">
                       {errors.phone.message}
                     </p>
                   )}
@@ -505,7 +540,7 @@ export const ProfileContent = () => {
                 <div>
                   <label
                     htmlFor="date-of-birth"
-                    className="block text-xs font-semibold text-gray-700 mb-1.5"
+                    className="block text-xs font-bold text-slate-700 mb-2"
                   >
                     Date of Birth
                   </label>
@@ -514,14 +549,14 @@ export const ProfileContent = () => {
                     id="date-of-birth"
                     disabled={!isEditing}
                     {...register("dateOfBirth")}
-                    className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
+                    className={`w-full text-xs font-bold p-3.5 rounded-2xl border transition-all focus:outline-none ${
                       isEditing
-                        ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
-                        : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
+                        ? "bg-white border-slate-300 focus:border-amber-500 focus:ring-3 focus:ring-amber-500/10 shadow-2xs"
+                        : "bg-slate-50/80 border-slate-200/80 text-slate-800 cursor-not-allowed"
                     }`}
                   />
                   {errors.dateOfBirth && (
-                    <p className="text-red-500 text-xs mt-1">
+                    <p className="text-red-500 text-[11px] font-bold mt-1.5">
                       {errors.dateOfBirth.message}
                     </p>
                   )}
@@ -529,17 +564,18 @@ export const ProfileContent = () => {
               </div>
             </div>
 
+            {/* Location Details Section */}
             <div>
-              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-gray-400" /> Location Details
+              <h2 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-5 flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-amber-500" /> Location Details
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Country Dropdown */}
                 <div>
                   <label
                     htmlFor="country"
-                    className="block text-xs font-semibold text-gray-700 mb-1.5"
+                    className="block text-xs font-bold text-slate-700 mb-2"
                   >
                     Country
                   </label>
@@ -548,10 +584,10 @@ export const ProfileContent = () => {
                     disabled={!isEditing}
                     {...register("country")}
                     onChange={handleCountryChange}
-                    className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
+                    className={`w-full text-xs font-bold p-3.5 rounded-2xl border transition-all focus:outline-none ${
                       isEditing
-                        ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
-                        : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
+                        ? "bg-white border-slate-300 focus:border-amber-500 focus:ring-3 focus:ring-amber-500/10 shadow-2xs cursor-pointer"
+                        : "bg-slate-50/80 border-slate-200/80 text-slate-800 cursor-not-allowed"
                     }`}
                   >
                     <option value="">Select Country</option>
@@ -562,7 +598,7 @@ export const ProfileContent = () => {
                     ))}
                   </select>
                   {errors.country && (
-                    <p className="text-red-500 text-xs mt-1">
+                    <p className="text-red-500 text-[11px] font-bold mt-1.5">
                       {errors.country.message}
                     </p>
                   )}
@@ -572,7 +608,7 @@ export const ProfileContent = () => {
                 <div>
                   <label
                     htmlFor="city"
-                    className="block text-xs font-semibold text-gray-700 mb-1.5"
+                    className="block text-xs font-bold text-slate-700 mb-2"
                   >
                     City
                   </label>
@@ -581,10 +617,10 @@ export const ProfileContent = () => {
                       id="city"
                       disabled={!isEditing || !watchedCountry}
                       {...register("city")}
-                      className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
+                      className={`w-full text-xs font-bold p-3.5 rounded-2xl border transition-all focus:outline-none ${
                         isEditing && watchedCountry
-                          ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
-                          : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
+                          ? "bg-white border-slate-300 focus:border-amber-500 focus:ring-3 focus:ring-amber-500/10 shadow-2xs cursor-pointer"
+                          : "bg-slate-50/80 border-slate-200/80 text-slate-800 cursor-not-allowed"
                       }`}
                     >
                       <option value="">Select City</option>
@@ -608,15 +644,15 @@ export const ProfileContent = () => {
                           ? "Enter city name"
                           : "Select country first"
                       }
-                      className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
+                      className={`w-full text-xs font-bold p-3.5 rounded-2xl border transition-all focus:outline-none ${
                         isEditing && watchedCountry
-                          ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
-                          : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
+                          ? "bg-white border-slate-300 focus:border-amber-500 focus:ring-3 focus:ring-amber-500/10 shadow-2xs"
+                          : "bg-slate-50/80 border-slate-200/80 text-slate-800 cursor-not-allowed"
                       }`}
                     />
                   )}
                   {errors.city && (
-                    <p className="text-red-500 text-xs mt-1">
+                    <p className="text-red-500 text-[11px] font-bold mt-1.5">
                       {errors.city.message}
                     </p>
                   )}
@@ -625,7 +661,7 @@ export const ProfileContent = () => {
                 <div>
                   <label
                     htmlFor="postal-code"
-                    className="block text-xs font-semibold text-gray-700 mb-1.5"
+                    className="block text-xs font-bold text-slate-700 mb-2"
                   >
                     Postal Code
                   </label>
@@ -635,14 +671,14 @@ export const ProfileContent = () => {
                     disabled={!isEditing}
                     {...register("postalCode")}
                     placeholder="Postal code"
-                    className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
+                    className={`w-full text-xs font-bold p-3.5 rounded-2xl border transition-all focus:outline-none ${
                       isEditing
-                        ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
-                        : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
+                        ? "bg-white border-slate-300 focus:border-amber-500 focus:ring-3 focus:ring-amber-500/10 shadow-2xs"
+                        : "bg-slate-50/80 border-slate-200/80 text-slate-800 cursor-not-allowed"
                     }`}
                   />
                   {errors.postalCode && (
-                    <p className="text-red-500 text-xs mt-1">
+                    <p className="text-red-500 text-[11px] font-bold mt-1.5">
                       {errors.postalCode.message}
                     </p>
                   )}
@@ -651,7 +687,7 @@ export const ProfileContent = () => {
                 <div className="md:col-span-3">
                   <label
                     htmlFor="address"
-                    className="block text-xs font-semibold text-gray-700 mb-1.5"
+                    className="block text-xs font-bold text-slate-700 mb-2"
                   >
                     Street Address
                   </label>
@@ -661,14 +697,14 @@ export const ProfileContent = () => {
                     disabled={!isEditing}
                     {...register("address")}
                     placeholder="Enter street address"
-                    className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none ${
+                    className={`w-full text-xs font-bold p-3.5 rounded-2xl border transition-all focus:outline-none ${
                       isEditing
-                        ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
-                        : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
+                        ? "bg-white border-slate-300 focus:border-amber-500 focus:ring-3 focus:ring-amber-500/10 shadow-2xs"
+                        : "bg-slate-50/80 border-slate-200/80 text-slate-800 cursor-not-allowed"
                     }`}
                   />
                   {errors.address && (
-                    <p className="text-red-500 text-xs mt-1">
+                    <p className="text-red-500 text-[11px] font-bold mt-1.5">
                       {errors.address.message}
                     </p>
                   )}
@@ -676,55 +712,65 @@ export const ProfileContent = () => {
               </div>
             </div>
 
+            {/* About Bio Section */}
             <div>
               <label
                 htmlFor="bio"
-                className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2"
+                className="block text-xs font-black text-slate-400 uppercase tracking-wider mb-3"
               >
                 About Bio
               </label>
               <textarea
                 id="bio"
-                rows={3}
+                rows={4}
                 disabled={!isEditing}
                 {...register("bio")}
                 placeholder="Tell us a little bit about yourself..."
-                className={`w-full text-xs p-3 rounded-xl border transition focus:outline-none resize-none ${
+                className={`w-full text-xs font-medium p-4 rounded-2xl border transition-all focus:outline-none resize-none leading-relaxed ${
                   isEditing
-                    ? "bg-white border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
-                    : "bg-gray-50/70 border-gray-200 text-gray-800 cursor-not-allowed"
+                    ? "bg-white border-slate-300 focus:border-amber-500 focus:ring-3 focus:ring-amber-500/10 shadow-2xs"
+                    : "bg-slate-50/80 border-slate-200/80 text-slate-800 cursor-not-allowed"
                 }`}
               />
               {errors.bio && (
-                <p className="text-red-500 text-xs mt-1">
+                <p className="text-red-500 text-[11px] font-bold mt-1.5">
                   {errors.bio.message}
                 </p>
               )}
             </div>
           </div>
 
-          <div className="mt-8 pt-5 border-t border-gray-100 flex flex-col sm:flex-row justify-end items-center gap-4">
-            {isEditing && (
-              <button
+          {/* Action Buttons */}
+          {isEditing && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-10 pt-6 border-t border-slate-100 flex flex-col sm:flex-row justify-end items-center gap-4"
+            >
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full sm:w-auto px-6 py-2.5 bg-amber-400 hover:bg-amber-500 text-slate-900 rounded-xl text-xs font-semibold shadow-sm disabled:opacity-50 transition flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full sm:w-auto px-8 py-3.5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white rounded-2xl text-xs font-black shadow-md shadow-amber-500/20 disabled:opacity-50 transition flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    <span className="text-white">Saving...</span>
                   </>
                 ) : (
                   <>
-                    <Save className="w-3.5 h-3.5" /> Complete Onboarding
+                    <Save className="w-4 h-4 text-white" />
+                    <span className="text-white">Complete Onboarding</span>
                   </>
                 )}
-              </button>
-            )}
-          </div>
+              </motion.button>
+            </motion.div>
+          )}
         </form>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

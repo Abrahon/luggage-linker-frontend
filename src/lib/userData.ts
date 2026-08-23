@@ -56,7 +56,7 @@ export const carrierLink = [
   {
     label: "Withdrawal History",
     href: "/withdrawal-history",
-    icon: Receipt, // 🧾 withdrawal history / receipts
+    icon: Receipt, 
   },
   {
     label: "Verification",

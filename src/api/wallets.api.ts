@@ -115,6 +115,19 @@ export interface WithdrawalResponse {
   data: WithdrawalItem[];
 }
 
+export interface WithdrawalStatsData {
+  total_withdrawals: number;
+  completed: number;
+  pending: number;
+  failed_rejected: number;
+}
+
+export interface WithdrawalStatsResponse {
+  success: boolean;
+  message: string;
+  data: WithdrawalStatsData;
+}
+
 // --- Wallet Ledger Types ---
 
 export interface WalletLedgerItem {
@@ -192,6 +205,13 @@ export const requestWithdrawal = async (
 export const getWithdrawals = async (): Promise<WithdrawalResponse> => {
   const response = await axiosInstance.get<WithdrawalResponse>(
     "/api/wallets/withdrawals/"
+  );
+  return response.data;
+};
+
+export const getWithdrawalStats = async (): Promise<WithdrawalStatsResponse> => {
+  const response = await axiosInstance.get<WithdrawalStatsResponse>(
+    "/api/withdrawals/stats/"
   );
   return response.data;
 };
