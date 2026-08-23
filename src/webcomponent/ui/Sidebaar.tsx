@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+import type { ComponentType } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -9,7 +10,13 @@ import { senderLink, carrierLink, adminLink } from "@/lib/userData";
 import { Home, Package, MessageCircle, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
-const commonLinks = [
+type NavigationItem = {
+  label: string;
+  href: string;
+  icon?: ComponentType<{ className?: string }>;
+};
+
+const commonLinks: NavigationItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: Home },
   { label: "Active Deliveries", href: "/active-deliveries", icon: Package },
   { label: "Messages", href: "/messages", icon: MessageCircle },
@@ -20,17 +27,62 @@ interface SideBaarProps {
   onClose?: () => void;
 }
 
+const NavigationContent = ({
+  links,
+  pathname,
+  isMounted,
+  onClose,
+}: {
+  links: NavigationItem[];
+  pathname: string;
+  isMounted: boolean;
+  onClose?: () => void;
+}) => (
+  <nav className="flex flex-col gap-2">
+    {!isMounted ? (
+      <div className="flex flex-col gap-2 animate-pulse">
+        {[1, 2, 3, 4].map((item) => (
+          <div key={item} className="h-10 bg-gray-100 rounded-lg w-full" />
+        ))}
+      </div>
+    ) : (
+      links.map((item) => {
+        const Icon = item.icon;
+        const isActive =
+          item.href === "/"
+            ? pathname === "/"
+            : pathname === item.href || pathname.startsWith(`${item.href}/`);
+
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={onClose}
+            className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors duration-200 ${
+              isActive ? "bg-primary text-white" : "text-black hover:bg-gray-100"
+            }`}
+          >
+            {Icon && (
+              <Icon className={`w-5 h-5 ${isActive ? "text-white" : "text-black"}`} />
+            )}
+            <span className="font-medium text-sm">{item.label}</span>
+          </Link>
+        );
+      })
+    )}
+  </nav>
+);
+
 export const SideBaar = ({ isOpen = false, onClose }: SideBaarProps) => {
   const pathname = usePathname();
   const { user } = useAuth();
-  const [role, setRole] = useState<string | null>(null);
-  const [isMounted, setIsMounted] = useState<boolean>(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-    const activeRole = user?.role || getUserRole();
-    setRole(activeRole ? activeRole.toUpperCase() : null);
-  }, [user]);
+  const isMounted = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false
+  );
+  const activeRole = user?.role || (isMounted ? getUserRole() : null);
+  const role = activeRole ? activeRole.toUpperCase() : null;
 
   const isCarrierOrTraveler = role === "TRAVELER";
   const isAdmin = role === "ADMIN";
@@ -38,48 +90,6 @@ export const SideBaar = ({ isOpen = false, onClose }: SideBaarProps) => {
   const links = isAdmin
     ? adminLink
     : [...commonLinks, ...(isCarrierOrTraveler ? carrierLink : senderLink)];
-
-  const NavigationContent = () => (
-    <nav className="flex flex-col gap-2">
-      {!isMounted ? (
-        <div className="flex flex-col gap-2 animate-pulse">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-10 bg-gray-100 rounded-lg w-full" />
-          ))}
-        </div>
-      ) : (
-        links.map((item) => {
-          const Icon = item.icon;
-          const isActive =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname === item.href || pathname.startsWith(`${item.href}/`);
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onClose}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors duration-200 ${
-                isActive
-                  ? "bg-primary text-white"
-                  : "text-black hover:bg-gray-100"
-              }`}
-            >
-              {Icon && (
-                <Icon
-                  className={`w-5 h-5 ${
-                    isActive ? "text-white" : "text-black"
-                  }`}
-                />
-              )}
-              <span className="font-medium text-sm">{item.label}</span>
-            </Link>
-          );
-        })
-      )}
-    </nav>
-  );
 
   return (
     <>
@@ -97,7 +107,7 @@ export const SideBaar = ({ isOpen = false, onClose }: SideBaarProps) => {
             />
           </Link>
         </div>
-        <NavigationContent />
+        <NavigationContent links={links} pathname={pathname} isMounted={isMounted} />
       </aside>
 
       {/* ================= MOBILE SIDEBAR DRAWER ================= */}
@@ -144,7 +154,7 @@ export const SideBaar = ({ isOpen = false, onClose }: SideBaarProps) => {
             </button>
           </div>
 
-          <NavigationContent />
+          <NavigationContent links={links} pathname={pathname} isMounted={isMounted} onClose={onClose} />
         </aside>
       </div>
     </>

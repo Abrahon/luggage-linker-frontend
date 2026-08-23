@@ -1,6 +1,782 @@
+// "use client";
+
+// import React, { useState, useEffect, useCallback } from "react";
+// import {
+//   Search,
+//   Package,
+//   AlertCircle,
+//   Clock,
+//   CheckCircle2,
+//   X,
+//   ChevronLeft,
+//   ChevronRight,
+//   ShieldAlert,
+//   MoreVertical,
+//   Eye,
+//   Star,
+//   Flag,
+//   DollarSign,
+//   TrendingUp,
+//   RefreshCw,
+//   Check,
+//   Filter,
+//   User,
+//   Download,
+//   FileText,
+// } from "lucide-react";
+// import { toast } from "sonner";
+
+// // Import API Types & Functions
+// import {
+//   getDeliveryHistory,
+//   getDeliveryHistoryStats,
+//   getDeliveryTimeline,
+//   DeliveryHistoryItem,
+//   DeliveryStatsData,
+//   TimelineStepItem,
+//   DeliveryInvoice,
+// } from "@/api/delivery.api";
+
+// // Import Custom Modals
+// import { OpenDisputeModal } from "./DisputeModals";
+// import { ViewDisputeModal } from "./ViewDisputeModal";
+// import { ReportModal } from "./ReportModal";
+// import { LeaveReviewModal } from "./ReviewModal";
+
+// export default function DeliveryHistoryPage() {
+//   // --- Main Data States ---
+//   const [deliveries, setDeliveries] = useState<DeliveryHistoryItem[]>([]);
+//   const [stats, setStats] = useState<DeliveryStatsData | null>(null);
+//   const [loading, setLoading] = useState<boolean>(true);
+//   const [error, setError] = useState<string | null>(null);
+
+//   // --- Filters & Pagination States ---
+//   const [page, setPage] = useState<number>(1);
+//   const [totalPages, setTotalPages] = useState<number>(1);
+//   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+//   const [searchQuery, setSearchQuery] = useState<string>("");
+
+//   // --- UI Action States ---
+//   const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
+
+//   // --- Timeline & Invoice Modal States ---
+//   const [activeDetailItem, setActiveDetailItem] = useState<DeliveryHistoryItem | null>(null);
+//   const [timelineData, setTimelineData] = useState<TimelineStepItem[]>([]);
+//   const [invoiceData, setInvoiceData] = useState<DeliveryInvoice | null>(null);
+//   const [loadingTimeline, setLoadingTimeline] = useState<boolean>(false);
+//   const [pdfLoadingAction, setPdfLoadingAction] = useState<"view" | "download" | null>(null);
+
+//   // --- Modal Flow States ---
+//   const [reviewBookingItem, setReviewBookingItem] = useState<DeliveryHistoryItem | null>(null);
+//   const [disputeBookingOpen, setDisputeBookingOpen] = useState<DeliveryHistoryItem | null>(null);
+//   const [disputeBookingView, setDisputeBookingView] = useState<DeliveryHistoryItem | null>(null);
+//   const [reportModalId, setReportModalId] = useState<string | null>(null);
+//   const [reportedUserId, setReportedUserId] = useState<string | undefined>(undefined);
+
+//   // --- Helper: Check Dispute Eligibility ---
+//   const checkDisputeEligibility = (item: DeliveryHistoryItem) => {
+//     if (item.has_dispute) {
+//       return { canOpen: false, canView: true, expired: false };
+//     }
+
+//     const upperStatus = item.status?.toUpperCase();
+//     if (
+//       upperStatus === "CANCELLED" ||
+//       upperStatus === "REJECTED" ||
+//       upperStatus === "EXPIRED" ||
+//       upperStatus !== "COMPLETED"
+//     ) {
+//       return { canOpen: false, canView: false, expired: false };
+//     }
+
+//     const completionTimestamp =
+//       (item as any).completed_at ||
+//       (item as any).delivered_at ||
+//       (item as any).updated_at ||
+//       item.completed_date;
+
+//     if (completionTimestamp) {
+//       const completedTime = new Date(completionTimestamp).getTime();
+//       const currentTime = new Date().getTime();
+//       const hoursPassed = (currentTime - completedTime) / (1000 * 60 * 60);
+
+//       if (hoursPassed > 24) {
+//         return { canOpen: false, canView: false, expired: true };
+//       }
+//     }
+
+//     return { canOpen: true, canView: false, expired: false };
+//   };
+
+//   // --- Fetch Main Data ---
+//   const fetchData = useCallback(async () => {
+//     setLoading(true);
+//     setError(null);
+//     try {
+//       const [historyRes, statsRes] = await Promise.all([
+//         getDeliveryHistory(page, statusFilter, searchQuery),
+//         getDeliveryHistoryStats(),
+//       ]);
+
+//       setDeliveries(historyRes.results || []);
+//       setTotalPages(Math.ceil((historyRes.count || 1) / 10));
+//       if (statsRes.success) {
+//         setStats(statsRes.data);
+//       }
+//     } catch (err: any) {
+//       setError(err?.response?.data?.message || "Failed to fetch delivery history.");
+//     } finally {
+//       setLoading(false);
+//     }
+//   }, [page, statusFilter, searchQuery]);
+
+//   useEffect(() => {
+//     fetchData();
+//   }, [fetchData]);
+
+//   // --- Fetch Timeline & Invoice Details ---
+//   const handleOpenDetails = async (item: DeliveryHistoryItem) => {
+//     setActiveDetailItem(item);
+//     setLoadingTimeline(true);
+//     setInvoiceData(null);
+//     setTimelineData([]);
+
+//     try {
+//       const res = await getDeliveryTimeline(item.id);
+//       if (res.success && res.data) {
+//         setTimelineData(res.data.timeline || []);
+//         setInvoiceData(res.data.invoice || null);
+//       }
+//     } catch (err) {
+//       toast.error("Failed to load timeline and invoice details.");
+//       console.error("Failed to load timeline", err);
+//     } finally {
+//       setLoadingTimeline(false);
+//     }
+//   };
+
+//   // --- View PDF Handler ---
+//   const handleViewInvoice = async (invoiceId: string) => {
+//     setPdfLoadingAction("view");
+//     try {
+//       const url = URL.createObjectURL(blob);
+//       window.open(url, "_blank", "noopener,noreferrer");
+//     } catch (err) {
+//       toast.error("Failed to open invoice PDF.");
+//     } finally {
+//       setPdfLoadingAction(null);
+//     }
+//   };
+
+//   // --- Download PDF Handler ---
+//   const handleDownloadInvoice = async (invoiceId: string, invoiceNumber: string) => {
+//     setPdfLoadingAction("download");
+//     try {
+//       const url = URL.createObjectURL(blob);
+//       const link = document.createElement("a");
+//       link.href = url;
+//       link.setAttribute("download", `${invoiceNumber}.pdf`);
+//       document.body.appendChild(link);
+//       link.click();
+//       document.body.removeChild(link);
+//       URL.revokeObjectURL(url);
+//     } catch (err) {
+//       toast.error("Failed to download invoice PDF.");
+//     } finally {
+//       setPdfLoadingAction(null);
+//     }
+//   };
+
+//   return (
+//     <div className="w-full min-h-screen bg-slate-50/50 text-slate-900 p-4 sm:p-6 lg:p-8 space-y-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+//       {/* --- Header --- */}
+//       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
+//         <div>
+//           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Delivery History</h1>
+//           <p className="text-xs sm:text-sm text-slate-500 mt-1">
+//             Manage completed shipments, monitor escrow payouts, track opened disputes, and view invoices.
+//           </p>
+//         </div>
+//         <button
+//           onClick={fetchData}
+//           className="self-start md:self-auto inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl shadow-2xs hover:bg-slate-50 transition-all cursor-pointer"
+//         >
+//           <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
+//           Refresh
+//         </button>
+//       </div>
+
+//       {/* --- Stats Cards --- */}
+//       {stats && (
+//         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+//           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
+//             <div>
+//               <p className="text-xs font-semibold uppercase text-slate-400 tracking-wider">Completed</p>
+//               <h3 className="text-2xl font-bold text-slate-900 mt-1">{stats.completed}</h3>
+//             </div>
+//             <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
+//               <CheckCircle2 className="w-5 h-5" />
+//             </div>
+//           </div>
+
+//           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
+//             <div>
+//               <p className="text-xs font-semibold uppercase text-slate-400 tracking-wider">Cancelled</p>
+//               <h3 className="text-2xl font-bold text-slate-900 mt-1">{stats.cancelled}</h3>
+//             </div>
+//             <div className="w-11 h-11 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100">
+//               <X className="w-5 h-5" />
+//             </div>
+//           </div>
+
+//           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
+//             <div>
+//               <p className="text-xs font-semibold uppercase text-slate-400 tracking-wider">Refunded</p>
+//               <h3 className="text-2xl font-bold text-slate-900 mt-1">{stats.refunded}</h3>
+//             </div>
+//             <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100">
+//               <TrendingUp className="w-5 h-5" />
+//             </div>
+//           </div>
+
+//           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
+//             <div>
+//               <p className="text-xs font-semibold uppercase text-slate-400 tracking-wider">Total Paid</p>
+//               <h3 className="text-2xl font-bold text-indigo-600 mt-1">{stats.total_paid}</h3>
+//             </div>
+//             <div className="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
+//               <DollarSign className="w-5 h-5" />
+//             </div>
+//           </div>
+//         </div>
+//       )}
+
+//       {/* --- Search & Dropdown Filter Bar --- */}
+//       <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row gap-3 justify-between items-center">
+//         <div className="relative w-full sm:w-96">
+//           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+//           <input
+//             type="text"
+//             placeholder="Search tracking no, package name..."
+//             value={searchQuery}
+//             onChange={(e) => setSearchQuery(e.target.value)}
+//             className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all bg-slate-50/50 focus:bg-white"
+//           />
+//         </div>
+
+//         <div className="w-full sm:w-auto flex items-center gap-2">
+//           <Filter className="w-4 h-4 text-slate-400 shrink-0" />
+//           <select
+//             value={statusFilter}
+//             onChange={(e) => {
+//               setStatusFilter(e.target.value);
+//               setPage(1);
+//             }}
+//             className="w-full sm:w-52 px-3 py-2.5 text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
+//           >
+//             <option value="ALL">All Statuses</option>
+//             <option value="COMPLETED">Completed</option>
+//             <option value="CANCELLED">Cancelled</option>
+//             <option value="REFUNDED">Refunded</option>
+//             <option value="REJECTED">Rejected</option>
+//           </select>
+//         </div>
+//       </div>
+
+//       {/* --- Main Table Card --- */}
+//       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
+//         {loading ? (
+//           <div className="py-20 text-center">
+//             <div className="inline-block animate-spin rounded-full h-8 w-8 border-3 border-indigo-600 border-t-transparent"></div>
+//             <p className="mt-3 text-xs font-medium text-slate-500">Loading delivery records...</p>
+//           </div>
+//         ) : error ? (
+//           <div className="p-8 text-center">
+//             <AlertCircle className="w-8 h-8 text-rose-500 mx-auto mb-2" />
+//             <p className="text-sm font-medium text-slate-700">{error}</p>
+//           </div>
+//         ) : deliveries.length === 0 ? (
+//           <div className="py-20 text-center">
+//             <Package className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+//             <h3 className="text-base font-semibold text-slate-800">No delivery items found</h3>
+//             <p className="text-xs text-slate-500 mt-1">There are no records matching your selected query.</p>
+//           </div>
+//         ) : (
+//           <div className="w-full overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+//             <table className="w-full text-left text-xs sm:text-sm">
+//               <thead>
+//                 <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+//                   <th className="px-6 py-4">Package Details</th>
+//                   <th className="px-6 py-4">Traveler</th>
+//                   <th className="px-6 py-4">Delivery Status</th>
+//                   <th className="px-6 py-4">Payment</th>
+//                   <th className="px-6 py-4">Reward</th>
+//                   <th className="px-6 py-4">Dispute</th>
+//                   <th className="px-6 py-4 text-center">Actions</th>
+//                 </tr>
+//               </thead>
+//               <tbody className="divide-y divide-slate-100 font-medium">
+//                 {deliveries.map((item) => {
+//                   const eligibility = checkDisputeEligibility(item);
+
+//                   return (
+//                     <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
+//                       {/* Package Item */}
+//                       <td className="px-6 py-4">
+//                         <div className="flex items-center gap-3">
+//                           {item.package_image ? (
+//                             <img
+//                               src={item.package_image}
+//                               alt={item.package_title}
+//                               className="w-11 h-11 rounded-xl object-cover border border-slate-200 shadow-2xs shrink-0"
+//                             />
+//                           ) : (
+//                             <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 border border-slate-200/60 shrink-0">
+//                               <Package className="w-5 h-5" />
+//                             </div>
+//                           )}
+//                           <div>
+//                             <p className="font-semibold text-slate-900">{item.package_title}</p>
+//                             <p className="text-[11px] text-slate-400 font-mono mt-0.5">{item.tracking_number}</p>
+//                           </div>
+//                         </div>
+//                       </td>
+
+//                       {/* Traveler */}
+//                       <td className="px-6 py-4 text-slate-700">
+//                         <span className="font-medium">{item.traveler_name}</span>
+//                       </td>
+
+//                       {/* Status */}
+//                       <td className="px-6 py-4">
+//                         <span
+//                           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+//                             item.status === "COMPLETED"
+//                               ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
+//                               : item.status === "CANCELLED" || item.status === "REJECTED"
+//                               ? "bg-rose-50 text-rose-700 border border-rose-200/60"
+//                               : "bg-amber-50 text-amber-700 border border-amber-200/60"
+//                           }`}
+//                         >
+//                           <span
+//                             className={`w-1.5 h-1.5 rounded-full ${
+//                               item.status === "COMPLETED"
+//                                 ? "bg-emerald-500"
+//                                 : item.status === "CANCELLED" || item.status === "REJECTED"
+//                                 ? "bg-rose-500"
+//                                 : "bg-amber-500"
+//                             }`}
+//                           />
+//                           {item.status_display || item.status}
+//                         </span>
+//                       </td>
+
+//                       {/* Payment */}
+//                       <td className="px-6 py-4">
+//                         <div className="flex flex-col">
+//                           <span className="text-slate-800 font-semibold">{item.payment_status_display || item.payment_status}</span>
+//                           <span className="text-[10px] text-slate-400 uppercase tracking-tight">
+//                             Escrow: {item.escrow_status}
+//                           </span>
+//                         </div>
+//                       </td>
+
+//                       {/* Reward */}
+//                       <td className="px-6 py-4 font-bold text-slate-900">
+//                         {item.currency} ${item.agreed_reward}
+//                       </td>
+
+//                       {/* Dispute Status */}
+//                       <td className="px-6 py-4">
+//                         {item.has_dispute ? (
+//                           <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-full text-xs font-semibold">
+//                             <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
+//                             {item.dispute_status_display || "Disputed"}
+//                           </span>
+//                         ) : (
+//                           <span className="text-slate-400 text-xs">—</span>
+//                         )}
+//                       </td>
+
+//                       {/* Action Dropdown Menu */}
+//                       <td className="px-6 py-4 text-center">
+//                         <div
+//                           className="relative inline-block text-left group"
+//                           onMouseEnter={() => setHoveredRowId(item.id)}
+//                           onMouseLeave={() => setHoveredRowId(null)}
+//                         >
+//                           <button
+//                             type="button"
+//                             className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors focus:outline-none cursor-pointer"
+//                           >
+//                             <MoreVertical className="w-4 h-4" />
+//                           </button>
+
+//                           {hoveredRowId === item.id && (
+//                             <div className="absolute right-0 top-full -mt-1 w-56 bg-white rounded-2xl shadow-xl border border-slate-200/80 z-30 py-2 animate-in fade-in zoom-in-95 duration-100">
+//                               <button
+//                                 type="button"
+//                                 onClick={() => {
+//                                   setHoveredRowId(null);
+//                                   handleOpenDetails(item);
+//                                 }}
+//                                 className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left cursor-pointer"
+//                               >
+//                                 <Eye className="w-4 h-4 text-indigo-500" />
+//                                 View Details & Timeline
+//                               </button>
+
+//                               {eligibility.canView ? (
+//                                 <>
+//                                   <div className="my-1 border-t border-slate-100" />
+//                                   <button
+//                                     type="button"
+//                                     onClick={() => {
+//                                       setHoveredRowId(null);
+//                                       setDisputeBookingView(item);
+//                                     }}
+//                                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-amber-700 hover:bg-amber-50 transition-colors text-left cursor-pointer"
+//                                   >
+//                                     <ShieldAlert className="w-4 h-4 text-amber-600" />
+//                                     View Dispute Details
+//                                   </button>
+//                                 </>
+//                               ) : eligibility.canOpen ? (
+//                                 <>
+//                                   <div className="my-1 border-t border-slate-100" />
+//                                   <button
+//                                     type="button"
+//                                     onClick={() => {
+//                                       setHoveredRowId(null);
+//                                       setDisputeBookingOpen(item);
+//                                     }}
+//                                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors text-left cursor-pointer"
+//                                   >
+//                                     <Flag className="w-4 h-4 text-rose-500" />
+//                                     Open Dispute
+//                                   </button>
+//                                 </>
+//                               ) : eligibility.expired ? (
+//                                 <>
+//                                   <div className="my-1 border-t border-slate-100" />
+//                                   <button
+//                                     type="button"
+//                                     onClick={() => {
+//                                       toast.error("Dispute window expired. Disputes must be opened within 24 hours of completion.");
+//                                     }}
+//                                     className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-slate-400 bg-slate-50 cursor-not-allowed opacity-80"
+//                                   >
+//                                     <span className="flex items-center gap-2">
+//                                       <Clock className="w-4 h-4 text-slate-400" />
+//                                       Dispute window expired
+//                                     </span>
+//                                   </button>
+//                                 </>
+//                               ) : null}
+//                             </div>
+//                           )}
+//                         </div>
+//                       </td>
+//                     </tr>
+//                   );
+//                 })}
+//               </tbody>
+//             </table>
+//           </div>
+//         )}
+
+//         {/* Pagination Footer */}
+//         <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-200/80 flex items-center justify-between">
+//           <p className="text-xs text-slate-500 font-medium">
+//             Showing page <span className="font-semibold text-slate-800">{page}</span> of{" "}
+//             <span className="font-semibold text-slate-800">{totalPages}</span>
+//           </p>
+
+//           <div className="flex items-center gap-2">
+//             <button
+//               disabled={page <= 1}
+//               onClick={() => setPage((p) => Math.max(p - 1, 1))}
+//               className="inline-flex items-center gap-1 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 bg-white shadow-2xs hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+//             >
+//               <ChevronLeft className="w-3.5 h-3.5" /> Previous
+//             </button>
+//             <button
+//               disabled={page >= totalPages}
+//               onClick={() => setPage((p) => p + 1)}
+//               className="inline-flex items-center gap-1 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 bg-white shadow-2xs hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+//             >
+//               Next <ChevronRight className="w-3.5 h-3.5" />
+//             </button>
+//           </div>
+//         </div>
+//       </div>
+
+//       {/* --- VIEW DETAILS, TIMELINE & INVOICE MODAL --- */}
+//       {activeDetailItem && (
+//         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+//           <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-5 max-h-[90vh] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+
+//             {/* Modal Header */}
+//             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+//               <div>
+//                 <h3 className="font-extrabold text-slate-900 text-base">Delivery Details & Timeline</h3>
+//                 <p className="text-xs text-slate-400 font-mono mt-0.5">{activeDetailItem.tracking_number}</p>
+//               </div>
+//               <button
+//                 onClick={() => setActiveDetailItem(null)}
+//                 className="p-1.5 rounded-full text-slate-400 hover:bg-slate-100 transition-colors cursor-pointer"
+//               >
+//                 <X className="w-5 h-5" />
+//               </button>
+//             </div>
+
+//             <div className="space-y-5">
+//               {/* Package Summary Box */}
+//               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/70 flex items-center gap-3">
+//                 {activeDetailItem.package_image ? (
+//                   <img
+//                     src={activeDetailItem.package_image}
+//                     alt={activeDetailItem.package_title}
+//                     className="w-14 h-14 rounded-xl object-cover border border-slate-200 shrink-0"
+//                   />
+//                 ) : (
+//                   <div className="w-14 h-14 rounded-xl bg-slate-200/60 flex items-center justify-center text-slate-400 shrink-0">
+//                     <Package className="w-7 h-7" />
+//                   </div>
+//                 )}
+//                 <div className="flex-1">
+//                   <h4 className="font-bold text-slate-900 text-sm">{activeDetailItem.package_title}</h4>
+//                   <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+//                     <User className="w-3.5 h-3.5 text-slate-400" /> Traveler: {activeDetailItem.traveler_name}
+//                   </p>
+//                   <p className="text-xs font-bold text-slate-900 mt-1">
+//                     Agreed Payout: {activeDetailItem.currency} ${activeDetailItem.agreed_reward}
+//                   </p>
+//                 </div>
+//               </div>
+
+//               {/* Progress Timeline Section */}
+//               <div className="space-y-3">
+//                 <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Tracking Progress</h4>
+
+//                 {loadingTimeline ? (
+//                   <div className="text-center py-6">
+//                     <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-indigo-600 border-t-transparent"></div>
+//                     <p className="text-xs text-slate-400 mt-2">Loading checkpoints...</p>
+//                   </div>
+//                 ) : timelineData.length === 0 ? (
+//                   <p className="text-xs text-slate-400 py-2">No tracking steps logged yet.</p>
+//                 ) : (
+//                   <div className="relative pl-6 space-y-5 my-2 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
+//                     {timelineData.map((step, idx) => (
+//                       <div key={idx} className="relative">
+//                         <div
+//                           className={`absolute -left-6 top-0.5 w-5 h-5 rounded-full flex items-center justify-center text-xs ${
+//                             step.completed ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"
+//                           }`}
+//                         >
+//                           {step.completed ? <Check className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+//                         </div>
+//                         <div>
+//                           <h5 className={`text-xs font-bold ${step.completed ? "text-slate-900" : "text-slate-400"}`}>
+//                             {step.title}
+//                           </h5>
+//                           <p className="text-[10px] text-slate-400 mt-0.5">
+//                             {step.timestamp ? new Date(step.timestamp).toLocaleString() : "Pending"}
+//                           </p>
+//                         </div>
+//                       </div>
+//                     ))}
+//                   </div>
+//                 )}
+//               </div>
+
+//               {/* Invoice Breakdown Section */}
+//               {!loadingTimeline && (
+//                 <div className="space-y-3 pt-2">
+//                   <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Invoice Information</h4>
+//                   {invoiceData ? (
+//                     <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3">
+//                       <div className="flex items-center justify-between text-xs">
+//                         <span className="text-slate-500 font-medium">Invoice Number</span>
+//                         <span className="font-mono font-bold text-slate-800">{invoiceData.invoice_number}</span>
+//                       </div>
+//                       <div className="flex items-center justify-between text-xs">
+//                         <span className="text-slate-500 font-medium">Total Paid</span>
+//                         <span className="font-bold text-slate-900">
+//                           {invoiceData.total_paid} {invoiceData.currency}
+//                         </span>
+//                       </div>
+//                       <div className="flex items-center justify-between text-xs">
+//                         <span className="text-slate-500 font-medium">Status</span>
+//                         <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-semibold text-[10px]">
+//                           {invoiceData.status}
+//                         </span>
+//                       </div>
+
+//                       {/* PDF Action Buttons */}
+//                       <div className="pt-2 flex items-center gap-2">
+//                         <button
+//                           type="button"
+//                           onClick={() => handleViewInvoice(invoiceData.id)}
+//                           disabled={pdfLoadingAction === "view"}
+//                           className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 disabled:opacity-50 transition-all cursor-pointer"
+//                         >
+//                           {pdfLoadingAction === "view" ? (
+//                             <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-500" />
+//                           ) : (
+//                             <Eye className="w-3.5 h-3.5 text-slate-600" />
+//                           )}
+//                           View PDF
+//                         </button>
+
+//                         <button
+//                           type="button"
+//                           disabled={pdfLoadingAction === "download"}
+//                           className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-all cursor-pointer shadow-2xs"
+//                         >
+//                           {pdfLoadingAction === "download" ? (
+//                             <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+//                           ) : (
+//                             <Download className="w-3.5 h-3.5" />
+//                           )}
+//                           Download PDF
+//                         </button>
+//                       </div>
+//                     </div>
+//                   ) : (
+//                     <p className="text-xs text-slate-400">No invoice found for this booking.</p>
+//                   )}
+//                 </div>
+//               )}
+//             </div>
+
+//             {/* Modal Actions Footer */}
+//             <div className="border-t border-slate-100 pt-4 flex flex-wrap items-center justify-end gap-2.5">
+//               <button
+//                 type="button"
+//                 onClick={() => {
+//                   setReviewBookingItem(activeDetailItem);
+//                   setActiveDetailItem(null);
+//                 }}
+//                 className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold transition-all cursor-pointer"
+//               >
+//                 <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+//                 Leave Review
+//               </button>
+
+//               {(activeDetailItem as Record<string, any>).has_report || (activeDetailItem as Record<string, any>).report_id ? (
+//                 <button
+//                   type="button"
+//                   onClick={() => {
+//                     const existingReportId = (activeDetailItem as Record<string, any>).report_id || activeDetailItem.id;
+//                     setReportModalId(existingReportId);
+//                     setActiveDetailItem(null);
+//                   }}
+//                   className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all cursor-pointer"
+//                 >
+//                   <Eye className="w-3.5 h-3.5 text-indigo-600" />
+//                   View Filed Report
+//                 </button>
+//               ) : (
+//                 <button
+//                   type="button"
+//                   onClick={() => {
+//                     setReportedUserId(activeDetailItem.traveler);
+//                     setReportModalId(activeDetailItem.id);
+//                     setActiveDetailItem(null);
+//                   }}
+//                   className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-all cursor-pointer"
+//                 >
+//                   <Flag className="w-3.5 h-3.5 text-rose-600" />
+//                   Report Issue
+//                 </button>
+//               )}
+//             </div>
+//           </div>
+//         </div>
+//       )}
+
+//       {/* --- LEAVE REVIEW MODAL --- */}
+//       {reviewBookingItem && (
+//         <LeaveReviewModal
+//           isOpen={!!reviewBookingItem}
+//           onClose={() => setReviewBookingItem(null)}
+//           booking={{
+//             id: reviewBookingItem.id,
+//             traveler: reviewBookingItem.traveler,
+//             travelerName: reviewBookingItem.traveler_name,
+//             packageTitle: reviewBookingItem.package_title,
+//           }}
+//           existingReview={null}
+//           onSuccess={() => {
+//             setReviewBookingItem(null);
+//             fetchData();
+//           }}
+//         />
+//       )}
+
+//       {/* --- REPORT MODAL --- */}
+//       <ReportModal
+//         isOpen={!!reportModalId}
+//         onClose={() => {
+//           setReportModalId(null);
+//           setReportedUserId(undefined);
+//         }}
+//         bookingId={reportModalId || ""}
+//         reportedUserId={reportedUserId || ""}
+//         onSuccess={fetchData}
+//       />
+
+//       {/* --- OPEN DISPUTE MODAL --- */}
+//       {disputeBookingOpen && (
+//         <OpenDisputeModal
+//           isOpen={!!disputeBookingOpen}
+//           onClose={() => setDisputeBookingOpen(null)}
+//           bookingId={disputeBookingOpen.id}
+//           packageTitle={disputeBookingOpen.package_title}
+//           trackingNumber={disputeBookingOpen.tracking_number}
+//           againstUserId={disputeBookingOpen.traveler}
+//           agreedAmount={parseFloat(disputeBookingOpen.agreed_reward) || 0}
+//           onDisputeCreated={() => {
+//             setDisputeBookingOpen(null);
+//             fetchData();
+//           }}
+//         />
+//       )}
+
+//       {/* --- VIEW DISPUTE MODAL --- */}
+//       {disputeBookingView && (
+//         <ViewDisputeModal
+//           isOpen={!!disputeBookingView}
+//           onClose={() => setDisputeBookingView(null)}
+//           dispute={{
+//             id: (disputeBookingView as any).dispute_id || disputeBookingView.id,
+//             booking: disputeBookingView.id,
+//             status: disputeBookingView.dispute_status_display || "PENDING",
+//             disputed_amount: parseFloat(disputeBookingView.agreed_reward) || 0,
+//             reason: "DAMAGED",
+//             description: "Dispute opened for this shipment.",
+//             evidence: [],
+//           } as any}
+//           onEvidenceUploaded={() => {
+//             setDisputeBookingView(null);
+//             fetchData();
+//           }}
+//         />
+//       )}
+//     </div>
+//   );
+// }
+
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
+
 import {
   Search,
   Package,
@@ -21,143 +797,408 @@ import {
   Check,
   Filter,
   User,
+  Download,
 } from "lucide-react";
+
 import { toast } from "sonner";
 
-// Import API Types & Functions
+// ----------------------------------------------------------------------
+// API
+// ----------------------------------------------------------------------
+
 import {
   getDeliveryHistory,
   getDeliveryHistoryStats,
   getDeliveryTimeline,
+  getBookingDetails,
+  mapBookingToInvoicePdfData,
   DeliveryHistoryItem,
   DeliveryStatsData,
   TimelineStepItem,
+  DeliveryInvoice,
 } from "@/api/delivery.api";
+import { generateInvoicePdfDoc } from "@/lib/downloadInvoice";
 
-// Import Custom Modals
+// ----------------------------------------------------------------------
+// Modals
+// ----------------------------------------------------------------------
+
 import { OpenDisputeModal } from "./DisputeModals";
 import { ViewDisputeModal } from "./ViewDisputeModal";
 import { ReportModal } from "./ReportModal";
 import { LeaveReviewModal } from "./ReviewModal";
 
+type DeliveryHistoryRecord = DeliveryHistoryItem & {
+  completed_at?: string;
+  delivered_at?: string;
+  updated_at?: string;
+  has_report?: boolean;
+  report_id?: string;
+};
+
+type ApiError = {
+  message?: string;
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
+};
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (typeof error === "object" && error !== null) {
+    const apiError = error as ApiError;
+    return apiError.response?.data?.message || apiError.message || fallback;
+  }
+
+  return fallback;
+};
+
+// ======================================================================
+// COMPONENT
+// ======================================================================
+
 export default function DeliveryHistoryPage() {
-  // --- States ---
-  const [deliveries, setDeliveries] = useState<DeliveryHistoryItem[]>([]);
-  const [stats, setStats] = useState<DeliveryStatsData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  // --------------------------------------------------------------------
+  // Main Data
+  // --------------------------------------------------------------------
 
-  // Filters & Pagination
+  const [deliveries, setDeliveries] = useState<
+    DeliveryHistoryItem[]
+  >([]);
+
+  const [stats, setStats] =
+    useState<DeliveryStatsData | null>(null);
+
+  const [loading, setLoading] =
+    useState<boolean>(true);
+
+  const [error, setError] =
+    useState<string | null>(null);
+
+  // --------------------------------------------------------------------
+  // Filters
+  // --------------------------------------------------------------------
+
   const [page, setPage] = useState<number>(1);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
-  const [searchQuery, setSearchQuery] = useState<string>("");
 
-  // Action Dropdown State
-  const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
+  const [totalPages, setTotalPages] =
+    useState<number>(1);
 
-  // Details & Timeline Modal States
-  const [activeDetailItem, setActiveDetailItem] = useState<DeliveryHistoryItem | null>(null);
-  const [timelineData, setTimelineData] = useState<TimelineStepItem[]>([]);
-  const [loadingTimeline, setLoadingTimeline] = useState<boolean>(false);
+  const [statusFilter, setStatusFilter] =
+    useState<string>("ALL");
 
-  // Review Modal State
-  const [reviewBookingItem, setReviewBookingItem] = useState<DeliveryHistoryItem | null>(null);
+  const [searchQuery, setSearchQuery] =
+    useState<string>("");
 
-  // Dispute Modals States
-  const [disputeBookingOpen, setDisputeBookingOpen] = useState<DeliveryHistoryItem | null>(null);
-  const [disputeBookingView, setDisputeBookingView] = useState<DeliveryHistoryItem | null>(null);
+  // --------------------------------------------------------------------
+  // Hover Menu
+  // --------------------------------------------------------------------
 
-  // Report Modal States
-  const [reportModalId, setReportModalId] = useState<string | null>(null);
-  const [reportedUserId, setReportedUserId] = useState<string | undefined>(undefined);
+  const [hoveredRowId, setHoveredRowId] =
+    useState<string | null>(null);
 
-  // --- Helper: Check Dispute Eligibility ---
-  const checkDisputeEligibility = (item: DeliveryHistoryItem) => {
+  // --------------------------------------------------------------------
+  // Timeline / Invoice Modal
+  // --------------------------------------------------------------------
+
+  const [activeDetailItem, setActiveDetailItem] =
+    useState<DeliveryHistoryItem | null>(null);
+
+  const [timelineData, setTimelineData] =
+    useState<TimelineStepItem[]>([]);
+
+  const [invoiceData, setInvoiceData] =
+    useState<DeliveryInvoice | null>(null);
+
+  const [loadingTimeline, setLoadingTimeline] =
+    useState<boolean>(false);
+
+  const [pdfLoadingAction, setPdfLoadingAction] =
+    useState<"view" | "download" | null>(null);
+
+  // --------------------------------------------------------------------
+  // Other Modals
+  // --------------------------------------------------------------------
+
+  const [reviewBookingItem, setReviewBookingItem] =
+    useState<DeliveryHistoryItem | null>(null);
+
+  const [disputeBookingOpen, setDisputeBookingOpen] =
+    useState<DeliveryHistoryItem | null>(null);
+
+  const [disputeBookingView, setDisputeBookingView] =
+    useState<DeliveryHistoryItem | null>(null);
+
+  const [reportModalId, setReportModalId] =
+    useState<string | null>(null);
+
+  const [reportedUserId, setReportedUserId] =
+    useState<string | undefined>(undefined);
+
+  // ====================================================================
+  // DISPUTE ELIGIBILITY
+  // ====================================================================
+
+  const checkDisputeEligibility = (
+    item: DeliveryHistoryItem
+  ) => {
     if (item.has_dispute) {
-      return { canOpen: false, canView: true, expired: false };
+      return {
+        canOpen: false,
+        canView: true,
+        expired: false,
+      };
     }
 
-    const upperStatus = item.status?.toUpperCase();
+    const upperStatus =
+      item.status?.toUpperCase();
+
     if (
       upperStatus === "CANCELLED" ||
       upperStatus === "REJECTED" ||
       upperStatus === "EXPIRED" ||
       upperStatus !== "COMPLETED"
     ) {
-      return { canOpen: false, canView: false, expired: false };
+      return {
+        canOpen: false,
+        canView: false,
+        expired: false,
+      };
     }
 
     const completionTimestamp =
-      (item as any).completed_at ||
-      (item as any).delivered_at ||
-      (item as any).updated_at;
+      (item as DeliveryHistoryRecord).completed_at ||
+      (item as DeliveryHistoryRecord).delivered_at ||
+      (item as DeliveryHistoryRecord).updated_at ||
+      item.completed_date;
 
     if (completionTimestamp) {
-      const completedTime = new Date(completionTimestamp).getTime();
-      const currentTime = new Date().getTime();
-      const hoursPassed = (currentTime - completedTime) / (1000 * 60 * 60);
+      const completedTime =
+        new Date(completionTimestamp).getTime();
+
+      const currentTime =
+        new Date().getTime();
+
+      const hoursPassed =
+        (currentTime - completedTime) /
+        (1000 * 60 * 60);
 
       if (hoursPassed > 24) {
-        return { canOpen: false, canView: false, expired: true };
+        return {
+          canOpen: false,
+          canView: false,
+          expired: true,
+        };
       }
     }
 
-    return { canOpen: true, canView: false, expired: false };
+    return {
+      canOpen: true,
+      canView: false,
+      expired: false,
+    };
   };
 
-  // --- Fetch Main Data ---
+  // ====================================================================
+  // FETCH DELIVERY DATA
+  // ====================================================================
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
+
     try {
-      const [historyRes, statsRes] = await Promise.all([
-        getDeliveryHistory(page, statusFilter, searchQuery),
+      const [
+        historyRes,
+        statsRes,
+      ] = await Promise.all([
+        getDeliveryHistory(
+          page,
+          statusFilter,
+          searchQuery
+        ),
         getDeliveryHistoryStats(),
       ]);
 
-      setDeliveries(historyRes.results || []);
-      setTotalPages(Math.ceil((historyRes.count || 1) / 10));
+      setDeliveries(
+        historyRes.results || []
+      );
+
+      setTotalPages(
+        Math.max(
+          1,
+          Math.ceil(
+            (historyRes.count || 0) / 10
+          )
+        )
+      );
+
       if (statsRes.success) {
         setStats(statsRes.data);
       }
-    } catch (err: any) {
-      setError(err?.response?.data?.message || "Failed to fetch delivery history.");
+    } catch (err: unknown) {
+      console.error(
+        "Failed to fetch delivery history:",
+        err
+      );
+
+      setError(getErrorMessage(err, "Failed to fetch delivery history."));
     } finally {
       setLoading(false);
     }
-  }, [page, statusFilter, searchQuery]);
+  }, [
+    page,
+    statusFilter,
+    searchQuery,
+  ]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // --- Handle Timeline & Details Modal ---
-  const handleOpenDetails = async (item: DeliveryHistoryItem) => {
+  // ====================================================================
+  // OPEN DETAILS
+  // ====================================================================
+
+  const handleOpenDetails = async (
+    item: DeliveryHistoryItem
+  ) => {
     setActiveDetailItem(item);
+
     setLoadingTimeline(true);
+
+    setInvoiceData(null);
+    setTimelineData([]);
+
     try {
-      const res = await getDeliveryTimeline(item.id);
-      if (res.success) {
-        setTimelineData(res.data);
+      const response =
+        await getDeliveryTimeline(item.id);
+
+      if (
+        response.success &&
+        response.data
+      ) {
+        setTimelineData(
+          response.data.timeline || []
+        );
+
+        setInvoiceData(
+          response.data.invoice || null
+        );
+      } else {
+        toast.error(
+          response.message ||
+            "Unable to load delivery details."
+        );
       }
     } catch (err) {
-      console.error("Failed to load timeline", err);
+      console.error(
+        "Failed to load timeline:",
+        err
+      );
+
+      toast.error(
+        "Failed to load timeline and invoice details."
+      );
     } finally {
       setLoadingTimeline(false);
     }
   };
 
+  // ====================================================================
+  // VIEW INVOICE
+  // ====================================================================
+
+  const handleViewInvoice = async (bookingId: string) => {
+    const invoiceWindow = window.open("about:blank", "_blank");
+
+    if (!invoiceWindow) {
+      toast.error("Popup blocked. Please allow popups for this site.");
+      return;
+    }
+
+    setPdfLoadingAction("view");
+
+    try {
+      const response = await getBookingDetails(bookingId);
+      const invoiceData = mapBookingToInvoicePdfData(response.data);
+      const pdfUrl = generateInvoicePdfDoc(invoiceData).output("bloburl").toString();
+      invoiceWindow.location.href = pdfUrl;
+      toast.success("Invoice opened successfully.");
+    } catch (err: unknown) {
+      invoiceWindow.close();
+      console.error(
+        "Failed to view invoice:",
+        err
+      );
+
+      toast.error(getErrorMessage(err, "Failed to open invoice PDF."));
+    } finally {
+      setPdfLoadingAction(null);
+    }
+  };
+  // ====================================================================
+  // DOWNLOAD INVOICE
+  // ====================================================================
+
+  const handleDownloadInvoice = async (bookingId: string) => {
+    setPdfLoadingAction("download");
+
+    try {
+      const response = await getBookingDetails(bookingId);
+      const invoiceData = mapBookingToInvoicePdfData(response.data);
+      const pdfBlob = generateInvoicePdfDoc(invoiceData).output("blob");
+      const downloadUrl = URL.createObjectURL(pdfBlob);
+      const link = document.createElement("a");
+
+      link.href = downloadUrl;
+      link.download = `Invoice_${invoiceData.tracking_number}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+
+      toast.success(
+        "Invoice download started."
+      );
+    } catch (err: unknown) {
+      console.error(
+        "Failed to download invoice:",
+        err
+      );
+
+      toast.error(getErrorMessage(err, "Failed to download invoice PDF."));
+    } finally {
+      setPdfLoadingAction(null);
+    }
+  };
+
+  // ====================================================================
+  // RENDER
+  // ====================================================================
+
   return (
     <div className="w-full min-h-screen bg-slate-50/50 text-slate-900 p-4 sm:p-6 lg:p-8 space-y-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-      {/* --- Header --- */}
+
+      {/* ================================================================
+          HEADER
+      ================================================================ */}
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
+
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Delivery History</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            Delivery History
+          </h1>
+
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Manage completed shipments, monitor escrow payouts, and track opened disputes.
+            Manage completed shipments, monitor
+            escrow payouts, track opened disputes,
+            and view invoices.
           </p>
         </div>
+
         <button
           onClick={fetchData}
           className="self-start md:self-auto inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl shadow-2xs hover:bg-slate-50 transition-all cursor-pointer"
@@ -167,44 +1208,80 @@ export default function DeliveryHistoryPage() {
         </button>
       </div>
 
-      {/* --- Stats Cards --- */}
+      {/* ================================================================
+          STATS
+      ================================================================ */}
+
       {stats && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+          {/* Completed */}
+
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase text-slate-400 tracking-wider">Completed</p>
-              <h3 className="text-2xl font-bold text-slate-900 mt-1">{stats.completed}</h3>
+              <p className="text-xs font-semibold uppercase text-slate-400 tracking-wider">
+                Completed
+              </p>
+
+              <h3 className="text-2xl font-bold text-slate-900 mt-1">
+                {stats.completed}
+              </h3>
             </div>
+
             <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
               <CheckCircle2 className="w-5 h-5" />
             </div>
           </div>
 
+          {/* Cancelled */}
+
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase text-slate-400 tracking-wider">Cancelled</p>
-              <h3 className="text-2xl font-bold text-slate-900 mt-1">{stats.cancelled}</h3>
+              <p className="text-xs font-semibold uppercase text-slate-400 tracking-wider">
+                Cancelled
+              </p>
+
+              <h3 className="text-2xl font-bold text-slate-900 mt-1">
+                {stats.cancelled}
+              </h3>
             </div>
+
             <div className="w-11 h-11 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100">
               <X className="w-5 h-5" />
             </div>
           </div>
 
+          {/* Refunded */}
+
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase text-slate-400 tracking-wider">Refunded</p>
-              <h3 className="text-2xl font-bold text-slate-900 mt-1">{stats.refunded}</h3>
+              <p className="text-xs font-semibold uppercase text-slate-400 tracking-wider">
+                Refunded
+              </p>
+
+              <h3 className="text-2xl font-bold text-slate-900 mt-1">
+                {stats.refunded}
+              </h3>
             </div>
+
             <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100">
               <TrendingUp className="w-5 h-5" />
             </div>
           </div>
 
+          {/* Total Paid */}
+
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase text-slate-400 tracking-wider">Total Paid</p>
-              <h3 className="text-2xl font-bold text-indigo-600 mt-1">{stats.total_paid}</h3>
+              <p className="text-xs font-semibold uppercase text-slate-400 tracking-wider">
+                Total Paid
+              </p>
+
+              <h3 className="text-2xl font-bold text-indigo-600 mt-1">
+                {stats.total_paid}
+              </h3>
             </div>
+
             <div className="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
               <DollarSign className="w-5 h-5" />
             </div>
@@ -212,83 +1289,173 @@ export default function DeliveryHistoryPage() {
         </div>
       )}
 
-      {/* --- Search & Dropdown Filter Bar --- */}
+      {/* ================================================================
+          SEARCH / FILTER
+      ================================================================ */}
+
       <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row gap-3 justify-between items-center">
+
         <div className="relative w-full sm:w-96">
+
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+
           <input
             type="text"
             placeholder="Search tracking no, package name..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(
+                e.target.value
+              );
+              setPage(1);
+            }}
             className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all bg-slate-50/50 focus:bg-white"
           />
         </div>
 
         <div className="w-full sm:w-auto flex items-center gap-2">
+
           <Filter className="w-4 h-4 text-slate-400 shrink-0" />
+
           <select
             value={statusFilter}
             onChange={(e) => {
-              setStatusFilter(e.target.value);
+              setStatusFilter(
+                e.target.value
+              );
               setPage(1);
             }}
             className="w-full sm:w-52 px-3 py-2.5 text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
           >
-            <option value="ALL">All Statuses</option>
-            <option value="COMPLETED">Completed</option>
-            <option value="CANCELLED">Cancelled</option>
-            <option value="REFUNDED">Refunded</option>
-            <option value="REJECTED">Rejected</option>
+            <option value="ALL">
+              All Statuses
+            </option>
+
+            <option value="COMPLETED">
+              Completed
+            </option>
+
+            <option value="CANCELLED">
+              Cancelled
+            </option>
+
+            <option value="REFUNDED">
+              Refunded
+            </option>
+
+            <option value="REJECTED">
+              Rejected
+            </option>
           </select>
         </div>
       </div>
 
-      {/* --- Main Table Card --- */}
+      {/* ================================================================
+          TABLE
+      ================================================================ */}
+
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
+
         {loading ? (
           <div className="py-20 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-3 border-indigo-600 border-t-transparent"></div>
-            <p className="mt-3 text-xs font-medium text-slate-500">Loading delivery records...</p>
+
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-3 border-indigo-600 border-t-transparent" />
+
+            <p className="mt-3 text-xs font-medium text-slate-500">
+              Loading delivery records...
+            </p>
           </div>
         ) : error ? (
           <div className="p-8 text-center">
+
             <AlertCircle className="w-8 h-8 text-rose-500 mx-auto mb-2" />
-            <p className="text-sm font-medium text-slate-700">{error}</p>
+
+            <p className="text-sm font-medium text-slate-700">
+              {error}
+            </p>
           </div>
         ) : deliveries.length === 0 ? (
           <div className="py-20 text-center">
+
             <Package className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <h3 className="text-base font-semibold text-slate-800">No delivery items found</h3>
-            <p className="text-xs text-slate-500 mt-1">There are no records matching your selected query.</p>
+
+            <h3 className="text-base font-semibold text-slate-800">
+              No delivery items found
+            </h3>
+
+            <p className="text-xs text-slate-500 mt-1">
+              There are no records matching
+              your selected query.
+            </p>
           </div>
         ) : (
           <div className="w-full overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+
             <table className="w-full text-left text-xs sm:text-sm">
+
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                  <th className="px-6 py-4">Package Details</th>
-                  <th className="px-6 py-4">Traveler</th>
-                  <th className="px-6 py-4">Delivery Status</th>
-                  <th className="px-6 py-4">Payment</th>
-                  <th className="px-6 py-4">Reward</th>
-                  <th className="px-6 py-4">Dispute</th>
-                  <th className="px-6 py-4 text-center">Actions</th>
+
+                  <th className="px-6 py-4">
+                    Package Details
+                  </th>
+
+                  <th className="px-6 py-4">
+                    Traveler
+                  </th>
+
+                  <th className="px-6 py-4">
+                    Delivery Status
+                  </th>
+
+                  <th className="px-6 py-4">
+                    Payment
+                  </th>
+
+                  <th className="px-6 py-4">
+                    Reward
+                  </th>
+
+                  <th className="px-6 py-4">
+                    Dispute
+                  </th>
+
+                  <th className="px-6 py-4 text-center">
+                    Actions
+                  </th>
+
                 </tr>
               </thead>
+
               <tbody className="divide-y divide-slate-100 font-medium">
+
                 {deliveries.map((item) => {
-                  const eligibility = checkDisputeEligibility(item);
+
+                  const eligibility =
+                    checkDisputeEligibility(
+                      item
+                    );
 
                   return (
-                    <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
-                      {/* Package Item */}
+                    <tr
+                      key={item.id}
+                      className="hover:bg-slate-50/60 transition-colors"
+                    >
+
+                      {/* Package */}
+
                       <td className="px-6 py-4">
+
                         <div className="flex items-center gap-3">
+
                           {item.package_image ? (
                             <img
-                              src={item.package_image}
-                              alt={item.package_title}
+                              src={
+                                item.package_image
+                              }
+                              alt={
+                                item.package_title
+                              }
                               className="w-11 h-11 rounded-xl object-cover border border-slate-200 shadow-2xs shrink-0"
                             />
                           ) : (
@@ -296,76 +1463,148 @@ export default function DeliveryHistoryPage() {
                               <Package className="w-5 h-5" />
                             </div>
                           )}
+
                           <div>
-                            <p className="font-semibold text-slate-900">{item.package_title}</p>
-                            <p className="text-[11px] text-slate-400 font-mono mt-0.5">{item.tracking_number}</p>
+
+                            <p className="font-semibold text-slate-900">
+                              {
+                                item.package_title
+                              }
+                            </p>
+
+                            <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                              {
+                                item.tracking_number
+                              }
+                            </p>
+
                           </div>
                         </div>
                       </td>
 
                       {/* Traveler */}
+
                       <td className="px-6 py-4 text-slate-700">
-                        <span className="font-medium">{item.traveler_name}</span>
+                        <span className="font-medium">
+                          {
+                            item.traveler_name
+                          }
+                        </span>
                       </td>
 
                       {/* Status */}
+
                       <td className="px-6 py-4">
+
                         <span
                           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                            item.status === "COMPLETED"
+                            item.status ===
+                            "COMPLETED"
                               ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
-                              : item.status === "CANCELLED" || item.status === "REJECTED"
+                              : item.status ===
+                                  "CANCELLED" ||
+                                item.status ===
+                                  "REJECTED"
                               ? "bg-rose-50 text-rose-700 border border-rose-200/60"
                               : "bg-amber-50 text-amber-700 border border-amber-200/60"
                           }`}
                         >
+
                           <span
                             className={`w-1.5 h-1.5 rounded-full ${
-                              item.status === "COMPLETED"
+                              item.status ===
+                              "COMPLETED"
                                 ? "bg-emerald-500"
-                                : item.status === "CANCELLED" || item.status === "REJECTED"
+                                : item.status ===
+                                    "CANCELLED" ||
+                                  item.status ===
+                                    "REJECTED"
                                 ? "bg-rose-500"
                                 : "bg-amber-500"
                             }`}
                           />
-                          {item.status_display || item.status}
+
+                          {
+                            item.status_display ||
+                            item.status
+                          }
+
                         </span>
                       </td>
 
                       {/* Payment */}
+
                       <td className="px-6 py-4">
+
                         <div className="flex flex-col">
-                          <span className="text-slate-800 font-semibold">{item.payment_status_display || item.payment_status}</span>
-                          <span className="text-[10px] text-slate-400 uppercase tracking-tight">
-                            Escrow: {item.escrow_status}
+
+                          <span className="text-slate-800 font-semibold">
+                            {
+                              item.payment_status_display ||
+                              item.payment_status
+                            }
                           </span>
+
+                          <span className="text-[10px] text-slate-400 uppercase tracking-tight">
+                            Escrow:{" "}
+                            {
+                              item.escrow_status
+                            }
+                          </span>
+
                         </div>
                       </td>
 
                       {/* Reward */}
+
                       <td className="px-6 py-4 font-bold text-slate-900">
-                        {item.currency} ${item.agreed_reward}
+                        {item.currency} $
+                        {
+                          item.agreed_reward
+                        }
                       </td>
 
-                      {/* Dispute status */}
+                      {/* Dispute */}
+
                       <td className="px-6 py-4">
+
                         {item.has_dispute ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-full text-xs font-semibold">
+
                             <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
-                            {item.dispute_status_display || "Disputed"}
+
+                            {
+                              item.dispute_status_display ||
+                              "Disputed"
+                            }
+
                           </span>
                         ) : (
-                          <span className="text-slate-400 text-xs">—</span>
+                          <span className="text-slate-400 text-xs">
+                            —
+                          </span>
                         )}
+
                       </td>
 
-                      {/* --- Action Dropdown Menu --- */}
+                      {/* Actions */}
+
                       <td className="px-6 py-4 text-center">
+
                         <div
                           className="relative inline-block text-left group"
-                          onMouseEnter={() => setHoveredRowId(item.id)}
-                          onMouseLeave={() => setHoveredRowId(null)}
+                          onMouseEnter={() =>
+                            setHoveredRowId(
+                              item.id
+                            )
+                          }
+                          onMouseLeave={() =>
+                            setHoveredRowId(
+                              null
+                            )
+                          }
                         >
+
                           <button
                             type="button"
                             className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors focus:outline-none cursor-pointer"
@@ -373,128 +1612,222 @@ export default function DeliveryHistoryPage() {
                             <MoreVertical className="w-4 h-4" />
                           </button>
 
-                          {hoveredRowId === item.id && (
+                          {hoveredRowId ===
+                            item.id && (
                             <div className="absolute right-0 top-full -mt-1 w-56 bg-white rounded-2xl shadow-xl border border-slate-200/80 z-30 py-2 animate-in fade-in zoom-in-95 duration-100">
+
+                              {/* View Details */}
+
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setHoveredRowId(null);
-                                  handleOpenDetails(item);
+                                  setHoveredRowId(
+                                    null
+                                  );
+
+                                  handleOpenDetails(
+                                    item
+                                  );
                                 }}
                                 className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left cursor-pointer"
                               >
                                 <Eye className="w-4 h-4 text-indigo-500" />
-                                View Details & Timeline
+
+                                View Details &
+                                Timeline
                               </button>
+
+                              {/* View Dispute */}
 
                               {eligibility.canView ? (
                                 <>
                                   <div className="my-1 border-t border-slate-100" />
+
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      setHoveredRowId(null);
-                                      setDisputeBookingView(item);
+                                      setHoveredRowId(
+                                        null
+                                      );
+
+                                      setDisputeBookingView(
+                                        item
+                                      );
                                     }}
                                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-amber-700 hover:bg-amber-50 transition-colors text-left cursor-pointer"
                                   >
                                     <ShieldAlert className="w-4 h-4 text-amber-600" />
-                                    View Dispute Details
+
+                                    View Dispute
+                                    Details
                                   </button>
                                 </>
                               ) : eligibility.canOpen ? (
                                 <>
                                   <div className="my-1 border-t border-slate-100" />
+
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      setHoveredRowId(null);
-                                      setDisputeBookingOpen(item);
+                                      setHoveredRowId(
+                                        null
+                                      );
+
+                                      setDisputeBookingOpen(
+                                        item
+                                      );
                                     }}
                                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors text-left cursor-pointer"
                                   >
                                     <Flag className="w-4 h-4 text-rose-500" />
+
                                     Open Dispute
                                   </button>
                                 </>
                               ) : eligibility.expired ? (
                                 <>
                                   <div className="my-1 border-t border-slate-100" />
+
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      toast.error("Dispute window expired. Disputes must be opened within 24 hours of completion.");
-                                    }}
+                                    onClick={() =>
+                                      toast.error(
+                                        "Dispute window expired. Disputes must be opened within 24 hours of completion."
+                                      )
+                                    }
                                     className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-slate-400 bg-slate-50 cursor-not-allowed opacity-80"
                                   >
                                     <span className="flex items-center gap-2">
                                       <Clock className="w-4 h-4 text-slate-400" />
-                                      Dispute window expired
+
+                                      Dispute
+                                      window
+                                      expired
                                     </span>
                                   </button>
                                 </>
                               ) : null}
+
                             </div>
                           )}
                         </div>
                       </td>
+
                     </tr>
                   );
                 })}
+
               </tbody>
             </table>
           </div>
         )}
 
-        {/* Pagination Footer */}
+        {/* ================================================================
+            PAGINATION
+        ================================================================ */}
+
         <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-200/80 flex items-center justify-between">
+
           <p className="text-xs text-slate-500 font-medium">
-            Showing page <span className="font-semibold text-slate-800">{page}</span> of{" "}
-            <span className="font-semibold text-slate-800">{totalPages}</span>
+            Showing page{" "}
+            <span className="font-semibold text-slate-800">
+              {page}
+            </span>{" "}
+            of{" "}
+            <span className="font-semibold text-slate-800">
+              {totalPages}
+            </span>
           </p>
 
           <div className="flex items-center gap-2">
+
             <button
               disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(p - 1, 1))}
+              onClick={() =>
+                setPage((p) =>
+                  Math.max(p - 1, 1)
+                )
+              }
               className="inline-flex items-center gap-1 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 bg-white shadow-2xs hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
             >
-              <ChevronLeft className="w-3.5 h-3.5" /> Previous
+              <ChevronLeft className="w-3.5 h-3.5" />
+
+              Previous
             </button>
+
             <button
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
+              disabled={
+                page >= totalPages
+              }
+              onClick={() =>
+                setPage((p) => p + 1)
+              }
               className="inline-flex items-center gap-1 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 bg-white shadow-2xs hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
             >
-              Next <ChevronRight className="w-3.5 h-3.5" />
+              Next
+
+              <ChevronRight className="w-3.5 h-3.5" />
             </button>
+
           </div>
         </div>
       </div>
 
-      {/* --- VIEW DETAILS & TIMELINE MODAL --- */}
+      {/* ================================================================
+          DETAILS MODAL
+      ================================================================ */}
+
       {activeDetailItem && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 max-h-[90vh] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-5 max-h-[90vh] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+
+            {/* Header */}
+
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+
               <div>
-                <h3 className="font-extrabold text-slate-900 text-base">Delivery Details & Timeline</h3>
-                <p className="text-xs text-slate-400 font-mono mt-0.5">{activeDetailItem.tracking_number}</p>
+
+                <h3 className="font-extrabold text-slate-900 text-base">
+                  Delivery Details &
+                  Timeline
+                </h3>
+
+                <p className="text-xs text-slate-400 font-mono mt-0.5">
+                  {
+                    activeDetailItem.tracking_number
+                  }
+                </p>
+
               </div>
+
               <button
-                onClick={() => setActiveDetailItem(null)}
+                onClick={() =>
+                  setActiveDetailItem(
+                    null
+                  )
+                }
                 className="p-1.5 rounded-full text-slate-400 hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
+
             </div>
 
             <div className="space-y-5">
+
+              {/* Package Summary */}
+
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/70 flex items-center gap-3">
+
                 {activeDetailItem.package_image ? (
                   <img
-                    src={activeDetailItem.package_image}
-                    alt={activeDetailItem.package_title}
+                    src={
+                      activeDetailItem.package_image
+                    }
+                    alt={
+                      activeDetailItem.package_title
+                    }
                     className="w-14 h-14 rounded-xl object-cover border border-slate-200 shrink-0"
                   />
                 ) : (
@@ -502,166 +1835,485 @@ export default function DeliveryHistoryPage() {
                     <Package className="w-7 h-7" />
                   </div>
                 )}
+
                 <div className="flex-1">
-                  <h4 className="font-bold text-slate-900 text-sm">{activeDetailItem.package_title}</h4>
+
+                  <h4 className="font-bold text-slate-900 text-sm">
+                    {
+                      activeDetailItem.package_title
+                    }
+                  </h4>
+
                   <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
-                    <User className="w-3.5 h-3.5 text-slate-400" /> Traveler: {activeDetailItem.traveler_name}
+                    <User className="w-3.5 h-3.5 text-slate-400" />
+
+                    Traveler:{" "}
+                    {
+                      activeDetailItem.traveler_name
+                    }
                   </p>
+
                   <p className="text-xs font-bold text-slate-900 mt-1">
-                    Agreed Payout: {activeDetailItem.currency} ${activeDetailItem.agreed_reward}
+                    Agreed Payout:{" "}
+                    {
+                      activeDetailItem.currency
+                    } $
+                    {
+                      activeDetailItem.agreed_reward
+                    }
                   </p>
+
                 </div>
               </div>
 
+              {/* Timeline */}
+
               <div className="space-y-3">
-                <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Tracking Progress</h4>
+
+                <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
+                  Tracking Progress
+                </h4>
 
                 {loadingTimeline ? (
                   <div className="text-center py-6">
-                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-indigo-600 border-t-transparent"></div>
-                    <p className="text-xs text-slate-400 mt-2">Loading checkpoints...</p>
+
+                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-indigo-600 border-t-transparent" />
+
+                    <p className="text-xs text-slate-400 mt-2">
+                      Loading checkpoints...
+                    </p>
+
                   </div>
-                ) : timelineData.length === 0 ? (
-                  <p className="text-xs text-slate-400 py-2">No tracking steps logged yet.</p>
+                ) : timelineData.length ===
+                  0 ? (
+                  <p className="text-xs text-slate-400 py-2">
+                    No tracking steps logged
+                    yet.
+                  </p>
                 ) : (
                   <div className="relative pl-6 space-y-5 my-2 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
-                    {timelineData.map((step, idx) => (
-                      <div key={idx} className="relative">
+
+                    {timelineData.map(
+                      (step, index) => (
                         <div
-                          className={`absolute -left-6 top-0.5 w-5 h-5 rounded-full flex items-center justify-center text-xs ${
-                            step.completed ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"
-                          }`}
+                          key={index}
+                          className="relative"
                         >
-                          {step.completed ? <Check className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+
+                          <div
+                            className={`absolute -left-6 top-0.5 w-5 h-5 rounded-full flex items-center justify-center text-xs ${
+                              step.completed
+                                ? "bg-emerald-500 text-white"
+                                : "bg-slate-200 text-slate-500"
+                            }`}
+                          >
+                            {step.completed ? (
+                              <Check className="w-3.5 h-3.5" />
+                            ) : (
+                              <Clock className="w-3.5 h-3.5" />
+                            )}
+                          </div>
+
+                          <div>
+
+                            <h5
+                              className={`text-xs font-bold ${
+                                step.completed
+                                  ? "text-slate-900"
+                                  : "text-slate-400"
+                              }`}
+                            >
+                              {
+                                step.title
+                              }
+                            </h5>
+
+                            <p className="text-[10px] text-slate-400 mt-0.5">
+                              {step.timestamp
+                                ? new Date(
+                                    step.timestamp
+                                  ).toLocaleString()
+                                : "Pending"}
+                            </p>
+
+                          </div>
                         </div>
-                        <div>
-                          <h5 className={`text-xs font-bold ${step.completed ? "text-slate-900" : "text-slate-400"}`}>
-                            {step.title}
-                          </h5>
-                          <p className="text-[10px] text-slate-400 mt-0.5">
-                            {step.timestamp ? new Date(step.timestamp).toLocaleString() : "Pending"}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    )}
+
                   </div>
                 )}
+
               </div>
+
+              {/* ========================================================
+                  INVOICE
+              ======================================================== */}
+
+              {!loadingTimeline && (
+                <div className="space-y-3 pt-2">
+
+                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
+                    Invoice Information
+                  </h4>
+
+                  {invoiceData ? (
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3">
+
+                      {/* Invoice Number */}
+
+                      <div className="flex items-center justify-between text-xs">
+
+                        <span className="text-slate-500 font-medium">
+                          Invoice Number
+                        </span>
+
+                        <span className="font-mono font-bold text-slate-800">
+                          {
+                            invoiceData.invoice_number
+                          }
+                        </span>
+
+                      </div>
+
+                      {/* Total */}
+
+                      <div className="flex items-center justify-between text-xs">
+
+                        <span className="text-slate-500 font-medium">
+                          Total Paid
+                        </span>
+
+                        <span className="font-bold text-slate-900">
+                          {
+                            invoiceData.total_paid
+                          }{" "}
+                          {
+                            invoiceData.currency
+                          }
+                        </span>
+
+                      </div>
+
+                      {/* Status */}
+
+                      <div className="flex items-center justify-between text-xs">
+
+                        <span className="text-slate-500 font-medium">
+                          Status
+                        </span>
+
+                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-semibold text-[10px]">
+                          {
+                            invoiceData.status
+                          }
+                        </span>
+
+                      </div>
+
+                      {/* ==================================================
+                          PDF BUTTONS
+                      ================================================== */}
+
+                      <div className="pt-2 flex items-center gap-2">
+
+                        {/* VIEW */}
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleViewInvoice(
+                              activeDetailItem.id
+                            )
+                          }
+                          disabled={
+                            pdfLoadingAction !==
+                              null
+                          }
+                          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 disabled:opacity-50 transition-all cursor-pointer"
+                        >
+
+                          {pdfLoadingAction ===
+                          "view" ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-500" />
+                          ) : (
+                            <Eye className="w-3.5 h-3.5 text-slate-600" />
+                          )}
+
+                          View PDF
+
+                        </button>
+
+                        {/* DOWNLOAD */}
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleDownloadInvoice(
+                              activeDetailItem.id
+                            )
+                          }
+                          disabled={
+                            pdfLoadingAction !==
+                              null
+                          }
+                          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-all cursor-pointer shadow-2xs"
+                        >
+
+                          {pdfLoadingAction ===
+                          "download" ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Download className="w-3.5 h-3.5" />
+                          )}
+
+                          Download PDF
+
+                        </button>
+
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400">
+                      No invoice found for
+                      this booking.
+                    </p>
+                  )}
+
+                </div>
+              )}
+
             </div>
 
-            <div className="border-t border-slate-100 pt-3 flex items-center justify-end gap-2.5">
+            {/* ==========================================================
+                FOOTER
+            ========================================================== */}
+
+            <div className="border-t border-slate-100 pt-4 flex flex-wrap items-center justify-end gap-2.5">
+
+              {/* Review */}
+
               <button
                 type="button"
                 onClick={() => {
-                  setReviewBookingItem(activeDetailItem);
-                  setActiveDetailItem(null);
+                  setReviewBookingItem(
+                    activeDetailItem
+                  );
+
+                  setActiveDetailItem(
+                    null
+                  );
                 }}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold transition-all cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold transition-all cursor-pointer"
               >
-                <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
+                <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+
                 Leave Review
               </button>
 
-              {(activeDetailItem as Record<string, any>).has_report || (activeDetailItem as Record<string, any>).report_id ? (
+              {/* Report */}
+
+              {(activeDetailItem as DeliveryHistoryRecord)
+                .has_report ||
+              (activeDetailItem as DeliveryHistoryRecord)
+                .report_id ? (
                 <button
                   type="button"
                   onClick={() => {
-                    const existingReportId = (activeDetailItem as Record<string, any>).report_id || activeDetailItem.id;
-                    setReportModalId(existingReportId);
-                    setActiveDetailItem(null);
+                    const reportId =
+                      (activeDetailItem as DeliveryHistoryRecord)
+                        .report_id ||
+                      activeDetailItem.id;
+
+                    setReportModalId(
+                      reportId
+                    );
+
+                    setActiveDetailItem(
+                      null
+                    );
                   }}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all cursor-pointer"
                 >
-                  <Eye className="w-4 h-4 text-indigo-600" />
+                  <Eye className="w-3.5 h-3.5 text-indigo-600" />
+
                   View Filed Report
                 </button>
               ) : (
                 <button
                   type="button"
                   onClick={() => {
-                    setReportedUserId(activeDetailItem.traveler);
-                    setReportModalId(activeDetailItem.id);
-                    setActiveDetailItem(null);
+                    setReportedUserId(
+                      activeDetailItem.traveler
+                    );
+
+                    setReportModalId(
+                      activeDetailItem.id
+                    );
+
+                    setActiveDetailItem(
+                      null
+                    );
                   }}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-all cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-all cursor-pointer"
                 >
-                  <Flag className="w-4 h-4 text-rose-600" />
+                  <Flag className="w-3.5 h-3.5 text-rose-600" />
+
                   Report Issue
                 </button>
               )}
+
             </div>
+
           </div>
         </div>
       )}
 
-      {/* --- LEAVE REVIEW MODAL --- */}
+      {/* ================================================================
+          REVIEW MODAL
+      ================================================================ */}
+
       {reviewBookingItem && (
         <LeaveReviewModal
-          isOpen={!!reviewBookingItem}
-          onClose={() => setReviewBookingItem(null)}
+          isOpen={
+            !!reviewBookingItem
+          }
+          onClose={() =>
+            setReviewBookingItem(
+              null
+            )
+          }
           booking={{
             id: reviewBookingItem.id,
-            traveler: reviewBookingItem.traveler,
-            travelerName: reviewBookingItem.traveler_name,
-            packageTitle: reviewBookingItem.package_title,
+            traveler:
+              reviewBookingItem.traveler,
+            travelerName:
+              reviewBookingItem.traveler_name,
+            packageTitle:
+              reviewBookingItem.package_title,
           }}
           existingReview={null}
           onSuccess={() => {
-            setReviewBookingItem(null);
+            setReviewBookingItem(
+              null
+            );
+
             fetchData();
           }}
         />
       )}
 
-      {/* --- REPORT MODAL --- */}
+      {/* ================================================================
+          REPORT MODAL
+      ================================================================ */}
+
       <ReportModal
         isOpen={!!reportModalId}
         onClose={() => {
           setReportModalId(null);
-          setReportedUserId(undefined);
+          setReportedUserId(
+            undefined
+          );
         }}
-        bookingId={reportModalId || ""}
-        reportedUserId={reportedUserId || ""}
+        bookingId={
+          reportModalId || ""
+        }
+        reportedUserId={
+          reportedUserId || ""
+        }
         onSuccess={fetchData}
       />
 
-      {/* --- OPEN DISPUTE MODAL --- */}
+      {/* ================================================================
+          OPEN DISPUTE
+      ================================================================ */}
+
       {disputeBookingOpen && (
         <OpenDisputeModal
-          isOpen={!!disputeBookingOpen}
-          onClose={() => setDisputeBookingOpen(null)}
-          bookingId={disputeBookingOpen.id}
-          packageTitle={disputeBookingOpen.package_title}
-          trackingNumber={disputeBookingOpen.tracking_number}
-          againstUserId={disputeBookingOpen.traveler}
-          agreedAmount={parseFloat(disputeBookingOpen.agreed_reward) || 0}
+          isOpen={
+            !!disputeBookingOpen
+          }
+          onClose={() =>
+            setDisputeBookingOpen(
+              null
+            )
+          }
+          bookingId={
+            disputeBookingOpen.id
+          }
+          packageTitle={
+            disputeBookingOpen.package_title
+          }
+          trackingNumber={
+            disputeBookingOpen.tracking_number
+          }
+          againstUserId={
+            disputeBookingOpen.traveler
+          }
+          agreedAmount={
+            parseFloat(
+              disputeBookingOpen.agreed_reward
+            ) || 0
+          }
           onDisputeCreated={() => {
-            setDisputeBookingOpen(null);
+            setDisputeBookingOpen(
+              null
+            );
+
             fetchData();
           }}
         />
       )}
 
-      {/* --- VIEW DISPUTE MODAL (FIXED DISPUTE ID PASSING) --- */}
+      {/* ================================================================
+          VIEW DISPUTE
+      ================================================================ */}
+
       {disputeBookingView && (
         <ViewDisputeModal
-          isOpen={!!disputeBookingView}
-          onClose={() => setDisputeBookingView(null)}
+          isOpen={
+            !!disputeBookingView
+          }
+          onClose={() =>
+            setDisputeBookingView(
+              null
+            )
+          }
           dispute={{
-            id: (disputeBookingView as any).dispute_id || disputeBookingView.id, // Uses actual dispute_id ("3d8207d5-3be5-4963-82a5-ed1f84c499ee")
-            booking: disputeBookingView.id, // Keeps Booking ID ("df612b9b-179a-4a99-8c2f-7cd031673afa")
-            status: disputeBookingView.dispute_status_display || "PENDING",
-            disputed_amount: parseFloat(disputeBookingView.agreed_reward) || 0,
+            id:
+              disputeBookingView.dispute_id ||
+              disputeBookingView.id,
+
+            booking:
+              disputeBookingView.id,
+
+            status:
+              disputeBookingView
+                .dispute_status_display ||
+              "PENDING",
+
+            disputed_amount:
+              parseFloat(
+                disputeBookingView.agreed_reward
+              ) || 0,
+
             reason: "DAMAGED",
-            description: "Dispute opened for this shipment.",
+
+            description:
+              "Dispute opened for this shipment.",
+
             evidence: [],
-          } as any}
+          }}
           onEvidenceUploaded={() => {
-            setDisputeBookingView(null);
+            setDisputeBookingView(
+              null
+            );
+
             fetchData();
           }}
         />
       )}
+
     </div>
   );
 }
