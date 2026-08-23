@@ -6,26 +6,28 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { getUserRole } from "@/lib/auth";
 import { senderLink, carrierLink, adminLink } from "@/lib/userData";
-import { Home, Package, MessageCircle } from "lucide-react";
+import { Home, Package, MessageCircle, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
-// Universal routes for sender & traveler
 const commonLinks = [
   { label: "Dashboard", href: "/dashboard", icon: Home },
   { label: "Active Deliveries", href: "/active-deliveries", icon: Package },
   { label: "Messages", href: "/messages", icon: MessageCircle },
 ];
 
-export const SideBaar = () => {
+interface SideBaarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export const SideBaar = ({ isOpen = false, onClose }: SideBaarProps) => {
   const pathname = usePathname();
-  const { user } = useAuth(); // Read role directly from Auth Context
+  const { user } = useAuth();
   const [role, setRole] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState<boolean>(false);
 
-  // Sync role on mount and when auth context user changes
   useEffect(() => {
     setIsMounted(true);
-    // Prioritize context user role, fallback to localStorage helper
     const activeRole = user?.role || getUserRole();
     setRole(activeRole ? activeRole.toUpperCase() : null);
   }, [user]);
@@ -33,70 +35,118 @@ export const SideBaar = () => {
   const isCarrierOrTraveler = role === "TRAVELER";
   const isAdmin = role === "ADMIN";
 
-  // Determine navigation links based on normalized user role
   const links = isAdmin
     ? adminLink
     : [...commonLinks, ...(isCarrierOrTraveler ? carrierLink : senderLink)];
 
+  const NavigationContent = () => (
+    <nav className="flex flex-col gap-2">
+      {!isMounted ? (
+        <div className="flex flex-col gap-2 animate-pulse">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-10 bg-gray-100 rounded-lg w-full" />
+          ))}
+        </div>
+      ) : (
+        links.map((item) => {
+          const Icon = item.icon;
+          const isActive =
+            item.href === "/"
+              ? pathname === "/"
+              : pathname === item.href || pathname.startsWith(`${item.href}/`);
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={onClose}
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors duration-200 ${
+                isActive
+                  ? "bg-primary text-white"
+                  : "text-black hover:bg-gray-100"
+              }`}
+            >
+              {Icon && (
+                <Icon
+                  className={`w-5 h-5 ${
+                    isActive ? "text-white" : "text-black"
+                  }`}
+                />
+              )}
+              <span className="font-medium text-sm">{item.label}</span>
+            </Link>
+          );
+        })
+      )}
+    </nav>
+  );
+
   return (
-    <div className="flex flex-col h-full bg-white border-r py-6 px-4">
-      {/* Logo Section */}
-      <div className="flex items-center justify-center mb-10">
-        <Link href="/">
-          <Image
-            src="/logo.svg"
-            alt="LuggageLinker Logo"
-            width={130}
-            height={40}
-            className="object-contain"
-            priority
-          />
-        </Link>
-      </div>
+    <>
+      {/* ================= DESKTOP SIDEBAR ================= */}
+      <aside className="hidden lg:flex flex-col w-64 h-screen bg-white border-r py-6 px-4 shrink-0 overflow-y-auto">
+        <div className="flex items-center justify-center mb-10 shrink-0">
+          <Link href="/">
+            <Image
+              src="/logo.svg"
+              alt="LuggageLinker Logo"
+              width={130}
+              height={40}
+              className="object-contain"
+              priority
+            />
+          </Link>
+        </div>
+        <NavigationContent />
+      </aside>
 
-      {/* Navigation Links */}
-      <nav className="flex flex-col gap-2">
-        {/* Render a placeholder skeleton during SSR/hydration phase */}
-        {!isMounted ? (
-          <div className="flex flex-col gap-2 animate-pulse">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-10 bg-gray-100 rounded-lg w-full" />
-            ))}
+      {/* ================= MOBILE SIDEBAR DRAWER ================= */}
+      <div
+        className={`fixed inset-0 z-50 lg:hidden transition-all duration-300 ${
+          isOpen
+            ? "visible pointer-events-auto"
+            : "invisible pointer-events-none"
+        }`}
+      >
+        {/* Backdrop */}
+        <div
+          className={`absolute inset-0 bg-black/60 transition-opacity duration-300 ${
+            isOpen ? "opacity-100" : "opacity-0"
+          }`}
+          onClick={onClose}
+        />
+
+        {/* Drawer Content */}
+        <aside
+          className={`relative w-72 max-w-[80vw] h-full bg-white shadow-xl z-10 flex flex-col py-6 px-4 overflow-y-auto transform transition-transform duration-300 ease-in-out ${
+            isOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          <div className="flex items-center justify-between mb-8 shrink-0">
+            <Link href="/" onClick={onClose}>
+              <Image
+                src="/logo.svg"
+                alt="LuggageLinker Logo"
+                width={110}
+                height={32}
+                className="object-contain"
+                priority
+              />
+            </Link>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1 text-gray-500 hover:text-gray-900 rounded-lg focus:outline-none cursor-pointer"
+              aria-label="Close sidebar"
+            >
+              <X className="w-6 h-6" />
+            </button>
           </div>
-        ) : (
-          links.map((item) => {
-            const Icon = item.icon;
 
-            // Safe pathname matching for active link highlight
-            const isActive =
-              item.href === "/"
-                ? pathname === "/"
-                : pathname === item.href ||
-                  pathname.startsWith(`${item.href}/`);
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors duration-200 ${
-                  isActive
-                    ? "bg-primary text-white"
-                    : "text-black hover:bg-gray-100"
-                }`}
-              >
-                {Icon && (
-                  <Icon
-                    className={`w-5 h-5 ${
-                      isActive ? "text-white" : "text-black"
-                    }`}
-                  />
-                )}
-                <span className="font-medium text-sm">{item.label}</span>
-              </Link>
-            );
-          })
-        )}
-      </nav>
-    </div>
+          <NavigationContent />
+        </aside>
+      </div>
+    </>
   );
 };

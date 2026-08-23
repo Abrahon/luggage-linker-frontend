@@ -40,8 +40,12 @@ import { useProfile } from "@/hooks/useProfile";
 import { stringToColor } from "@/lib/stringToColor";
 
 /* ==========================================================================
-   Helper Functions
+   Helper Functions & Interfaces
    ========================================================================== */
+interface DashboardNavBarProps {
+  onToggleSidebar?: () => void;
+}
+
 const getProfilePictureUrl = (
   url: string | null | undefined
 ): string | null => {
@@ -80,7 +84,7 @@ const checkHasStoredAuth = (): boolean => {
 /* ==========================================================================
    1. PUBLIC NAVBAR (Landing Page / Home Page)
    ========================================================================== */
-export const Navbar = () => {
+export const PublicNavbar = () => {
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -325,7 +329,7 @@ export const Navbar = () => {
 /* ==========================================================================
    2. DASHBOARD NAVBAR (Authenticated App/Dashboard Area)
    ========================================================================== */
-export const NavBar = () => {
+export const NavBar = ({ onToggleSidebar }: DashboardNavBarProps) => {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -375,7 +379,6 @@ export const NavBar = () => {
 
   const formatBadgeCount = (count: number) => {
     if (count > 99) return "99+";
-    // if (count > 9) return "9+";
     return count.toString();
   };
 
@@ -439,14 +442,26 @@ export const NavBar = () => {
   const resolvedPictureUrl = getProfilePictureUrl(profile?.profile_picture);
 
   return (
-    <nav className="w-full flex justify-between items-center py-4 px-6 bg-white shadow-sm border-b">
-      <div className="flex flex-col">
-        <h2 className="text-2xl font-semibold text-gray-900">
-          Welcome back!
-        </h2>
-        <p className="text-sm text-gray-600">
-          Here’s an overview of your delivery activity and upcoming opportunities
-        </p>
+    <nav className="w-full flex justify-between items-center py-4 px-4 sm:px-6 bg-white shadow-sm border-b sticky top-0 z-30 shrink-0">
+      <div className="flex items-center gap-3">
+        {/* Mobile Hamburger Button */}
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          className="lg:hidden p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition focus:outline-none cursor-pointer"
+          aria-label="Toggle menu"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+
+        <div className="flex flex-col">
+          <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">
+            Welcome back!
+          </h2>
+          <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">
+            Here’s an overview of your delivery activity and upcoming opportunities
+          </p>
+        </div>
       </div>
 
       <div className="flex items-center gap-6">
@@ -597,7 +612,7 @@ export const NavBar = () => {
                 <div className="my-1 border-t border-gray-100" />
                 <button
                   onClick={logout}
-                  className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition w-full text-left"
+                  className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition w-full text-left cursor-pointer"
                 >
                   <User className="w-4 h-4 text-red-500" /> Logout
                 </button>
