@@ -33,6 +33,10 @@ export interface ModernInvoiceData {
   updated_at?: string;
 
   platform_fee?: string | number;
+
+  // ADD THIS
+  platform_fee_percentage?: string | number;
+
   vat_tax?: string | number;
   total_paid?: string | number;
 }
@@ -262,43 +266,130 @@ export const generateInvoicePdfDoc = (
     );
   };
 
-  // ============================================================
-  // FINANCIAL DATA
-  // ============================================================
+    // ============================================================
+    // FINANCIAL DATA
+    // ============================================================
 
-  const reward = toNumber(
-    data.agreed_reward
-  );
+    const reward = toNumber(data.agreed_reward);
 
-  const weight = toNumber(
-    data.agreed_weight_kg
-  );
+    const weight = toNumber(data.agreed_weight_kg);
 
-  // Reward per KG
-  const pricePerKg =
+    // ============================================================
+    // PRICE PER KG
+    // ============================================================
+
+    const pricePerKg =
     weight > 0
-      ? reward / weight
-      : 0;
+        ? reward / weight
+        : 0;
 
-  const platformFee =
+    // ============================================================
+    // PLATFORM FEE PERCENTAGE
+    // ============================================================
+    //
+    // Backend model:
+    //
+    // platform_fee_percentage = 2.00
+    //
+    // If backend sends the percentage, use it.
+    // Otherwise default to 2%.
+    //
+    // Example:
+    // Reward = $100
+    // Fee    = 2%
+    //
+    // $100 × 2 / 100 = $2
+    // ============================================================
+
+    const platformFeePercentage =
+    data.platform_fee_percentage !== undefined &&
+    toNumber(data.platform_fee_percentage) > 0
+        ? toNumber(data.platform_fee_percentage)
+        : 2;
+
+    // ============================================================
+    // PLATFORM FEE CALCULATION
+    // ============================================================
+    //
+    // ALWAYS calculate the frontend fee from the reward + percentage.
+    //
+    // Example:
+    //
+    // reward = 100
+    // percentage = 2
+    //
+    // platformFee = 100 * (2 / 100)
+    //             = 2
+    // ============================================================
+
+    const calculatedPlatformFee =
+    reward * (platformFeePercentage / 100);
+
+    // ============================================================
+    // BACKEND PLATFORM FEE
+    // ============================================================
+    //
+    // If backend already has a valid platform_fee,
+    // use that value.
+    //
+    // Otherwise use the frontend calculation.
+    //
+    // This handles cases where:
+    //
+    // platform_fee = 0
+    // platform_fee_percentage = 2
+    //
+    // Backend fee will therefore become $2 on frontend.
+    // ============================================================
+
+    const backendPlatformFee =
     data.platform_fee !== undefined
-      ? toNumber(data.platform_fee)
-      : reward * 0.1;
+        ? toNumber(data.platform_fee)
+        : 0;
 
-  const vatTax =
+    const platformFee =
+    backendPlatformFee > 0
+        ? backendPlatformFee
+        : calculatedPlatformFee;
+
+    // ============================================================
+    // TAX
+    // ============================================================
+
+    const vatTax =
     data.vat_tax !== undefined
-      ? toNumber(data.vat_tax)
-      : reward * 0.05;
+        ? toNumber(data.vat_tax)
+        : 0;
 
-  const calculatedTotal =
+    // ============================================================
+    // TOTAL
+    // ============================================================
+    //
+    // Reward + Platform Fee + Tax
+    //
+    // Example:
+    //
+    // $100 + $2 + $0 = $102
+    // ============================================================
+
+    const calculatedTotal =
     reward +
     platformFee +
     vatTax;
 
-  const totalPaid =
+    // ============================================================
+    // TOTAL PAID
+    // ============================================================
+
+    const backendTotalPaid =
     data.total_paid !== undefined
-      ? toNumber(data.total_paid)
-      : calculatedTotal;
+        ? toNumber(data.total_paid)
+        : 0;
+
+    const totalPaid =
+    backendTotalPaid > 0
+        ? backendTotalPaid
+        : calculatedTotal;
 
   // ============================================================
   // HEADER
@@ -1012,108 +1103,120 @@ export const generateInvoicePdfDoc = (
     y + 16
   );
 
-  // ============================================================
-  // PAYMENT SUMMARY
-  // ============================================================
+    // ============================================================
+    // PAYMENT SUMMARY
+    // ============================================================
 
-  y += 31;
+    y += 31;
 
-  drawLabel(
+    drawLabel(
     "Payment Summary",
     margin,
     y
-  );
+    );
 
-  y += 4;
+    y += 4;
 
-  const paymentRowHeight = 9;
+    const paymentRowHeight = 9;
 
-  const renderPaymentRow = (
+    const renderPaymentRow = (
     label: string,
     amount: number,
     rowY: number,
     bold = false
-  ) => {
+    ) => {
     setFillColor(
-      bold
+        bold
         ? [241, 245, 249]
         : background
     );
 
     doc.roundedRect(
-      margin,
-      rowY,
-      contentWidth,
-      paymentRowHeight,
-      1.8,
-      1.8,
-      "F"
+        margin,
+        rowY,
+        contentWidth,
+        paymentRowHeight,
+        1.8,
+        1.8,
+        "F"
     );
 
     doc.setFont(
-      "helvetica",
-      bold
+        "helvetica",
+        bold
         ? "bold"
         : "normal"
     );
 
     doc.setFontSize(
-      bold ? 8.5 : 8
+        bold ? 8.5 : 8
     );
 
     setTextColor(
-      bold
+        bold
         ? dark
         : text
     );
 
     doc.text(
-      label,
-      margin + 6,
-      rowY + 6
+        label,
+        margin + 6,
+        rowY + 6
     );
 
     doc.text(
-      formatMoney(
+        formatMoney(
         amount,
         data.currency
-      ),
-      pageWidth - margin - 6,
-      rowY + 6,
-      {
+        ),
+        pageWidth - margin - 6,
+        rowY + 6,
+        {
         align: "right",
-      }
+        }
     );
-  };
+    };
 
-  // Reward
+    // ============================================================
+    // AGREED REWARD
+    // ============================================================
 
-  renderPaymentRow(
+    renderPaymentRow(
     "Agreed Delivery Reward",
     reward,
     y
-  );
+    );
 
-  y += 10;
+    y += 10;
 
-  // Platform fee
+    // ============================================================
+    // PLATFORM FEE
+    // ============================================================
+    //
+    // Show BOTH:
+    //
+    // Platform Service Fee (2%)
+    //                     $2.00
+    //
+    // ============================================================
 
-  renderPaymentRow(
-    "Platform Service Fee",
+    renderPaymentRow(
+    `Platform Service Fee (${platformFeePercentage.toFixed(2)}%)`,
     platformFee,
     y
-  );
+    );
 
-  y += 10;
+    y += 10;
 
-  // Tax
+    // ============================================================
+    // TAX
+    // ============================================================
 
-  renderPaymentRow(
+    renderPaymentRow(
     "Tax & Handling",
     vatTax,
     y
-  );
-
+    );
   // ============================================================
   // TOTAL + PAYMENT INFORMATION
   // ============================================================

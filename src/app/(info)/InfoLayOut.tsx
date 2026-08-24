@@ -55,7 +55,9 @@ export const InfoLayout = ({ children }: InfoLayoutProps) => {
       </div>
 
       {/* Page Content */}
-      <div className="px-6 py-12">{children}</div>
+      <div className="w-full min-w-0 px-4 py-8 sm:px-6 sm:py-10 lg:px-8 lg:py-12">
+        {children}
+      </div>
     </div>
   );
 };

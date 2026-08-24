@@ -454,14 +454,14 @@ export const NavBar = ({ onToggleSidebar }: DashboardNavBarProps) => {
           <Menu className="w-6 h-6" />
         </button>
 
-        <div className="flex flex-col">
+        {/* <div className="flex flex-col">
           <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">
             Welcome back!
           </h2>
           <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">
             Here’s an overview of your delivery activity and upcoming opportunities
           </p>
-        </div>
+        </div> */}
       </div>
 
       <div className="flex items-center gap-6">

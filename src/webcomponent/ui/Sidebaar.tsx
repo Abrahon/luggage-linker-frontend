@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { useEffect } from "react";
 import type { ComponentType } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -83,10 +84,25 @@ export const SideBaar = ({ isOpen = false, onClose }: SideBaarProps) => {
   );
   const activeRole = user?.role || (isMounted ? getUserRole() : null);
   const role = activeRole ? activeRole.toUpperCase() : null;
-
   const isCarrierOrTraveler = role === "TRAVELER";
   const isAdmin = role === "ADMIN";
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose?.();
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, onClose]);
   const links = isAdmin
     ? adminLink
     : [...commonLinks, ...(isCarrierOrTraveler ? carrierLink : senderLink)];
@@ -128,6 +144,7 @@ export const SideBaar = ({ isOpen = false, onClose }: SideBaarProps) => {
 
         {/* Drawer Content */}
         <aside
+          aria-label="Mobile navigation"
           className={`relative w-72 max-w-[80vw] h-full bg-white shadow-xl z-10 flex flex-col py-6 px-4 overflow-y-auto transform transition-transform duration-300 ease-in-out ${
             isOpen ? "translate-x-0" : "-translate-x-full"
           }`}
@@ -147,7 +164,7 @@ export const SideBaar = ({ isOpen = false, onClose }: SideBaarProps) => {
             <button
               type="button"
               onClick={onClose}
-              className="p-1 text-gray-500 hover:text-gray-900 rounded-lg focus:outline-none cursor-pointer"
+              className="p-2 text-gray-500 hover:text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
               aria-label="Close sidebar"
             >
               <X className="w-6 h-6" />

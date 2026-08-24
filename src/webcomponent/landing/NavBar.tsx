@@ -164,7 +164,7 @@ export const Navbar = () => {
           <Dialog open={mobileOpen} onOpenChange={setMobileOpen}>
             <DialogTrigger asChild>
               <button className="text-white">
-                <Menu className="w-6 h-6" />
+                <Menu className="size-10" />
               </button>
             </DialogTrigger>
 

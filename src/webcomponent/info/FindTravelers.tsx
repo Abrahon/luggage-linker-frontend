@@ -23,6 +23,8 @@ import {
   Luggage,
   Coins,
   ArrowRight,
+  Search,
+  MapPin,
 } from "lucide-react";
 import { HeadingSection } from "@/webcomponent/reusable/HeadingSection";
 import { BackendTrip, getPublicTripsApi } from "@/api/trip.api";
@@ -247,18 +249,21 @@ export const FindTravelers = () => {
   };
 
   return (
-    <div className="w-full flex flex-col gap-8 py-10 md:px-8 px-4 font-montserrat">
+    <div className="w-full min-w-0 flex flex-col gap-8 py-6 sm:py-10 px-0 font-montserrat">
       <HeadingSection
         heading="Find Public Trips"
         subheading="Search available travelers and request luggage carry services."
       />
 
-      {/* Filter Section */}
-      <div className="w-full border rounded-2xl shadow-sm hover:shadow-md transition-shadow bg-white p-6">
-        <div className="flex flex-col md:flex-row items-end gap-4">
-          <div className="flex-1 w-full relative">
-            <Label className="text-sm font-semibold mb-2 block">From</Label>
-            <div className="relative">
+      {/* Modern Filter Search Panel */}
+      <div className="w-full border border-slate-200/80 rounded-2xl sm:rounded-3xl shadow-xs hover:shadow-md transition-all duration-300 bg-white p-4 sm:p-6 lg:p-8">
+        <div className="w-full relative flex flex-col lg:flex-row items-center gap-4 lg:gap-3">
+
+          {/* FROM INPUT */}
+          <div className="w-full flex-1 relative">
+            <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">From</Label>
+            <div className="w-full relative">
+              <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-500 pointer-events-none" />
               <Input
                 type="text"
                 value={fromInput}
@@ -269,26 +274,26 @@ export const FindTravelers = () => {
                 }}
                 onFocus={() => setShowFromDropdown(true)}
                 placeholder="Departure city..."
-                className="h-[70px] rounded-xl border-2 border-gray-300 pl-4 pr-4 text-lg font-semibold focus:border-gray-400 focus:ring-0"
+                className="w-full h-14 sm:h-[64px] rounded-xl sm:rounded-2xl border-slate-200 pl-11 pr-4 text-base sm:text-lg font-bold text-slate-800 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all shadow-2xs"
               />
               {fromAirport && (
-                <div className="absolute bottom-3 left-4 text-xs text-gray-400">
+                <div className="absolute bottom-2 left-11 text-[11px] text-slate-400 font-medium truncate max-w-[80%]">
                   {fromAirport}
                 </div>
               )}
               {showFromDropdown && (
-                <div className="absolute top-full mt-2 w-full bg-white border-2 border-gray-300 rounded-xl shadow-lg max-h-60 overflow-y-auto z-50">
+                <div className="absolute top-full mt-2 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto z-50 divide-y divide-slate-100">
                   {getFilteredAirports(fromInput).map((airport) => (
                     <div
                       key={airport.city}
                       onClick={() => handleFromSelect(airport.city, airport.airport)}
-                      className="px-4 py-3 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
+                      className="px-4 py-3 hover:bg-amber-50/60 cursor-pointer transition-colors"
                     >
                       <div className="flex items-center gap-3">
-                        <Plane className="w-4 h-4 text-gray-400" />
+                        <Plane className="w-4 h-4 text-amber-500 shrink-0" />
                         <div>
-                          <div className="font-semibold text-sm">{airport.city}</div>
-                          <div className="text-xs text-gray-500">{airport.airport}</div>
+                          <div className="font-bold text-sm text-slate-800">{airport.city}</div>
+                          <div className="text-xs text-slate-500">{airport.airport}</div>
                         </div>
                       </div>
                     </div>
@@ -298,21 +303,25 @@ export const FindTravelers = () => {
             </div>
           </div>
 
-          <div className="flex items-center justify-center mb-2">
+          {/* SWAP BUTTON */}
+          <div className="z-10 my-1 lg:my-0 lg:mt-6 -my-5 lg:-my-0 shrink-0">
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="icon"
-              className="rounded-full h-10 w-10 border-2 border-gray-300 hover:bg-gray-100"
+              className="rounded-full h-11 w-11 sm:h-12 sm:w-12 border-2 border-slate-200 bg-white hover:bg-amber-500 hover:text-white hover:border-amber-500 text-slate-600 shadow-md transition-all duration-300"
               onClick={handleSwap}
+              title="Swap Locations"
             >
-              <ArrowUpDown className="w-5 h-5 text-gray-600" />
+              <ArrowUpDown className="w-4 h-4 sm:w-5 sm:h-5 lg:rotate-90 transition-transform" />
             </Button>
           </div>
 
-          <div className="flex-1 w-full relative">
-            <Label className="text-sm font-semibold mb-2 block">To</Label>
-            <div className="relative">
+          {/* TO INPUT */}
+          <div className="w-full flex-1 relative">
+            <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">To</Label>
+            <div className="w-full relative">
+              <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-500 pointer-events-none" />
               <Input
                 type="text"
                 value={toInput}
@@ -323,26 +332,26 @@ export const FindTravelers = () => {
                 }}
                 onFocus={() => setShowToDropdown(true)}
                 placeholder="Destination city..."
-                className="h-[70px] rounded-xl border-2 border-gray-300 pl-4 pr-4 text-lg font-semibold focus:border-gray-400 focus:ring-0"
+                className="w-full h-14 sm:h-[64px] rounded-xl sm:rounded-2xl border-slate-200 pl-11 pr-4 text-base sm:text-lg font-bold text-slate-800 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all shadow-2xs"
               />
               {toAirport && (
-                <div className="absolute bottom-3 left-4 text-xs text-gray-400">
+                <div className="absolute bottom-2 left-11 text-[11px] text-slate-400 font-medium truncate max-w-[80%]">
                   {toAirport}
                 </div>
               )}
               {showToDropdown && (
-                <div className="absolute top-full mt-2 w-full bg-white border-2 border-gray-300 rounded-xl shadow-lg max-h-60 overflow-y-auto z-50">
+                <div className="absolute top-full mt-2 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto z-50 divide-y divide-slate-100">
                   {getFilteredAirports(toInput).map((airport) => (
                     <div
                       key={airport.city}
                       onClick={() => handleToSelect(airport.city, airport.airport)}
-                      className="px-4 py-3 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
+                      className="px-4 py-3 hover:bg-amber-50/60 cursor-pointer transition-colors"
                     >
                       <div className="flex items-center gap-3">
-                        <Plane className="w-4 h-4 text-gray-400" />
+                        <Plane className="w-4 h-4 text-emerald-500 shrink-0" />
                         <div>
-                          <div className="font-semibold text-sm">{airport.city}</div>
-                          <div className="text-xs text-gray-500">{airport.airport}</div>
+                          <div className="font-bold text-sm text-slate-800">{airport.city}</div>
+                          <div className="text-xs text-slate-500">{airport.airport}</div>
                         </div>
                       </div>
                     </div>
@@ -352,45 +361,49 @@ export const FindTravelers = () => {
             </div>
           </div>
 
-          <div className="flex-1 w-full">
-            <Label className="text-sm font-semibold mb-2 block">Departure Date</Label>
-            <div className="relative">
-              <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+          {/* DEPARTURE DATE */}
+          <div className="w-full flex-1 relative">
+            <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Departure Date</Label>
+            <div className="w-full relative">
+              <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
               <Input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="h-[70px] rounded-xl border-2 border-gray-300 pl-12 pr-4 text-sm focus:border-gray-400 focus:ring-0"
+                className="w-full h-14 sm:h-[64px] rounded-xl sm:rounded-2xl border-slate-200 pl-11 pr-4 text-sm font-semibold text-slate-800 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all shadow-2xs"
               />
             </div>
           </div>
         </div>
 
-        <div className="flex justify-center mt-6">
+        {/* SEARCH TRIGGER ACTION */}
+        <div className="flex justify-center mt-6 w-full">
           <Button
-            className="font-semibold px-16 py-6 text-lg bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl cursor-pointer"
+            className="w-full font-extrabold px-10 sm:px-16 py-6 sm:py-7 text-base sm:text-lg bg-amber-500 hover:bg-amber-600 text-white rounded-xl sm:rounded-2xl cursor-pointer shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
             onClick={fetchTrips}
           >
-            Search
+            <Search className="w-5 h-5" />
+            <span>Search Trips</span>
           </Button>
         </div>
       </div>
 
-      {/* Trips Result List */}
+      {/* Trips Result List Section */}
       <div className="w-full">
         <HeadingSection heading="Available Trips" />
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-16">
-            <Loader2 className="w-10 h-10 animate-spin text-yellow-500 mb-2" />
-            <p className="text-gray-500 text-sm font-medium">Fetching public trips...</p>
+          <div className="flex flex-col items-center justify-center py-20 w-full">
+            <Loader2 className="w-10 h-10 animate-spin text-amber-500 mb-3" />
+            <p className="text-slate-500 text-sm font-semibold">Fetching public trips...</p>
           </div>
         ) : trips.length === 0 ? (
-          <div className="text-center py-12 border-2 border-dashed rounded-xl bg-gray-50 my-6">
-            <p className="text-gray-500 font-semibold">No active public trips found.</p>
+          <div className="text-center py-16 px-4 border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50 my-6 w-full">
+            <p className="text-slate-600 font-bold text-base">No active public trips found.</p>
+            <p className="text-slate-400 text-xs mt-1">Try adjusting your search criteria or departure dates.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 my-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 my-6 w-full">
             {trips.map((trip) => {
               const traveler = trip.traveler;
               const travelerName = traveler?.name || trip.traveler_email || "Traveler";
@@ -407,25 +420,25 @@ export const FindTravelers = () => {
               return (
                 <div
                   key={trip.id}
-                  className="group border border-slate-200 hover:border-amber-300 rounded-3xl shadow-xs hover:shadow-lg transition-all duration-300 bg-white flex flex-col justify-between overflow-hidden"
+                  className="group border border-slate-200/80 hover:border-amber-300 rounded-2xl sm:rounded-3xl shadow-xs hover:shadow-xl transition-all duration-300 bg-white flex flex-col justify-between overflow-hidden w-full"
                 >
                   {/* Card Header: Clickable Traveler Profile Info */}
                   <div
                     onClick={() => handleProfileClick(traveler?.id)}
-                    className="p-4 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between cursor-pointer hover:bg-amber-50/40 transition-colors group/header"
+                    className="p-4 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between cursor-pointer hover:bg-amber-50/40 transition-colors group/header w-full"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="relative shrink-0">
                         {traveler?.profile_image ? (
                           <Image
                             src={traveler.profile_image}
                             alt={travelerName}
                             width={44}
                             height={44}
-                            className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-xs group-hover/header:scale-105 transition-transform"
+                            className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-2xs group-hover/header:scale-105 transition-transform"
                           />
                         ) : (
-                          <div className="w-11 h-11 rounded-full bg-amber-500 text-white font-black text-sm flex items-center justify-center border-2 border-white shadow-xs group-hover/header:scale-105 transition-transform">
+                          <div className="w-11 h-11 rounded-full bg-amber-500 text-white font-black text-sm flex items-center justify-center border-2 border-white shadow-2xs group-hover/header:scale-105 transition-transform">
                             {travelerName.charAt(0).toUpperCase()}
                           </div>
                         )}
@@ -439,18 +452,18 @@ export const FindTravelers = () => {
                         )}
                       </div>
 
-                      <div className="flex flex-col">
-                        <span className="font-extrabold text-slate-800 text-sm line-clamp-1 group-hover/header:text-amber-600 transition-colors">
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-extrabold text-slate-800 text-sm truncate group-hover/header:text-amber-600 transition-colors">
                           {travelerName}
                         </span>
                         <span className="text-[11px] text-slate-400 font-medium">
-                          Traveler
+                          Verified Traveler
                         </span>
                       </div>
                     </div>
 
-                    {/* Rating & Review Badge */}
-                    <div className="flex items-center gap-1 bg-white border border-slate-200/80 px-2.5 py-1 rounded-full shadow-2xs">
+                    {/* Rating Badge */}
+                    <div className="flex items-center gap-1 bg-white border border-slate-200/80 px-2.5 py-1 rounded-full shadow-2xs shrink-0">
                       <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                       <span className="text-xs font-black text-slate-800">
                         {Number(rating).toFixed(1)}
@@ -462,7 +475,7 @@ export const FindTravelers = () => {
                   </div>
 
                   {/* Body Info */}
-                  <div className="p-4 space-y-3.5 flex-1 flex flex-col justify-between">
+                  <div className="p-4 space-y-3.5 flex-1 flex flex-col justify-between w-full">
                     <div>
                       <h4 className="font-extrabold text-slate-900 text-base line-clamp-1 group-hover:text-amber-600 transition-colors">
                         {trip.title}
@@ -474,9 +487,9 @@ export const FindTravelers = () => {
                       )}
                     </div>
 
-                    {/* Route Box */}
-                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex items-center justify-between gap-2">
-                      <div className="min-w-0">
+                    {/* Route Flow Card */}
+                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex items-center justify-between gap-2 w-full">
+                      <div className="min-w-0 flex-1">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                           From
                         </span>
@@ -492,7 +505,7 @@ export const FindTravelers = () => {
                         <ArrowRight className="w-3.5 h-3.5" />
                       </div>
 
-                      <div className="min-w-0 text-right">
+                      <div className="min-w-0 flex-1 text-right">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                           To
                         </span>
@@ -505,8 +518,8 @@ export const FindTravelers = () => {
                       </div>
                     </div>
 
-                    {/* Departure / Arrival Dates */}
-                    <div className="flex items-center justify-between text-xs font-semibold text-slate-600 px-1">
+                    {/* Dates */}
+                    <div className="flex items-center justify-between text-xs font-semibold text-slate-600 px-1 w-full">
                       <span className="flex items-center gap-1.5 text-slate-500">
                         <Calendar className="w-3.5 h-3.5 text-slate-400" /> Travel Dates
                       </span>
@@ -516,8 +529,8 @@ export const FindTravelers = () => {
                     </div>
 
                     {/* Capacity & Price Metrics */}
-                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
-                      <div className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 w-full">
+                      <div className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 w-full">
                         <Luggage className="w-4 h-4 text-amber-500 shrink-0" />
                         <div>
                           <span className="text-[10px] text-slate-400 font-semibold block leading-tight">
@@ -529,7 +542,7 @@ export const FindTravelers = () => {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 bg-emerald-50/60 p-2.5 rounded-xl border border-emerald-100/80">
+                      <div className="flex items-center gap-2 bg-emerald-50/60 p-2.5 rounded-xl border border-emerald-100/80 w-full">
                         <Coins className="w-4 h-4 text-emerald-600 shrink-0" />
                         <div>
                           <span className="text-[10px] text-emerald-600/80 font-semibold block leading-tight">
@@ -543,18 +556,18 @@ export const FindTravelers = () => {
                     </div>
                   </div>
 
-                  {/* Footer Action Buttons */}
-                  <div className="p-4 bg-slate-50/50 border-t border-slate-100 grid grid-cols-2 gap-2">
+                  {/* Card Footer Actions */}
+                  <div className="p-4 bg-slate-50/50 border-t border-slate-100 grid grid-cols-2 gap-2 w-full">
                     <Button
                       variant="outline"
-                      className="w-full font-bold text-xs border-slate-200 text-slate-700 hover:bg-slate-100 rounded-xl h-9"
+                      className="w-full font-bold text-xs border-slate-200 text-slate-700 hover:bg-slate-100 rounded-xl h-10"
                       onClick={() => handleViewDetails(trip.id)}
                     >
                       Details
                     </Button>
                     <Button
                       disabled={requestingTripId === trip.id || Boolean(isTripOwner)}
-                      className="w-full font-bold text-xs bg-amber-500 hover:bg-amber-600 text-white rounded-xl h-9 shadow-2xs disabled:opacity-50"
+                      className="w-full font-bold text-xs bg-amber-500 hover:bg-amber-600 text-white rounded-xl h-10 shadow-2xs disabled:opacity-50"
                       onClick={() => handleBookingRequest(trip)}
                     >
                       {requestingTripId === trip.id ? (
@@ -583,7 +596,7 @@ export const FindTravelers = () => {
 
       {/* Booking Form Dialog */}
       <Dialog open={requestDialogOpen} onOpenChange={setRequestDialogOpen}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-xl p-4 sm:p-6 rounded-2xl sm:rounded-3xl">
           <DialogHeader>
             <DialogTitle className="font-bold text-xl">Request Booking</DialogTitle>
           </DialogHeader>
