@@ -9,6 +9,7 @@ import {
   getAdminDisputeById,
   requestDisputeEvidence,
   resolveDispute,
+  sendAdminDisputeMessage,
   updateDisputeStatus,
 } from "@/api/adminDisputes.api";
 import {
@@ -45,6 +46,7 @@ export const DisputeDetailModal: React.FC<Props> = ({
 
   // Chat & Evidence State
   const [newMessage, setNewMessage] = useState<string>("");
+  const [sendingMessage, setSendingMessage] = useState<boolean>(false);
   const [showRequestEvidence, setShowRequestEvidence] = useState<boolean>(false);
   const [evidenceRequestMsg, setEvidenceRequestMsg] = useState<string>("");
   const [sendingEvidence, setSendingEvidence] = useState<boolean>(false);
@@ -208,6 +210,26 @@ export const DisputeDetailModal: React.FC<Props> = ({
       alert("Failed to send evidence request.");
     } finally {
       setSendingEvidence(false);
+    }
+  };
+
+  // 6. Send Admin Message
+  const handleSendMessage = async () => {
+    if (!newMessage.trim()) return;
+    setSendingMessage(true);
+    try {
+      await sendAdminDisputeMessage(disputeId, {
+        message_text: newMessage.trim(),
+      });
+      setNewMessage("");
+      await fetchDetail();
+    } catch (err: any) {
+      console.error("Failed to send message:", err);
+      const message =
+        err?.response?.data?.message || "Failed to send message. Please try again.";
+      alert(message);
+    } finally {
+      setSendingMessage(false);
     }
   };
 
@@ -506,11 +528,16 @@ export const DisputeDetailModal: React.FC<Props> = ({
                     <Paperclip size={14} /> Attach File
                   </button>
                   <button
-                    onClick={() => setNewMessage("")}
-                    disabled={!newMessage.trim()}
+                    onClick={handleSendMessage}
+                    disabled={sendingMessage || !newMessage.trim()}
                     className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
                   >
-                    <Send size={12} /> Send Message
+                    {sendingMessage ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <Send size={12} />
+                    )}
+                    Send Message
                   </button>
                 </div>
               </div>

@@ -17,10 +17,6 @@ export type DisputeStatusType =
 
 /**
  * Resolution decisions matching `ResolutionType` text choices in Django.
- * Note: Escrow release value is 'RELEASE_PAYMENT' in backend models.
- */
-/**
- * Resolution decisions matching `ResolutionType` text choices in Django.
  */
 export type ResolutionType =
   | "FULL_REFUND"
@@ -189,6 +185,10 @@ export interface RequestEvidencePayload {
   request_message: string;
 }
 
+export interface SendAdminMessagePayload {
+  message_text: string;
+}
+
 // ==============================================================================
 // API CALLS
 // ==============================================================================
@@ -250,6 +250,18 @@ export const requestDisputeEvidence = async (
 ): Promise<DisputeDetailItem> => {
   const response = await axiosInstance.post(
     `/api/admin/disputes/${disputeId}/request-evidence/`,
+    payload
+  );
+  return response.data;
+};
+
+// 7. Send Admin Dispute Message
+export const sendAdminDisputeMessage = async (
+  disputeId: string,
+  payload: SendAdminMessagePayload
+): Promise<DisputeMessage> => {
+  const response = await axiosInstance.post(
+    `/api/admin/disputes/${disputeId}/message/`,
     payload
   );
   return response.data;
