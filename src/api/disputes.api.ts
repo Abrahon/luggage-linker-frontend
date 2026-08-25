@@ -1,8 +1,34 @@
 import axiosInstance from "@/api/axios";
 
 // ==============================================================================
-// TYPES & INTERFACES
+// TYPES & INTERFACES (Matching Exact Backend JSON Schema)
 // ==============================================================================
+
+export type DisputeStatus =
+  | "OPEN"
+  | "UNDER_REVIEW"
+  | "WAITING_FOR_USER"
+  | "RESOLVED"
+  | "REJECTED"
+  | "CLOSED"
+  | string;
+
+export type DisputeReason =
+  | "DAMAGED_CARGO"
+  | "DAMAGED"
+  | "LOST_PACKAGE"
+  | "ITEM_MISSING"
+  | "NO_SHOW"
+  | "DELAYED_DELIVERY"
+  | "OTHER"
+  | string;
+
+export type EvidenceType =
+  | "IMAGE"
+  | "DAMAGE_PHOTO"
+  | "RECEIPT"
+  | "CHAT_LOG"
+  | "OTHER";
 
 export interface DisputeUser {
   id: string;
@@ -11,85 +37,183 @@ export interface DisputeUser {
   profile_picture: string | null;
 }
 
+export interface DisputeBooking {
+  id: string;
+  tracking_number: string;
+  status: string;
+  payment_status: string;
+  package_details?: string;
+  [key: string]: any;
+}
+
+export interface DisputeSettlement {
+  currency: string;
+  total_amount: string;
+  refund_ratio: string;
+  sender_refund: string;
+  traveler_payout: string;
+}
+
+export interface DisputeTimeline {
+  opened_at: string;
+  assigned_at: string | null;
+  resolved_at: string | null;
+}
+
 export interface DisputeEvidence {
   id: string;
   dispute: string;
   uploaded_by: string;
   uploaded_by_email: string;
-  file_url: string;
-  evidence_type: "IMAGE" | "DAMAGE_PHOTO" | "RECEIPT" | "CHAT_LOG" | "OTHER" | string;
-  evidence_type_display: string;
-  description: string;
-  created_at: string;
+  evidence_type: EvidenceType | string;
+  evidence_type_display?: string;
+  file_url?: string;
+  file_attachment?: string;
+  description?: string;
+  created_at?: string;
 }
 
 export interface DisputeMessage {
   id: string;
-  dispute: string;
   sender: string;
   sender_email: string;
+  sender_name?: string;
+  sender_profile_picture?: string | null;
+  sender_role?: string;
   message_text: string;
-  is_admin_note: boolean;
-  is_read: boolean;
+  is_mine?: boolean;
+  is_admin_note?: boolean;
+  is_read?: boolean;
   created_at: string;
+}
+
+export interface DisputeHistoryEvent {
+  id: string;
+  action: string;
+  action_display: string;
+  status_from: string;
+  status_from_display: string;
+  status_to: string;
+  status_to_display: string;
+  notes: string;
+  created_at: string;
+}
+
+export interface DisputePermissions {
+  can_send_message: boolean;
+  can_upload_evidence: boolean;
+  can_reopen: boolean;
 }
 
 export interface DisputeItem {
-  id: string; // <-- DISPUTE ID (e.g., "1b61d506-b348-4b34-a464-6ea2d0fa607d")
-  booking: string | { tracking_number?: string; package_details?: string; [key: string]: any };
+  id: string;
+  booking: DisputeBooking;
   opened_by: DisputeUser;
   against_user: DisputeUser;
   assigned_admin?: DisputeUser | null;
-  reason: "DAMAGED" | "LOST_PACKAGE" | "ITEM_MISSING" | "NO_SHOW" | "DELAYED_DELIVERY" | "OTHER" | string;
+  reason: DisputeReason;
   reason_display?: string;
   description: string;
-  disputed_amount: string | number;
-  status: "OPEN" | "UNDER_REVIEW" | "WAITING_FOR_USER" | "RESOLVED" | "REJECTED" | "CLOSED" | string;
+  disputed_amount: string;
+  settlement?: DisputeSettlement | null;
+  status: DisputeStatus;
   status_display?: string;
-  resolution?: "FULL_REFUND" | "PARTIAL_REFUND" | "RELEASE_PAYMENT" | "NO_ACTION" | null | string;
+  resolution?: string | null;
   resolution_display?: string | null;
-  is_reopened?: boolean;
-  messages: DisputeMessage[];
+  resolution_info?: any;
+  timeline?: DisputeTimeline;
   evidence: DisputeEvidence[];
+  messages: DisputeMessage[];
+  history?: DisputeHistoryEvent[];
   created_at: string;
   updated_at?: string;
   resolved_at?: string | null;
+  permissions?: DisputePermissions;
 }
 
-/** 
- * Flexible API Response Type supporting both flat DisputeItem payloads
- * and nested wrapper objects returned by Django REST Framework serializers.
- */
 export type CreateDisputeResponse = DisputeItem & {
   dispute?: DisputeItem;
   message?: string;
 };
 
 export interface CreateDisputePayload {
-  booking: string;       // Booking ID required by backend serializer
-  booking_id?: string;   // Fallback key
+  booking: string; // Booking ID required by backend
   against_user: string;
   reason: string;
   description: string;
   disputed_amount: number;
 }
 
-// ==============================================================================
-// API CALLS
-// ==============================================================================
+export interface GetDisputesParams {
+  page?: number;
+  status?: string;
+  search?: string;
+}
 
-/** 1. Fetch all disputes for the logged-in user */
-export const getMyDisputes = async (): Promise<{
+export interface PaginatedDisputesResponse {
   count: number;
   next: string | null;
   previous: string | null;
   results: DisputeItem[];
-}> => {
-  const response = await axiosInstance.get("/api/disputes/");
+}
+
+// ==============================================================================
+// HELPERS
+// ==============================================================================
+
+/**
+ * Maps arbitrary strings or dispute reasons to a valid Django EvidenceType choice.
+ * Ensures choices like "LOST_PACKAGE" default safely to "OTHER" instead of failing validation.
+ */
+export const mapToValidEvidenceType = (
+  rawType?: string
+): EvidenceType => {
+  if (!rawType) return "DAMAGE_PHOTO";
+
+  const upper = rawType.toUpperCase();
+
+  switch (upper) {
+    case "IMAGE":
+      return "IMAGE";
+    case "DAMAGE_PHOTO":
+    case "DAMAGED":
+    case "DAMAGED_CARGO":
+      return "DAMAGE_PHOTO";
+    case "RECEIPT":
+      return "RECEIPT";
+    case "CHAT_LOG":
+      return "CHAT_LOG";
+    case "OTHER":
+    case "LOST_PACKAGE":
+    case "ITEM_MISSING":
+    case "NO_SHOW":
+    case "DELAYED_DELIVERY":
+    default:
+      return "OTHER";
+  }
+};
+
+// ==============================================================================
+// API STORE CALLS
+// ==============================================================================
+
+/** 1. Fetch all disputes for the logged-in user (Supports DRF Pagination or Direct Array) */
+export const getMyDisputes = async (
+  params?: GetDisputesParams
+): Promise<PaginatedDisputesResponse | DisputeItem[]> => {
+  const response = await axiosInstance.get("/api/disputes/", { params });
   return response.data;
 };
 
-/** 2. Open a new dispute claim (Returns the created Dispute object or wrapped payload containing `id`) */
+/** 2. Fetch single dispute detail by ID (`/api/disputes/{disputeId}/`) */
+export const getDisputeDetail = async (
+  disputeId: string
+): Promise<DisputeItem> => {
+  const response = await axiosInstance.get(`/api/disputes/${disputeId}/`);
+  return response.data;
+};
+
+/** 3. Open a new dispute claim */
 export const createDispute = async (
   payload: CreateDisputePayload
 ): Promise<CreateDisputeResponse> => {
@@ -97,17 +221,20 @@ export const createDispute = async (
   return response.data;
 };
 
-/** 3. Upload evidence using the created DISPUTE ID -> /api/disputes/{disputeId}/evidence/ */
+/** 4. Upload evidence image for a specific dispute */
 export const uploadDisputeEvidence = async (
-  disputeId: string, // MUST BE DISPUTE ID
+  disputeId: string,
   file: File,
-  evidenceType: string,
-  description: string
+  evidenceType: EvidenceType | string = "DAMAGE_PHOTO",
+  description: string = "Supporting dispute evidence"
 ): Promise<DisputeEvidence> => {
-  const formData = new FormData();
+  // Validate evidence_type against allowed Django choices
+  const validEvidenceType = mapToValidEvidenceType(evidenceType);
 
+  const formData = new FormData();
+  formData.append("dispute", disputeId); // Required by Django Serializer
   formData.append("file_attachment", file);
-  formData.append("evidence_type", evidenceType);
+  formData.append("evidence_type", validEvidenceType);
   formData.append("description", description);
 
   const response = await axiosInstance.post(
@@ -122,7 +249,7 @@ export const uploadDisputeEvidence = async (
   return response.data;
 };
 
-/** 4. Post message into dispute chat */
+/** 5. Send message in dispute conversation thread */
 export const sendDisputeMessage = async (
   disputeId: string,
   messageText: string

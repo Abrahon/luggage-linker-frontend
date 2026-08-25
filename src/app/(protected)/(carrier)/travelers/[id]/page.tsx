@@ -37,6 +37,9 @@ export default function TravelerProfilePage() {
   const [contacting, setContacting] = useState<boolean>(false);
   const [bookingNotice, setBookingNotice] = useState<string | null>(null);
 
+  // Review expand/collapse toggle state
+  const [showAllReviews, setShowAllReviews] = useState<boolean>(false);
+
   useEffect(() => {
     if (!travelerId) return;
 
@@ -150,16 +153,25 @@ export default function TravelerProfilePage() {
   // Safe extraction helper for Sender ID from review items
   const getSenderId = (review: any): string => {
     if (!review) return "222dea2d-1cd1-4360-b045-89bcb0126326";
-    
+
     return (
       review.sender?.id ||
       review.reviewer?.id ||
       review.sender_id ||
       review.reviewer_id ||
       review.user_id ||
-      "222dea2d-1cd1-4360-b045-89bcb0126326"
+      (typeof review.sender === "string" ? review.sender : "222dea2d-1cd1-4360-b045-89bcb0126326")
     );
   };
+
+  // Extract review list regardless of whether backend provides an Array or paginated results
+  const rawReviewsData = (profile as any).recent_reviews || (profile as any).reviews;
+  const reviewsList: any[] = Array.isArray(rawReviewsData)
+    ? rawReviewsData
+    : rawReviewsData?.results || [];
+
+  const totalReviewsCount = profile.total_reviews || reviewsList.length;
+  const hasMoreThanFive = reviewsList.length > 5;
 
   return (
     <div className="w-full min-h-screen bg-white font-montserrat text-slate-900 py-8 px-4 sm:px-6 lg:px-12">
@@ -193,7 +205,6 @@ export default function TravelerProfilePage() {
           </div>
         )}
 
-        {/* Main Header Profile Card */}
         <div className="w-full bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-xs relative overflow-hidden">
           <div className="absolute top-0 right-0 w-96 h-96 bg-amber-100/40 rounded-full blur-3xl -z-10 pointer-events-none" />
 
@@ -286,7 +297,7 @@ export default function TravelerProfilePage() {
                 <span className="text-xs text-slate-400 font-bold">/ 5.0</span>
               </div>
               <span className="text-[11px] font-bold text-slate-400 block mt-1">
-                From {profile.total_reviews} reviews
+                From {totalReviewsCount} reviews
               </span>
             </div>
           </div>
@@ -353,8 +364,9 @@ export default function TravelerProfilePage() {
         </div>
 
         {/* Content Layout: Ratings Breakdown & Reviews */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-xs space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start w-full">
+          {/* Rating Breakdown */}
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-xs space-y-6 w-full">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-black text-slate-900">
                 Rating Overview
@@ -373,7 +385,7 @@ export default function TravelerProfilePage() {
                   ))}
                 </div>
                 <p className="text-xs font-bold text-slate-500">
-                  Based on {profile.total_reviews} verified reviews
+                  Based on {totalReviewsCount} verified reviews
                 </p>
               </div>
             </div>
@@ -404,84 +416,101 @@ export default function TravelerProfilePage() {
             </div>
           </div>
 
-          <div className="lg:col-span-2 bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+          {/* Recent & All Reviews */}
+          <div className="lg:col-span-2 bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6 w-full">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <h3 className="text-lg font-black text-slate-900">
-                Recent Reviews ({profile.recent_reviews?.length || 0})
+                Reviews ({reviewsList.length})
               </h3>
             </div>
 
-            {!profile.recent_reviews || profile.recent_reviews.length === 0 ? (
+            {reviewsList.length === 0 ? (
               <div className="text-center py-12 border-2 border-dashed border-slate-100 rounded-2xl bg-slate-50/50">
                 <p className="text-sm font-semibold text-slate-400">
                   No public reviews recorded yet.
                 </p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {profile.recent_reviews.map((review: any, index: number) => {
-                  const targetSenderId = getSenderId(review);
-                  const reviewerName =
-                    typeof review.reviewer === "string"
-                      ? review.reviewer
-                      : review.reviewer?.name || review.name || "Sujon Sender";
+              <div className="space-y-4 w-full">
+                {(showAllReviews ? reviewsList : reviewsList.slice(0, 5)).map(
+                  (review: any, index: number) => {
+                    const targetSenderId = getSenderId(review);
+                    const reviewerName =
+                      typeof review.reviewer === "string"
+                        ? review.reviewer
+                        : review.reviewer?.name || review.name || "Sujon Sender";
 
-                  const senderProfileUrl = `/senders/${targetSenderId}`;
+                    const senderProfileUrl = `/senders/${targetSenderId}`;
 
-                  return (
-                    <div
-                      key={review.id || index}
-                      className="p-5 border border-slate-100 rounded-2xl bg-slate-50/40 space-y-3"
-                    >
-                      <div className="flex items-center justify-between">
-                        {/* Sender Profile Link */}
-                        <Link
-                          href={senderProfileUrl}
-                          className="flex items-center gap-3 text-left focus:outline-hidden group cursor-pointer"
-                        >
-                          <div className="relative shrink-0">
-                            {review.reviewer_profile_image || review.profile_image ? (
-                              <Image
-                                src={review.reviewer_profile_image || review.profile_image}
-                                alt={reviewerName}
-                                width={40}
-                                height={40}
-                                className="w-10 h-10 rounded-full object-cover border border-white shadow-2xs group-hover:ring-2 group-hover:ring-amber-500 transition-all"
-                              />
-                            ) : (
-                              <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-700 font-black text-sm flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all">
-                                {reviewerName?.charAt(0).toUpperCase() || "S"}
-                              </div>
-                            )}
-                          </div>
-
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <h4 className="text-sm font-extrabold text-slate-900 group-hover:text-amber-600 transition-colors">
-                                {reviewerName}
-                              </h4>
-                              <User className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-500 transition-colors" />
+                    return (
+                      <div
+                        key={review.id || index}
+                        className="p-5 border border-slate-100 rounded-2xl bg-slate-50/40 space-y-3 w-full"
+                      >
+                        <div className="flex items-center justify-between">
+                          {/* Sender Profile Link */}
+                          <Link
+                            href={senderProfileUrl}
+                            className="flex items-center gap-3 text-left focus:outline-hidden group cursor-pointer"
+                          >
+                            <div className="relative shrink-0">
+                              {review.reviewer_profile_image || review.profile_image ? (
+                                <Image
+                                  src={review.reviewer_profile_image || review.profile_image}
+                                  alt={reviewerName}
+                                  width={40}
+                                  height={40}
+                                  className="w-10 h-10 rounded-full object-cover border border-white shadow-2xs group-hover:ring-2 group-hover:ring-amber-500 transition-all"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-700 font-black text-sm flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all">
+                                  {reviewerName?.charAt(0).toUpperCase() || "S"}
+                                </div>
+                              )}
                             </div>
-                            <span className="text-[11px] font-medium text-slate-400 block">
-                              {formatDate(review.created_at || new Date().toISOString())}
-                            </span>
+
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <h4 className="text-sm font-extrabold text-slate-900 group-hover:text-amber-600 transition-colors">
+                                  {reviewerName}
+                                </h4>
+                                <User className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-500 transition-colors" />
+                              </div>
+                              <span className="text-[11px] font-medium text-slate-400 block">
+                                {formatDate(review.created_at || new Date().toISOString())}
+                              </span>
+                            </div>
+                          </Link>
+
+                          {/* Rating Display */}
+                          <div className="flex text-amber-400 gap-0.5 bg-white px-2.5 py-1 rounded-full border border-slate-200/60 shadow-2xs shrink-0">
+                            {[...Array(review.rating || 5)].map((_, i) => (
+                              <Star key={i} className="w-3.5 h-3.5 fill-amber-400" />
+                            ))}
                           </div>
-                        </Link>
-
-                        {/* Rating Display */}
-                        <div className="flex text-amber-400 gap-0.5 bg-white px-2.5 py-1 rounded-full border border-slate-200/60 shadow-2xs">
-                          {[...Array(review.rating || 5)].map((_, i) => (
-                            <Star key={i} className="w-3.5 h-3.5 fill-amber-400" />
-                          ))}
                         </div>
-                      </div>
 
-                      <p className="text-sm font-medium text-slate-700 leading-relaxed pt-1">
-                        {review.comment || "Great experience working together!"}
-                      </p>
-                    </div>
-                  );
-                })}
+                        <p className="text-sm font-medium text-slate-700 leading-relaxed pt-1">
+                          {review.comment || "Great experience working together!"}
+                        </p>
+                      </div>
+                    );
+                  }
+                )}
+
+                {/* See All Reviews / Show Less Button */}
+                {hasMoreThanFive && (
+                  <div className="pt-2 flex justify-center w-full">
+                    <button
+                      onClick={() => setShowAllReviews((prev) => !prev)}
+                      className="px-6 py-2.5 text-xs font-bold text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100/80 rounded-xl transition-all cursor-pointer border border-amber-200/60"
+                    >
+                      {showAllReviews
+                        ? "Show Less"
+                        : `See All Reviews (${reviewsList.length})`}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
