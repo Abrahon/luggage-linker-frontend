@@ -228,7 +228,17 @@ export interface TimelineStep {
 export interface TimelineResponse {
   success: boolean;
   message: string;
-  data: TimelineStep[];
+  data: {
+    timeline: TimelineStep[];
+    invoice?: {
+      id: string;
+      invoice_number: string;
+      total_paid: string;
+      currency: string;
+      status: string;
+      invoice_date: string;
+    };
+  };
 }
 
 export interface RawBooking {

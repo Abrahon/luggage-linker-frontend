@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { Country, City, ICountry, ICity } from "country-state-city";
 import {
   Package as PackageIcon,
   Upload,
@@ -88,6 +89,15 @@ const CATEGORY_OPTIONS: { label: string; value: PackageCategory }[] = [
   { label: "Other / General Merchandise", value: "OTHER" },
 ];
 
+const allCountries = Country.getAllCountries();
+
+const getCountryIsoByName = (countryName: string): string | undefined => {
+  const match = allCountries.find(
+    (country) => country.name.toLowerCase() === countryName.trim().toLowerCase()
+  );
+  return match?.isoCode;
+};
+
 export function PackageFormModal({
   isOpen,
   onClose,
@@ -120,8 +130,6 @@ export function PackageFormModal({
     is_public: true,
     declared_as_legal: false,
     terms_accepted: false,
-    serial_number: "",
-    imei: "",
   });
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -133,11 +141,28 @@ export function PackageFormModal({
     "idle" | "creating" | "uploading" | "verifying"
   >("idle");
 
+  const pickupCountryIso = getCountryIsoByName(formData.pickup_country);
+  const destinationCountryIso = getCountryIsoByName(formData.destination_country);
+  const pickupCities = pickupCountryIso
+    ? City.getCitiesOfCountry(pickupCountryIso) || []
+    : [];
+  const destinationCities = destinationCountryIso
+    ? City.getCitiesOfCountry(destinationCountryIso) || []
+    : [];
+
   const dragItemIndex = useRef<number | null>(null);
   const dragOverItemIndex = useRef<number | null>(null);
+  const initializedFormKey = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      initializedFormKey.current = null;
+      return;
+    }
+
+    const formKey = `${mode}:${packageToEdit?.id || "new"}:${tripData?.id || ""}`;
+    if (initializedFormKey.current === formKey) return;
+    initializedFormKey.current = formKey;
 
     const formatDateForInput = (dateStr?: string) => {
       if (!dateStr) return "";
@@ -183,8 +208,6 @@ export function PackageFormModal({
             : true,
         declared_as_legal: Boolean(packageToEdit.declared_as_legal),
         terms_accepted: Boolean(packageToEdit.terms_accepted),
-        serial_number: packageToEdit.serial_number || "",
-        imei: packageToEdit.imei || "",
       });
 
       if (packageToEdit.images && Array.isArray(packageToEdit.images)) {
@@ -245,8 +268,6 @@ export function PackageFormModal({
         is_public: !isTripLocked, // If trip locked, it's specific to this trip
         declared_as_legal: false,
         terms_accepted: false,
-        serial_number: "",
-        imei: "",
       });
       setImages([]);
       setDeletedImageIds([]);
@@ -418,23 +439,12 @@ export function PackageFormModal({
       errors.weight = `Weight exceeds available traveler capacity (${tripData.available_weight_kg} kg).`;
     }
 
-    if (!formData.declared_value || Number(formData.declared_value) <= 0) {
-      errors.declared_value = "Declared value required.";
-    }
-    if (!formData.reward_amount || Number(formData.reward_amount) <= 0) {
-      errors.reward_amount = "Enter a valid reward amount.";
-    }
     if (!formData.pickup_city.trim()) errors.pickup_city = "Pickup city required.";
     if (!formData.pickup_address.trim()) errors.pickup_address = "Pickup address required.";
     if (!formData.destination_city.trim()) errors.destination_city = "Destination city required.";
     if (!formData.destination_address.trim()) errors.destination_address = "Destination address required.";
     if (!formData.pickup_date) errors.pickup_date = "Pickup date required.";
     if (!formData.latest_delivery_date) errors.latest_delivery_date = "Latest delivery date required.";
-
-    if (formData.category === "ELECTRONICS") {
-      if (!formData.serial_number.trim()) errors.serial_number = "Serial number required.";
-      if (!formData.imei.trim()) errors.imei = "IMEI required.";
-    }
 
     if (!formData.declared_as_legal) errors.declared_as_legal = "Legal declaration required.";
     if (!formData.terms_accepted) errors.terms_accepted = "Terms acceptance required.";
@@ -546,11 +556,7 @@ export function PackageFormModal({
             );
           }
 
-          setSubmitStep("verifying");
-          finalPackage =
-            (await getPackageById(targetPackageId)) ||
-            createRes?.data ||
-            createRes;
+          finalPackage = createRes?.data || createRes;
         }
 
         toast.success(createRes?.message || "Package created successfully!");
@@ -721,53 +727,6 @@ export function PackageFormModal({
               </div>
             </div>
 
-            {/* Dynamic Electronics Fields */}
-            {formData.category === "ELECTRONICS" && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Serial Number <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="serial_number"
-                    value={formData.serial_number}
-                    onChange={handleChange}
-                    placeholder="e.g. C02G1234MD6R"
-                    className={`w-full px-3.5 py-2 rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 ${
-                      fieldErrors.serial_number
-                        ? "border-red-500"
-                        : "border-slate-200 dark:border-slate-700"
-                    }`}
-                  />
-                  {fieldErrors.serial_number && (
-                    <p className="mt-1 text-[11px] text-red-500">
-                      {fieldErrors.serial_number}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    IMEI Number <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="imei"
-                    value={formData.imei}
-                    onChange={handleChange}
-                    placeholder="e.g. 352094081234567"
-                    className={`w-full px-3.5 py-2 rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 ${
-                      fieldErrors.imei
-                        ? "border-red-500"
-                        : "border-slate-200 dark:border-slate-700"
-                    }`}
-                  />
-                  {fieldErrors.imei && (
-                    <p className="mt-1 text-[11px] text-red-500">{fieldErrors.imei}</p>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* SECTION 2: ROUTE & DATES (LOCKED IN TRIP MODE) */}
@@ -793,18 +752,26 @@ export function PackageFormModal({
                   Pickup Country <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <input
-                    type="text"
+                  <select
                     name="pickup_country"
                     value={formData.pickup_country}
-                    onChange={handleChange}
+                    onChange={(e) => {
+                      handleChange(e);
+                      setFormData((prev) => ({ ...prev, pickup_city: "" }));
+                    }}
                     disabled={isTripLocked}
                     className={`w-full px-3.5 py-2 rounded-xl border text-xs transition-all ${
                       isTripLocked
                         ? "bg-slate-100 dark:bg-slate-800/80 text-slate-500 cursor-not-allowed border-slate-200 dark:border-slate-700 pr-9"
                         : "bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
                     }`}
-                  />
+                  >
+                    {allCountries.map((country: ICountry) => (
+                      <option key={country.isoCode} value={country.name}>
+                        {country.flag} {country.name}
+                      </option>
+                    ))}
+                  </select>
                   {isTripLocked && (
                     <Lock className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5" />
                   )}
@@ -816,19 +783,26 @@ export function PackageFormModal({
                   Pickup City <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <input
-                    type="text"
+                  <select
                     name="pickup_city"
                     value={formData.pickup_city}
                     onChange={handleChange}
                     disabled={isTripLocked}
-                    placeholder="e.g. New York"
                     className={`w-full px-3.5 py-2 rounded-xl border text-xs transition-all ${
                       isTripLocked
                         ? "bg-slate-100 dark:bg-slate-800/80 text-slate-500 cursor-not-allowed border-slate-200 dark:border-slate-700 pr-9"
                         : "bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
                     }`}
-                  />
+                  >
+                    <option value="">
+                      {pickupCities.length > 0 ? "Select Pickup City" : "No cities found"}
+                    </option>
+                    {pickupCities.map((city: ICity, index) => (
+                      <option key={`${city.name}-${index}`} value={city.name}>
+                        {city.name}
+                      </option>
+                    ))}
+                  </select>
                   {isTripLocked && (
                     <Lock className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5" />
                   )}
@@ -844,18 +818,26 @@ export function PackageFormModal({
                   Destination Country <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <input
-                    type="text"
+                  <select
                     name="destination_country"
                     value={formData.destination_country}
-                    onChange={handleChange}
+                    onChange={(e) => {
+                      handleChange(e);
+                      setFormData((prev) => ({ ...prev, destination_city: "" }));
+                    }}
                     disabled={isTripLocked}
                     className={`w-full px-3.5 py-2 rounded-xl border text-xs transition-all ${
                       isTripLocked
                         ? "bg-slate-100 dark:bg-slate-800/80 text-slate-500 cursor-not-allowed border-slate-200 dark:border-slate-700 pr-9"
                         : "bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
                     }`}
-                  />
+                  >
+                    {allCountries.map((country: ICountry) => (
+                      <option key={country.isoCode} value={country.name}>
+                        {country.flag} {country.name}
+                      </option>
+                    ))}
+                  </select>
                   {isTripLocked && (
                     <Lock className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5" />
                   )}
@@ -867,19 +849,28 @@ export function PackageFormModal({
                   Destination City <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <input
-                    type="text"
+                  <select
                     name="destination_city"
                     value={formData.destination_city}
                     onChange={handleChange}
                     disabled={isTripLocked}
-                    placeholder="e.g. Berlin"
                     className={`w-full px-3.5 py-2 rounded-xl border text-xs transition-all ${
                       isTripLocked
                         ? "bg-slate-100 dark:bg-slate-800/80 text-slate-500 cursor-not-allowed border-slate-200 dark:border-slate-700 pr-9"
                         : "bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
                     }`}
-                  />
+                  >
+                    <option value="">
+                      {destinationCities.length > 0
+                        ? "Select Destination City"
+                        : "No cities found"}
+                    </option>
+                    {destinationCities.map((city: ICity, index) => (
+                      <option key={`${city.name}-${index}`} value={city.name}>
+                        {city.name}
+                      </option>
+                    ))}
+                  </select>
                   {isTripLocked && (
                     <Lock className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5" />
                   )}
@@ -994,7 +985,7 @@ export function PackageFormModal({
           </div>
 
           {/* SECTION 3: VALUATION & REWARD */}
-          <div className="space-y-4">
+          {/* <div className="space-y-4">
             <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-6">
               <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
                 <span className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center text-[10px]">
@@ -1086,7 +1077,7 @@ export function PackageFormModal({
                 </div>
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* SECTION 4: MEDIA / IMAGES */}
           <div className="space-y-4 border-t border-slate-200 dark:border-slate-800 pt-6">
@@ -1200,44 +1191,6 @@ export function PackageFormModal({
               Requirements & Legal Terms
             </h3>
 
-            {/* Checkbox Options */}
-            <div className="flex flex-wrap items-center gap-6 text-xs text-slate-700 dark:text-slate-300 font-medium">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="is_fragile"
-                  checked={formData.is_fragile}
-                  onChange={handleChange}
-                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                />
-                Fragile Item
-              </label>
-
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="requires_signature"
-                  checked={formData.requires_signature}
-                  onChange={handleChange}
-                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                />
-                Signature Required on Delivery
-              </label>
-
-              {!isTripLocked && (
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="is_public"
-                    checked={formData.is_public}
-                    onChange={handleChange}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  List publicly on marketplace
-                </label>
-              )}
-            </div>
-
             {/* Legal terms checkboxes */}
             <div className="space-y-2 pt-2">
               <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-600 dark:text-slate-400">
@@ -1277,6 +1230,7 @@ export function PackageFormModal({
               )}
             </div>
           </div>
+
         </form>
 
         {/* Modal Footer */}
@@ -1294,7 +1248,7 @@ export function PackageFormModal({
             type="submit"
             form="package-form"
             disabled={isSubmitting}
-            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center gap-2 disabled:opacity-50"
+            className="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center gap-2 disabled:opacity-50"
           >
             {isSubmitting ? (
               <>

@@ -29,7 +29,7 @@ export const BookingTimelineModal: React.FC<BookingTimelineModalProps> = ({
           setLoading(true);
           const res = await getBookingTimeline(booking.id);
           if (res.success && res.data) {
-            setTimeline(res.data);
+            setTimeline(res.data.timeline || []);
           }
         } catch (err: any) {
           toast.error(err?.response?.data?.message || "Failed to load booking timeline.");

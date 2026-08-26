@@ -171,9 +171,25 @@ export const createPackage = async (
   payload: Partial<CreatePackagePayload>
 ): Promise<APIPackageItem> => {
   const sanitizedPayload = cleanPayload(payload);
+  const createPayload = {
+    title: sanitizedPayload.title,
+    description: sanitizedPayload.description,
+    category: sanitizedPayload.category,
+    weight: sanitizedPayload.weight,
+    pickup_country: sanitizedPayload.pickup_country,
+    pickup_city: sanitizedPayload.pickup_city,
+    pickup_address: sanitizedPayload.pickup_address,
+    destination_country: sanitizedPayload.destination_country,
+    destination_city: sanitizedPayload.destination_city,
+    destination_address: sanitizedPayload.destination_address,
+    pickup_date: sanitizedPayload.pickup_date,
+    latest_delivery_date: sanitizedPayload.latest_delivery_date,
+    declared_as_legal: sanitizedPayload.declared_as_legal,
+    terms_accepted: sanitizedPayload.terms_accepted,
+  };
   const response = await axiosInstance.post(
     "/api/create/package/",
-    sanitizedPayload
+    createPayload
   );
   return response.data?.data || response.data;
 };

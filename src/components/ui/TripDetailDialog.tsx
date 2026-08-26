@@ -17,6 +17,7 @@ interface TripDetailDialogProps {
   tripId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  canRequestBooking?: boolean;
   onRequestBooking: (trip: BackendTrip) => void;
 }
 
@@ -24,6 +25,7 @@ export const TripDetailDialog = ({
   tripId,
   open,
   onOpenChange,
+  canRequestBooking = false,
   onRequestBooking,
 }: TripDetailDialogProps) => {
   const [trip, setTrip] = useState<BackendTrip | null>(null);
@@ -132,7 +134,7 @@ export const TripDetailDialog = ({
               </div>
             </div>
 
-            <div className="flex justify-end pt-3">
+            {canRequestBooking && <div className="flex justify-end pt-3">
               <Button
                 className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold"
                 onClick={() => {
@@ -142,7 +144,7 @@ export const TripDetailDialog = ({
               >
                 Request Booking
               </Button>
-            </div>
+            </div>}
           </div>
         ) : null}
       </DialogContent>

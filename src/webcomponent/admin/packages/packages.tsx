@@ -423,7 +423,7 @@ export const Packages = () => {
                         )}
                         <div className="flex flex-col">
                           <span className="font-semibold text-slate-900 text-sm">
-                            {pkg.title}
+                            {pkg.title.length > 25 ? `${pkg.title.slice(0, 25)}...` : pkg.title}
                           </span>
                           <span className="text-xs text-slate-500">{pkg.category}</span>
                         </div>

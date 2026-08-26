@@ -2,12 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { BackendTrip } from "@/api/trip.api";
-import { APIPackageItem } from "@/api/sender.package.api";
-import {
-  requestPublicTripBooking,
-  getMyPackagesApi,
-  SenderPackage,
-} from "@/api/booking.api";
+import { APIPackageItem, getMyPackages } from "@/api/sender.package.api";
+import { getMyMatches, MatchItem, sendBookingRequest } from "@/api/matching.api";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -24,13 +20,12 @@ import {
   CheckCircle2,
   Weight,
   ArrowRight,
-  FileEdit,
-  Clock,
   MapPin,
   Calendar,
 } from "lucide-react";
 import Image from "next/image";
 import { PackageFormModal, TripContextData } from "../package/PackageFormModal";
+import { toast } from "sonner";
 
 interface SendRequestDialogProps {
   setOpen: (open: boolean) => void;
@@ -41,62 +36,9 @@ interface SendRequestDialogProps {
 type DialogStep =
   | "LOADING"
   | "NO_PACKAGE"
-  | "PACKAGE_UNDER_REVIEW"
-  | "PACKAGE_DRAFT"
+  | "NO_COMPATIBLE_PACKAGE"
   | "SELECT_PACKAGE"
   | "SUCCESS";
-
-// ============================================================================
-// HELPER VALIDATORS & MATCHING LOGIC
-// ============================================================================
-
-const normalize = (value?: string): string => value?.trim().toLowerCase() || "";
-
-export const isPackageCompatibleWithTrip = (
-  pkg: SenderPackage | Record<string, any>,
-  trip: BackendTrip | Record<string, any>
-): boolean => {
-  if (pkg.status !== "PUBLISHED") {
-    return false;
-  }
-
-  // ROUTE MATCH
-  const pkgPickupCountry = pkg.pickup_country || pkg.from_country;
-  const pkgPickupCity = pkg.pickup_city || pkg.from_city;
-  const pkgDestCountry = pkg.destination_country || pkg.to_country;
-  const pkgDestCity = pkg.destination_city || pkg.to_city;
-
-  const routeMatches =
-    normalize(pkgPickupCountry) === normalize(trip.from_country) &&
-    normalize(pkgPickupCity) === normalize(trip.from_city) &&
-    normalize(pkgDestCountry) === normalize(trip.to_country) &&
-    normalize(pkgDestCity) === normalize(trip.to_city);
-
-  if (!routeMatches) {
-    return false;
-  }
-
-  // DATE MATCH (Safely parsed via getTime())
-  const pkgPickupDate = pkg.pickup_date || pkg.departure_date;
-  const tripDepartureDate = trip.departure_date;
-
-  if (pkgPickupDate && tripDepartureDate) {
-    if (new Date(pkgPickupDate).getTime() > new Date(tripDepartureDate).getTime()) {
-      return false;
-    }
-  }
-
-  const pkgLatestDelivery = pkg.latest_delivery_date;
-  const tripArrivalDate = trip.arrival_date;
-
-  if (pkgLatestDelivery && tripArrivalDate) {
-    if (new Date(tripArrivalDate).getTime() > new Date(pkgLatestDelivery).getTime()) {
-      return false;
-    }
-  }
-
-  return true;
-};
 
 const extractApiErrorMessage = (error: any): string => {
   if (!error?.response?.data) {
@@ -108,6 +50,10 @@ const extractApiErrorMessage = (error: any): string => {
   if (typeof data === "string") return data;
   if (data.message && typeof data.message === "string") return data.message;
   if (data.detail && typeof data.detail === "string") return data.detail;
+  if (data.error && typeof data.error === "string") return data.error;
+  if (data.errors && typeof data.errors === "object") {
+    return extractApiErrorMessage({ response: { data: data.errors } });
+  }
 
   if (data.non_field_errors) {
     return Array.isArray(data.non_field_errors)
@@ -133,10 +79,10 @@ export const SendRequestDialog = ({
   onSuccess,
 }: SendRequestDialogProps) => {
   const [step, setStep] = useState<DialogStep>("LOADING");
-  const [compatiblePackages, setCompatiblePackages] = useState<SenderPackage[]>([]);
+  const [compatiblePackages, setCompatiblePackages] = useState<MatchItem[]>([]);
   const [selectedPackageId, setSelectedPackageId] = useState<string>("");
   const [showCreatePackageModal, setShowCreatePackageModal] = useState(false);
-  const [packageToEdit, setPackageToEdit] = useState<SenderPackage | null>(null);
+  const [packageToEdit, setPackageToEdit] = useState<APIPackageItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -151,37 +97,20 @@ export const SendRequestDialog = ({
       setStep("LOADING");
       setErrorMessage(null);
 
-      const response = await getMyPackagesApi();
-      const allPackages: SenderPackage[] = Array.isArray(response)
-        ? response
-        : (response as any)?.data || [];
+      const [allPackages, matches] = await Promise.all([
+        getMyPackages(),
+        getMyMatches(),
+      ]);
 
-      if (!allPackages || allPackages.length === 0) {
+      if (allPackages.length === 0) {
         setStep("NO_PACKAGE");
         return;
       }
 
-      const matchingPackages = allPackages.filter((pkg) =>
-        isPackageCompatibleWithTrip(pkg, trip!)
-      );
+      const matchingPackages = matches.filter((match) => match.trip === trip?.id);
 
       if (matchingPackages.length === 0) {
-        const draftPackages = allPackages.filter((pkg) => pkg.status === "DRAFT");
-        if (draftPackages.length > 0) {
-          setStep("PACKAGE_DRAFT");
-          setPackageToEdit(draftPackages[0]);
-          return;
-        }
-
-        const reviewPackages = allPackages.filter(
-          (pkg) => pkg.status === "PENDING_REVIEW"
-        );
-        if (reviewPackages.length > 0) {
-          setStep("PACKAGE_UNDER_REVIEW");
-          return;
-        }
-
-        setStep("NO_PACKAGE");
+        setStep("NO_COMPATIBLE_PACKAGE");
         return;
       }
 
@@ -189,9 +118,9 @@ export const SendRequestDialog = ({
 
       // Auto-select the newly created package if provided, otherwise default to first
       const targetSelection =
-        autoSelectId && matchingPackages.some((p) => p.id === autoSelectId)
+        autoSelectId && matchingPackages.some((p) => p.package === autoSelectId)
           ? autoSelectId
-          : matchingPackages[0].id;
+          : matchingPackages[0].package;
 
       setSelectedPackageId(targetSelection);
       setStep("SELECT_PACKAGE");
@@ -231,38 +160,34 @@ export const SendRequestDialog = ({
     setShowCreatePackageModal(true);
   };
 
-  const handleOpenDraftEdit = (draftPkg: SenderPackage) => {
-    setPackageToEdit(draftPkg);
-    setShowCreatePackageModal(true);
-  };
-
-  const selectedPkg = compatiblePackages.find((p) => p.id === selectedPackageId);
-
-  const selectedPkgWeight = selectedPkg
-    ? parseFloat(String(selectedPkg.weight_kg ?? (selectedPkg as any).weight ?? "0"))
-    : 0;
-
-  const isWeightExceeded = selectedPkg
-    ? selectedPkgWeight > tripAvailableCapacity
-    : false;
-
   const handleSubmitBooking = async () => {
-    if (!selectedPackageId || isWeightExceeded) return;
+    if (!selectedPackageId) return;
+
+    const selectedMatch = compatiblePackages.find(
+      (match) => match.package === selectedPackageId
+    );
+    if (!selectedMatch) return;
 
     try {
       setIsSubmitting(true);
       setErrorMessage(null);
 
-      await requestPublicTripBooking({
-        trip_id: trip.id,
-        package_id: selectedPackageId,
+      await sendBookingRequest({
+        match_id: selectedMatch.id,
+        package_id: selectedMatch.package,
+        trip_id: selectedMatch.trip,
+        weight_kg: parseFloat(selectedMatch.remaining_weight) || 0,
+        message: `Booking request for ${selectedMatch.package_title}`,
       });
 
+      toast.success("Booking request sent successfully.");
       setStep("SUCCESS");
       if (onSuccess) onSuccess();
     } catch (err: any) {
       console.error("Booking request failed:", err);
-      setErrorMessage(extractApiErrorMessage(err));
+      const message = extractApiErrorMessage(err);
+      setErrorMessage(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -330,7 +255,9 @@ export const SendRequestDialog = ({
               <div className="bg-amber-50 p-3 rounded-full mb-3">
                 <Package className="w-8 h-8 text-amber-600" />
               </div>
-              <h3 className="text-lg font-bold text-gray-900">Package Required</h3>
+              <h3 className="text-lg font-bold text-gray-900">
+                You need to create a package for this trip.
+              </h3>
               <p className="text-sm text-gray-600 mt-1 max-w-xs leading-relaxed">
                 You need to create and publish a package matching this route (
                 <span className="font-semibold text-gray-800">
@@ -358,16 +285,17 @@ export const SendRequestDialog = ({
             </div>
           )}
 
-          {/* STEP 3: PACKAGE UNDER REVIEW */}
-          {step === "PACKAGE_UNDER_REVIEW" && (
+          {/* STEP 3: NO COMPATIBLE PACKAGE */}
+          {step === "NO_COMPATIBLE_PACKAGE" && (
             <div className="py-4 flex flex-col items-center text-center">
-              <div className="bg-amber-50 p-3 rounded-full mb-3">
-                <Clock className="w-8 h-8 text-amber-600" />
+              <div className="bg-slate-100 p-3 rounded-full mb-3">
+                <Package className="w-8 h-8 text-slate-600" />
               </div>
-              <h3 className="text-lg font-bold text-gray-900">Package Not Ready</h3>
-              <p className="text-sm text-gray-600 mt-2 max-w-xs leading-relaxed">
-                Your package is currently under review. You can request space on
-                this trip after your package has been published.
+              <h3 className="text-lg font-bold text-gray-900">
+                No compatible package found for this trip.
+              </h3>
+              <p className="text-sm text-gray-600 mt-2 max-w-xs">
+                Please create a relevant package for this trip first.
               </p>
               <div className="flex gap-3 mt-6 w-full">
                 <Button
@@ -380,44 +308,10 @@ export const SendRequestDialog = ({
                 </Button>
                 <Button
                   type="button"
-                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-medium cursor-pointer"
+                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-semibold cursor-pointer"
                   onClick={handleOpenCreateModal}
                 >
-                  <Plus className="w-4 h-4 mr-1" /> Create New Package
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 4: PACKAGE IS A DRAFT */}
-          {step === "PACKAGE_DRAFT" && (
-            <div className="py-4 flex flex-col items-center text-center">
-              <div className="bg-blue-50 p-3 rounded-full mb-3">
-                <FileEdit className="w-8 h-8 text-blue-600" />
-              </div>
-              <h3 className="text-lg font-bold text-gray-900">
-                Unfinished Draft Found
-              </h3>
-              <p className="text-sm text-gray-600 mt-2 max-w-xs leading-relaxed">
-                You have an unfinished draft. Complete it or create a new package for this trip.
-              </p>
-              <div className="flex flex-col gap-2 mt-6 w-full">
-                {packageToEdit && (
-                  <Button
-                    type="button"
-                    className="w-full bg-amber-500 hover:bg-amber-600 text-white font-medium cursor-pointer"
-                    onClick={() => handleOpenDraftEdit(packageToEdit)}
-                  >
-                    Complete Existing Draft
-                  </Button>
-                )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full cursor-pointer"
-                  onClick={handleOpenCreateModal}
-                >
-                  <Plus className="w-4 h-4 mr-1" /> Create New Package
+                  <Plus className="w-4 h-4 mr-1" /> Create Package
                 </Button>
               </div>
             </div>
@@ -450,18 +344,12 @@ export const SendRequestDialog = ({
               {/* Scrollable Package List Container */}
               <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
                 {compatiblePackages.map((pkg) => {
-                  const isSelected = pkg.id === selectedPackageId;
-                  const pkgWeight = parseFloat(
-                    String(pkg.weight_kg ?? (pkg as any).weight ?? "0")
-                  );
-                  const exceedsTripWeight = pkgWeight > tripAvailableCapacity;
-                  const pkgFrom = pkg.pickup_city || pkg.from_city;
-                  const pkgTo = pkg.destination_city || pkg.to_city;
+                  const isSelected = pkg.package === selectedPackageId;
 
                   return (
                     <div
                       key={pkg.id}
-                      onClick={() => setSelectedPackageId(pkg.id)}
+                      onClick={() => setSelectedPackageId(pkg.package)}
                       className={`p-3 border rounded-xl cursor-pointer transition flex items-center justify-between ${
                         isSelected
                           ? "border-amber-500 bg-amber-50/40 ring-1 ring-amber-500"
@@ -469,10 +357,10 @@ export const SendRequestDialog = ({
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        {pkg.image_url ? (
+                        {pkg.package_image ? (
                           <Image
-                            src={pkg.image_url}
-                            alt={pkg.title}
+                            src={pkg.package_image}
+                            alt={pkg.package_title}
                             width={44}
                             height={44}
                             className="rounded-lg object-cover w-11 h-11 shrink-0"
@@ -484,17 +372,16 @@ export const SendRequestDialog = ({
                         )}
                         <div className="min-w-0">
                           <h4 className="text-sm font-semibold text-gray-800 truncate">
-                            {pkg.title}
+                            {pkg.package_title}
                           </h4>
                           <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
                             <span className="flex items-center gap-1 font-medium shrink-0">
                               <Weight className="w-3 h-3 text-gray-400" />{" "}
-                              {pkgWeight} kg
+                              {pkg.remaining_weight} kg
                             </span>
-                            <span>•</span>
                             <span className="flex items-center gap-1 font-medium truncate">
                               <MapPin className="w-3 h-3 text-gray-400 shrink-0" />{" "}
-                              {pkgFrom} → {pkgTo}
+                              {pkg.package_pickup_city} → {pkg.package_destination_city}
                             </span>
                           </div>
                         </div>
@@ -505,29 +392,14 @@ export const SendRequestDialog = ({
                           type="radio"
                           name="package_select"
                           checked={isSelected}
-                          onChange={() => setSelectedPackageId(pkg.id)}
+                          onChange={() => setSelectedPackageId(pkg.package)}
                           className="accent-amber-500 cursor-pointer"
                         />
-                        {exceedsTripWeight && (
-                          <span className="text-[10px] text-red-600 font-semibold bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
-                            Too Heavy
-                          </span>
-                        )}
                       </div>
                     </div>
                   );
                 })}
               </div>
-
-              {isWeightExceeded && (
-                <p className="text-xs text-red-700 bg-red-50 border border-red-200 p-2.5 rounded-lg font-medium flex items-center gap-1.5 shrink-0">
-                  <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-                  <span>
-                    Weight exceeded: Package ({selectedPkgWeight} kg) exceeds
-                    traveler's available capacity ({tripAvailableCapacity} kg).
-                  </span>
-                </p>
-              )}
 
               <div className="flex items-center justify-between pt-2 shrink-0 border-t border-gray-100">
                 <Button
@@ -540,7 +412,7 @@ export const SendRequestDialog = ({
                 </Button>
                 <Button
                   type="button"
-                  disabled={!selectedPackageId || isWeightExceeded || isSubmitting}
+                  disabled={!selectedPackageId || isSubmitting}
                   onClick={handleSubmitBooking}
                   className="px-6 bg-amber-500 hover:bg-amber-600 text-white font-medium cursor-pointer disabled:opacity-50"
                 >

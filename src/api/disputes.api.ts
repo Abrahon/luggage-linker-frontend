@@ -108,6 +108,7 @@ export interface DisputePermissions {
 export interface DisputeItem {
   id: string;
   booking: DisputeBooking;
+  tracking_number: string;
   opened_by: DisputeUser;
   against_user: DisputeUser;
   assigned_admin?: DisputeUser | null;

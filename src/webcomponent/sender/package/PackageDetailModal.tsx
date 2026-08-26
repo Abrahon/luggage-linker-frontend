@@ -6,15 +6,10 @@ import {
   Package as PackageIcon,
   MapPin,
   Calendar,
-  DollarSign,
   Weight,
-  ShieldCheck,
-  AlertTriangle,
-  FileText,
   Tag,
   Loader2,
   CheckCircle2,
-  Lock,
 } from "lucide-react";
 import { APIPackageItem, getPackageById } from "@/api/sender.package.api";
 import { toast } from "sonner";
@@ -216,31 +211,13 @@ export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
             </div>
 
             {/* Main Specs Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
                 <div className="flex items-center gap-1.5 text-slate-400 text-xs font-bold uppercase">
                   <Weight className="w-3.5 h-3.5" /> Weight
                 </div>
                 <p className="text-sm font-black text-slate-800 mt-1">
                   {details.weight} kg
-                </p>
-              </div>
-
-              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
-                <div className="flex items-center gap-1.5 text-slate-400 text-xs font-bold uppercase">
-                  <DollarSign className="w-3.5 h-3.5" /> Reward
-                </div>
-                <p className="text-sm font-black text-emerald-600 mt-1">
-                  {details.currency} {details.reward_amount}
-                </p>
-              </div>
-
-              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
-                <div className="flex items-center gap-1.5 text-slate-400 text-xs font-bold uppercase">
-                  <Tag className="w-3.5 h-3.5" /> Value
-                </div>
-                <p className="text-sm font-black text-slate-800 mt-1">
-                  {details.currency} {details.declared_value}
                 </p>
               </div>
 
@@ -283,30 +260,8 @@ export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
               </div>
             </div>
 
-            {/* Verification & Attributes Flags */}
+            {/* Legal Status */}
             <div className="flex flex-wrap items-center gap-2.5 pt-2">
-              <span
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border ${
-                  details.is_fragile
-                    ? "bg-amber-50 text-amber-700 border-amber-200"
-                    : "bg-slate-50 text-slate-500 border-slate-200"
-                }`}
-              >
-                <AlertTriangle className="w-3.5 h-3.5" />
-                {details.is_fragile ? "Fragile Item" : "Not Fragile"}
-              </span>
-
-              <span
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border ${
-                  details.requires_signature
-                    ? "bg-purple-50 text-purple-700 border-purple-200"
-                    : "bg-slate-50 text-slate-500 border-slate-200"
-                }`}
-              >
-                <Lock className="w-3.5 h-3.5" />
-                {details.requires_signature ? "Signature Required" : "No Signature Required"}
-              </span>
-
               <span
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border ${
                   details.declared_as_legal

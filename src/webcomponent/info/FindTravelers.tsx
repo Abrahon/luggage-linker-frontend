@@ -5,12 +5,6 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
@@ -28,12 +22,13 @@ import {
 } from "lucide-react";
 import { HeadingSection } from "@/webcomponent/reusable/HeadingSection";
 import { BackendTrip, getPublicTripsApi } from "@/api/trip.api";
+import { getMyBookings } from "@/api/booking.api";
+import { getMyMatches } from "@/api/matching.api";
 import { TripDetailDialog } from "@/components/ui/TripDetailDialog";
 import { SendRequestDialog } from "../sender/find-travellers/SendRequestDialog";
 
 // Auth context & package API
 import { useAuth } from "@/context/AuthContext";
-import { getMyPackages, APIPackageItem } from "@/api/sender.package.api";
 
 const airports = [
   { city: "Dhaka", airport: "Hazrat Shahjalal" },
@@ -54,9 +49,8 @@ export const FindTravelers = () => {
 
   const [trips, setTrips] = useState<BackendTrip[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-
-  // Track loading per individual trip ID
   const [requestingTripId, setRequestingTripId] = useState<string | null>(null);
+  const [requestedTripIds, setRequestedTripIds] = useState<Set<string>>(new Set());
 
   // Dialog Controls for Trips
   const [selectedTripForDetail, setSelectedTripForDetail] = useState<string | null>(null);
@@ -98,6 +92,39 @@ export const FindTravelers = () => {
     fetchTrips();
   }, [fetchTrips]);
 
+  const refreshRequestStates = useCallback(async () => {
+    if (user?.role !== "SENDER") return;
+
+    try {
+      const [matches, bookings] = await Promise.all([
+        getMyMatches(),
+        getMyBookings(),
+      ]);
+      const completedTripTitles = new Set(
+        bookings.results
+          .filter((booking) => booking.status === "COMPLETED")
+          .map((booking) => booking.trip_title.trim().toLowerCase())
+      );
+      const activeTripIds = matches
+        .filter(
+          (match) =>
+            (match.status === "REQUESTED" || match.status === "ACCEPTED") &&
+            !completedTripTitles.has(match.trip_title.trim().toLowerCase())
+        )
+        .map((match) => match.trip);
+
+      setRequestedTripIds(new Set(activeTripIds));
+    } catch (error) {
+      console.error("Failed to refresh booking request states:", error);
+    }
+  }, [user?.role]);
+
+  useEffect(() => {
+    refreshRequestStates();
+    const refreshInterval = window.setInterval(refreshRequestStates, 15000);
+    return () => window.clearInterval(refreshInterval);
+  }, [refreshRequestStates]);
+
   // Profile navigation handler
   const handleProfileClick = (travelerId?: string) => {
     if (travelerId) {
@@ -107,12 +134,17 @@ export const FindTravelers = () => {
 
   // Handle Booking Request Execution
   const handleBookingRequest = async (trip: BackendTrip) => {
-    setDetailDialogOpen(false);
-
     if (!user) {
       router.push(`/login?redirectTo=/find-travelers&action=booking_request`);
       return;
     }
+
+    if (user.role !== "SENDER") {
+      toast.error("Only Senders can send booking requests.");
+      return;
+    }
+
+    setDetailDialogOpen(false);
 
     const travelerId = trip.traveler?.id;
     const isOwner =
@@ -125,73 +157,10 @@ export const FindTravelers = () => {
       return;
     }
 
-    try {
-      setRequestingTripId(trip.id);
-
-      const packages: APIPackageItem[] = await getMyPackages();
-
-      const tripFrom = trip.from_city.trim().toLowerCase();
-      const tripTo = trip.to_city.trim().toLowerCase();
-
-      const routeMatchingPackages = packages.filter((pkg) => {
-        const pkgFrom = pkg.pickup_city?.trim().toLowerCase();
-        const pkgTo = pkg.destination_city?.trim().toLowerCase();
-        return pkgFrom === tripFrom && pkgTo === tripTo;
-      });
-
-      if (routeMatchingPackages.length > 0) {
-        const validPackage = routeMatchingPackages.find(
-          (pkg) =>
-            pkg.status === "PUBLISHED" ||
-            pkg.verification_status === "VERIFIED" ||
-            pkg.verification_status === "AUTO_APPROVED"
-        );
-
-        if (validPackage) {
-          setSelectedTripForRequest(trip);
-          setRequestDialogOpen(true);
-          return;
-        }
-
-        const pendingPackage = routeMatchingPackages.find(
-          (pkg) =>
-            pkg.verification_status === "PENDING" ||
-            pkg.verification_status === "MANUAL_REVIEW"
-        );
-
-        if (pendingPackage) {
-          toast.warning(
-            `Your matching package (${trip.from_city} → ${trip.to_city}) is under review. You can request once verified.`
-          );
-          return;
-        }
-
-        const rejectedPackage = routeMatchingPackages.find(
-          (pkg) => pkg.verification_status === "REJECTED"
-        );
-
-        if (rejectedPackage) {
-          toast.error(
-            `Your package for ${trip.from_city} → ${trip.to_city} was rejected. Please update it first.`
-          );
-          router.push("/package-list");
-          return;
-        }
-      }
-
-      toast.info(
-        `No package found matching route (${trip.from_city} → ${trip.to_city}). Redirecting to package creation...`
-      );
-      router.push(
-        `/package-list?pickup_city=${encodeURIComponent(trip.from_city)}&destination_city=${encodeURIComponent(trip.to_city)}`
-      );
-
-    } catch (error) {
-      console.error("Failed to check user packages:", error);
-      toast.error("Failed to verify package status. Please try again.");
-    } finally {
-      setRequestingTripId(null);
-    }
+    setSelectedTripForRequest(trip);
+    if (requestedTripIds.has(trip.id)) return;
+    setRequestingTripId(trip.id);
+    setRequestDialogOpen(true);
   };
 
   const getFilteredAirports = (input: string) => {
@@ -566,14 +535,21 @@ export const FindTravelers = () => {
                       Details
                     </Button>
                     <Button
-                      disabled={requestingTripId === trip.id || Boolean(isTripOwner)}
+                      disabled={Boolean(isTripOwner) || user?.role !== "SENDER" || requestingTripId === trip.id || requestedTripIds.has(trip.id)}
                       className="w-full font-bold text-xs bg-amber-500 hover:bg-amber-600 text-white rounded-xl h-10 shadow-2xs disabled:opacity-50"
                       onClick={() => handleBookingRequest(trip)}
                     >
-                      {requestingTripId === trip.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                      {requestedTripIds.has(trip.id) ? (
+                        "Request Sent"
+                      ) : requestingTripId === trip.id ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Requesting...
+                        </>
                       ) : isTripOwner ? (
                         "Your Trip"
+                      ) : user?.role !== "SENDER" ? (
+                        "Sender Only"
                       ) : (
                         "Request"
                       )}
@@ -591,21 +567,27 @@ export const FindTravelers = () => {
         tripId={selectedTripForDetail}
         open={detailDialogOpen}
         onOpenChange={setDetailDialogOpen}
+        canRequestBooking={user?.role === "SENDER"}
         onRequestBooking={(trip) => handleBookingRequest(trip)}
       />
 
-      {/* Booking Form Dialog */}
-      <Dialog open={requestDialogOpen} onOpenChange={setRequestDialogOpen}>
-        <DialogContent className="max-w-xl p-4 sm:p-6 rounded-2xl sm:rounded-3xl">
-          <DialogHeader>
-            <DialogTitle className="font-bold text-xl">Request Booking</DialogTitle>
-          </DialogHeader>
-          <SendRequestDialog
-            setOpen={setRequestDialogOpen}
-            trip={selectedTripForRequest}
-          />
-        </DialogContent>
-      </Dialog>
+      <SendRequestDialog
+        setOpen={(open) => {
+          setRequestDialogOpen(open);
+          if (!open) setRequestingTripId(null);
+        }}
+        trip={requestDialogOpen ? selectedTripForRequest : null}
+        onSuccess={() => {
+          if (selectedTripForRequest?.id) {
+            setRequestedTripIds((previous) => {
+              const next = new Set(previous);
+              next.add(selectedTripForRequest.id);
+              return next;
+            });
+          }
+          fetchTrips();
+        }}
+      />
     </div>
   );
 };

@@ -227,7 +227,7 @@ export default function SenderDisputesPage() {
                 {filteredDisputes.map((item) => (
                   <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
                     <td className="px-5 py-4 font-mono text-xs font-semibold text-slate-900">
-                      {item.booking?.tracking_number || "N/A"}
+                      {item.tracking_number || item.booking?.tracking_number || "N/A"}
                     </td>
                     <td className="px-5 py-4 text-slate-600">
                       {item.against_user?.full_name || "N/A"}
