@@ -64,6 +64,51 @@ export interface FetchPackagesParams {
   page?: number;
 }
 
+export interface RiskFactor {
+  reason: string;
+  score: number;
+}
+
+export interface PackageReviewDetail {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  weight: string;
+  pickup: {
+    country: string;
+    city: string;
+    address: string;
+    date: string;
+  };
+  destination: {
+    country: string;
+    city: string;
+    address: string;
+    latest_delivery_date: string;
+  };
+  sender: {
+    id: string;
+    name: string;
+    email: string;
+    completed_deliveries: number;
+  };
+  verification: {
+    status: string;
+    risk_score: number;
+    declared_as_legal: boolean;
+    terms_accepted: boolean;
+  };
+  risk_factors: RiskFactor[];
+  images: PackageImage[];
+}
+
+export interface PackageReviewApiResponse {
+  success: boolean;
+  message: string;
+  data: PackageReviewDetail;
+}
+
 /**
  * 1. Fetch list of packages with search and filtering
  */
@@ -100,6 +145,18 @@ export const getAdminPackageDetailApi = async (
 ): Promise<AdminPackage> => {
   const response = await axiosInstance.get<AdminPackage>(
     `/api/admin/packages/${packageId}/`
+  );
+  return response.data;
+};
+
+/**
+ * Fetch package review details
+ */
+export const getAdminPackageReviewDetailApi = async (
+  packageId: string
+): Promise<PackageReviewApiResponse> => {
+  const response = await axiosInstance.get<PackageReviewApiResponse>(
+    `/api/admin/packages/${packageId}/review/`
   );
   return response.data;
 };
