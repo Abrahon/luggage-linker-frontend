@@ -42,64 +42,77 @@
 //   return <div>Other Dashboard</div>;
 // };
 
-
 "use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getUserRole } from "@/lib/auth";
+import { getUserRole, setUserRole, UserRole } from "@/lib/auth";
+import { getAccessToken } from "@/lib/token";
 import { CarrierDashboard } from "../carrier";
 import { SenderDashboard } from "../sender";
 
-type UserRole = "TRAVELER" | "TRAVELLER" | "SENDER" | "ADMIN" | null;
-
 export const Dashboard = () => {
   const router = useRouter();
-  const [role, setRole] = useState<UserRole>(null);
+  const [role, setRole] = useState<UserRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
 
-    const loadUserRole = () => {
+    const loadUserRole = async () => {
       try {
-        const storedRole = getUserRole();
+        let currentRole = getUserRole();
 
-        const normalizedRole = storedRole
-          ?.trim()
-          .toUpperCase();
+        // FALLBACK: Fetch updated role from backend if local storage is missing it
+        if (!currentRole) {
+          const token = getAccessToken();
+          if (token) {
+            const baseUrl =
+              process.env.NEXT_PUBLIC_API_URL ||
+              "https://z4f6lxvp-8001.asse.devtunnels.ms";
 
-        console.log("Dashboard user role:", normalizedRole);
+            const response = await fetch(`${baseUrl}/auth/me/`, {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            });
+
+            if (response.ok) {
+              const resData = await response.json();
+
+              // Parse nested object attributes safely
+              const fetchedRole =
+                resData?.role ||
+                resData?.data?.role ||
+                resData?.user?.role;
+
+              if (fetchedRole) {
+                setUserRole(fetchedRole);
+                currentRole = getUserRole();
+              }
+            }
+          }
+        }
 
         if (!mounted) return;
 
-        if (
-          normalizedRole === "TRAVELER" ||
-          normalizedRole === "TRAVELLER"
-        ) {
+        if (currentRole === "TRAVELER") {
           setRole("TRAVELER");
-        } else if (normalizedRole === "SENDER") {
+        } else if (currentRole === "SENDER") {
           setRole("SENDER");
-        } else if (normalizedRole === "ADMIN") {
+        } else if (currentRole === "ADMIN") {
           setRole("ADMIN");
-          // Redirect to administrative dashboard route
-          router.push("/admin");
+          window.location.href = "http://localhost:3600/admin";
         } else {
           setRole(null);
         }
       } catch (error) {
-        console.error(
-          "Failed to load user role:",
-          error
-        );
-
-        if (mounted) {
-          setRole(null);
-        }
+        console.error("Failed to load user role:", error);
+        if (mounted) setRole(null);
       } finally {
-        if (mounted) {
-          setIsLoading(false);
-        }
+        if (mounted) setIsLoading(false);
       }
     };
 
@@ -110,43 +123,23 @@ export const Dashboard = () => {
     };
   }, [router]);
 
-  // ==========================================================
-  // LOADING (Also shows while redirecting ADMIN)
-  // ==========================================================
-
   if (isLoading || role === "ADMIN") {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
-
           <p className="text-sm font-medium text-slate-500">
-            {role === "ADMIN" ? "Redirecting to Admin Portal..." : "Loading Dashboard..."}
+            {role === "ADMIN"
+              ? "Redirecting to Admin Portal..."
+              : "Loading Dashboard..."}
           </p>
         </div>
       </div>
     );
   }
 
-  // ==========================================================
-  // TRAVELER
-  // ==========================================================
-
-  if (role === "TRAVELER") {
-    return <CarrierDashboard />;
-  }
-
-  // ==========================================================
-  // SENDER
-  // ==========================================================
-
-  if (role === "SENDER") {
-    return <SenderDashboard />;
-  }
-
-  // ==========================================================
-  // UNKNOWN / MISSING ROLE
-  // ==========================================================
+  if (role === "TRAVELER") return <CarrierDashboard />;
+  if (role === "SENDER") return <SenderDashboard />;
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-4 text-center">
@@ -171,8 +164,7 @@ export const Dashboard = () => {
       </h2>
 
       <p className="max-w-md text-sm text-slate-600">
-        Your account role could not be loaded. Please refresh the
-        page and try again.
+        Your account role could not be loaded. Please refresh the page or try logging in again.
       </p>
 
       <button

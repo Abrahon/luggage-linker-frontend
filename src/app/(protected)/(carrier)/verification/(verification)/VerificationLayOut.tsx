@@ -2,10 +2,10 @@
 
 import { useState, useEffect, createContext, useContext, ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { IdCard, Camera, CheckCircle, Info, Loader2, AlertTriangle, Clock, XCircle } from "lucide-react";
+import { IdCard, Camera, CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn, dataURLtoFile } from "@/lib/utils";
-import { submitKYCApi, getMyKYCApi, KYCData } from "@/api/kyc.api";
+import { submitKYCApi, updateKYCApi, getMyKYCApi, KYCData } from "@/api/kyc.api";
 import { toast } from "sonner";
 
 export interface IDFormData {
@@ -13,6 +13,8 @@ export interface IDFormData {
   idNumber: string;
   front?: File;
   back?: File;
+  frontPreviewUrl?: string | null; // <-- Changed to accept null
+  backPreviewUrl?: string | null;  // <-- Changed to accept null
 }
 
 interface VerificationContextType {
@@ -21,7 +23,7 @@ interface VerificationContextType {
   idData: IDFormData;
   setIdData: React.Dispatch<React.SetStateAction<IDFormData>>;
   selfieBase64: string | null;
-  setSelfieBase64: (base64: string) => void;
+  setSelfieBase64: (base64: string | null) => void;
   existingKyc: KYCData | null;
 }
 
@@ -60,46 +62,81 @@ export default function VerificationLayout({ children }: { children: ReactNode }
       .then((data) => {
         if (data) {
           setExistingKyc(data);
-          if (pathname !== "/verification/review") {
+
+          // 1. Hydrate form state with null checks using ?? undefined
+          setIdData({
+            idType: data.id_type,
+            idNumber: data.id_number,
+            frontPreviewUrl: data.document_front ?? undefined,
+            backPreviewUrl: data.document_back ?? undefined,
+          });
+
+          // 2. Hydrate selfie preview URL
+          if (data.selfie) {
+            setSelfieBase64(data.selfie);
+          }
+
+          // 3. Only lock users to the review page if the status is APPROVED
+          if (data.status === "approved" && pathname !== "/verification/review") {
             router.push("/verification/review");
           }
         }
       })
       .catch(() => toast.error("Failed to fetch existing KYC state."))
       .finally(() => setLoadingInitial(false));
-  }, [pathname, router]);
+  }, []);
 
   const activeStepIndex = steps.findIndex((s) => pathname.includes(s.key));
   const currentStep = activeStepIndex === -1 ? 0 : activeStepIndex;
 
   const handleSubmit = async () => {
-    if (!idData.front) {
+    const isEditMode = Boolean(existingKyc && existingKyc.id);
+
+    // Initial creation validation checks
+    if (!isEditMode && !idData.front) {
       toast.error("Front ID document is required.");
       return;
     }
-    if (idData.idType !== "passport" && !idData.back) {
+    if (!isEditMode && idData.idType !== "passport" && !idData.back) {
       toast.error("Back ID document is required for this document type.");
       return;
     }
-    if (!selfieBase64) {
+    if (!isEditMode && !selfieBase64) {
       toast.error("Selfie image is required.");
       return;
     }
 
     try {
       setIsSubmitting(true);
-      const selfieFile = dataURLtoFile(selfieBase64, "selfie.png");
 
-      const response = await submitKYCApi({
-        id_type: idData.idType,
-        id_number: idData.idNumber,
-        document_front: idData.front,
-        document_back: idData.back,
-        selfie: selfieFile,
-      });
+      const selfieFile =
+        selfieBase64 && selfieBase64.startsWith("data:")
+          ? dataURLtoFile(selfieBase64, "selfie.png")
+          : undefined;
 
-      toast.success("KYC submitted successfully!");
-      setExistingKyc(response);
+      let updatedRecord: KYCData;
+
+      if (isEditMode) {
+        updatedRecord = await updateKYCApi({
+          id_type: idData.idType,
+          id_number: idData.idNumber,
+          document_front: idData.front,
+          document_back: idData.back,
+          selfie: selfieFile,
+        });
+        toast.success("KYC details updated successfully!");
+      } else {
+        updatedRecord = await submitKYCApi({
+          id_type: idData.idType,
+          id_number: idData.idNumber,
+          document_front: idData.front!,
+          document_back: idData.back,
+          selfie: selfieFile!,
+        });
+        toast.success("KYC submitted successfully!");
+      }
+
+      setExistingKyc(updatedRecord);
       router.push("/verification/review");
     } catch (error: any) {
       const responseErrors = error?.response?.data;
@@ -160,7 +197,7 @@ export default function VerificationLayout({ children }: { children: ReactNode }
         <div className="flex items-center justify-between w-full relative">
           {steps.map((step, i) => {
             const Icon = step.icon;
-            const done = i < currentStep || !!existingKyc;
+            const done = i < currentStep;
             const active = i === currentStep;
 
             return (
@@ -183,7 +220,7 @@ export default function VerificationLayout({ children }: { children: ReactNode }
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           {children}
 
-          {!existingKyc && pathname !== "/verification/review" && (
+          {pathname !== "/verification/review" && (
             <div className="flex justify-between items-center mt-8 pt-4 border-t border-gray-100">
               <Button
                 type="button"
@@ -203,7 +240,7 @@ export default function VerificationLayout({ children }: { children: ReactNode }
                 {isSubmitting ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : steps[currentStep]?.key === "selfie" ? (
-                  "Submit KYC"
+                  existingKyc ? "Update KYC" : "Submit KYC"
                 ) : (
                   "Next"
                 )}

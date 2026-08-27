@@ -1,7 +1,6 @@
 "use client";
 
 import { useVerification } from "@/app/(protected)/(carrier)/verification/(verification)/VerificationLayOut";
-
 import { CheckCircle2, Clock, AlertOctagon, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
@@ -16,16 +15,18 @@ export default function ReviewPage() {
   }
 
   const handleReSubmit = () => {
-    // 1. Pre-fill text inputs from existing record
+    // Convert null fields from API response to undefined
     setIdData({
       idType: existingKyc.id_type as any,
       idNumber: existingKyc.id_number,
-      front: undefined, // Clear old file references to force new upload
+      front: undefined,
       back: undefined,
+      frontPreviewUrl: existingKyc.document_front ?? undefined,
+      backPreviewUrl: existingKyc.document_back ?? undefined,
     });
-    setSelfieBase64("");
 
-    // 2. Redirect user back to step 1
+    setSelfieBase64(existingKyc.selfie ?? null);
+
     router.push("/verification/idverification");
   };
 
@@ -59,7 +60,7 @@ export default function ReviewPage() {
           <Button
             type="button"
             onClick={handleReSubmit}
-            className="self-end bg-red-600 hover:bg-red-700 text-white text-xs gap-2 mt-2"
+            className="self-end bg-red-600 hover:bg-red-700 text-white text-xs gap-2 mt-2 cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" /> Update & Resubmit
           </Button>
@@ -80,7 +81,7 @@ export default function ReviewPage() {
             type="button"
             onClick={handleReSubmit}
             variant="outline"
-            className="border-amber-300 text-amber-800 hover:bg-amber-100 text-xs"
+            className="border-amber-300 text-amber-800 hover:bg-amber-100 text-xs cursor-pointer"
           >
             Edit Uploads
           </Button>
@@ -91,7 +92,7 @@ export default function ReviewPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm bg-gray-50 p-4 rounded-xl">
         <div>
           <span className="text-gray-500 text-xs block">Document Type</span>
-          <span className="font-semibold capitalize">{existingKyc.id_type.replace("_", " ")}</span>
+          <span className="font-semibold capitalize">{existingKyc.id_type?.replace("_", " ")}</span>
         </div>
         <div>
           <span className="text-gray-500 text-xs block">ID Number</span>

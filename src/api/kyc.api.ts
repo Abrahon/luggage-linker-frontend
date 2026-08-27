@@ -47,6 +47,11 @@ export interface PaginatedKYCResponse {
   previous: string | null;
   results: KYCData[];
 }
+export interface KYCResponseWrapper {
+  success: boolean;
+  message: string;
+  data: KYCData;
+}
 
 /**
  * Fetch current user's KYC record
@@ -86,6 +91,9 @@ export const submitKYCApi = async (payload: KYCSubmitPayload): Promise<KYCData> 
 };
 
 
+/**
+ * Update existing KYC record
+ */
 export const updateKYCApi = async (payload: Partial<KYCSubmitPayload>): Promise<KYCData> => {
   const formData = new FormData();
   if (payload.id_type) formData.append("id_type", payload.id_type);
@@ -96,13 +104,11 @@ export const updateKYCApi = async (payload: Partial<KYCSubmitPayload>): Promise<
   }
   if (payload.selfie) formData.append("selfie", payload.selfie);
 
-  const response = await axiosInstance.patch<KYCData>("/api/kyc/me/", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
+  const response = await axiosInstance.patch<KYCResponseWrapper>("/api/kyc/me/update/", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
   });
 
-  return response.data;
+  return response.data.data;
 };
 
 

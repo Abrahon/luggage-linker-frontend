@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { HeadingSection } from "@/webcomponent/reusable/HeadingSection";
-import { CheckCircle, CheckCircle2, Shield, AlertTriangle, Clock } from "lucide-react";
+import { CheckCircle, CheckCircle2, Shield, AlertTriangle, Clock, Edit3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { getMyKYCApi, KYCData } from "@/api/kyc.api";
@@ -63,11 +63,17 @@ export const Verification = () => {
           </span>
         );
       case "pending":
+      case "under_review":
         return (
-          <span className="flex items-center gap-2 rounded-lg bg-amber-100 text-amber-800 px-4 py-2 text-sm font-semibold w-fit border border-amber-300">
-            <Clock className="w-4 h-4 text-amber-600" />
-            Pending Approval
-          </span>
+          <div className="flex flex-col gap-1">
+            <span className="flex items-center gap-2 rounded-lg bg-amber-100 text-amber-800 px-4 py-2 text-sm font-semibold w-fit border border-amber-300">
+              <Clock className="w-4 h-4 text-amber-600" />
+              Pending Approval (Under Review)
+            </span>
+            <p className="text-xs text-gray-500 font-medium">
+              You can modify or update your submission details anytime before approval.
+            </p>
+          </div>
         );
       case "rejected":
         return (
@@ -90,6 +96,19 @@ export const Verification = () => {
           </span>
         );
     }
+  };
+
+  const getButtonLabel = () => {
+    if (!kycData || kycData.status === "unverified") return "Start Verification";
+    if (kycData.status === "pending" || kycData.status === "under_review") {
+      return (
+        <span className="flex items-center gap-2">
+          <Edit3 className="w-4 h-4" /> Edit Submitted Details
+        </span>
+      );
+    }
+    if (kycData.status === "rejected") return "Re-submit Verification";
+    return "View Verification";
   };
 
   return (
@@ -128,16 +147,12 @@ export const Verification = () => {
 
       {kycData?.status !== "approved" && (
         <Button
-          className="mt-4 w-fit self-center"
+          className="mt-4 w-fit self-center px-8 cursor-pointer"
           size="lg"
           onClick={() => router.push("/verification/idverification")}
-          disabled={kycData?.status === "pending"}
+          disabled={loading}
         >
-          {kycData?.status === "rejected"
-            ? "Re-submit Verification"
-            : kycData?.status === "pending"
-            ? "Under Review"
-            : "Start Verification"}
+          {getButtonLabel()}
         </Button>
       )}
     </div>

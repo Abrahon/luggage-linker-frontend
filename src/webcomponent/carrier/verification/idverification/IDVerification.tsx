@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import { useEffect } from "react";
@@ -20,12 +18,17 @@ export const IDVerification = () => {
 
   useEffect(() => {
     const hasValidNumber = idData.idNumber.trim().length >= 6;
+    
+    // Check for either a newly uploaded File OR an existing image URL
+    const hasFront = Boolean(idData.front || idData.frontPreviewUrl);
+    const hasBack = Boolean(idData.back || idData.backPreviewUrl);
+
     let isValid = false;
 
     if (idData.idType === "passport") {
-      isValid = hasValidNumber && !!idData.front;
+      isValid = hasValidNumber && hasFront;
     } else {
-      isValid = hasValidNumber && !!idData.front && !!idData.back;
+      isValid = hasValidNumber && hasFront && hasBack;
     }
 
     setStepComplete(isValid);
@@ -35,13 +38,26 @@ export const IDVerification = () => {
     setIdData((prev) => ({
       ...prev,
       idType: val as any,
-      front: undefined,
-      back: undefined,
     }));
   };
 
   const handleFileChange = (key: "front" | "back", file: File | null) => {
-    setIdData((prev) => ({ ...prev, [key]: file || undefined }));
+    setIdData((prev) => ({
+      ...prev,
+      [key]: file || undefined,
+      // If user replaces/clears file, update corresponding URL state
+      [key === "front" ? "frontPreviewUrl" : "backPreviewUrl"]: file 
+        ? URL.createObjectURL(file) 
+        : undefined,
+    }));
+  };
+
+  const handleRemoveExisting = (key: "front" | "back") => {
+    setIdData((prev) => ({
+      ...prev,
+      [key]: undefined,
+      [key === "front" ? "frontPreviewUrl" : "backPreviewUrl"]: undefined,
+    }));
   };
 
   return (
@@ -71,17 +87,42 @@ export const IDVerification = () => {
           </TabsList>
 
           <TabsContent value="national_id" className="flex flex-col gap-4 mt-4">
-            <FileUpload label="ID Front Side" onFileChange={(f) => handleFileChange("front", f)} />
-            <FileUpload label="ID Back Side" onFileChange={(f) => handleFileChange("back", f)} />
+            <FileUpload
+              label="ID Front Side"
+              initialPreview={idData.frontPreviewUrl}
+              onFileChange={(f) => handleFileChange("front", f)}
+              onRemove={() => handleRemoveExisting("front")}
+            />
+            <FileUpload
+              label="ID Back Side"
+              initialPreview={idData.backPreviewUrl}
+              onFileChange={(f) => handleFileChange("back", f)}
+              onRemove={() => handleRemoveExisting("back")}
+            />
           </TabsContent>
 
           <TabsContent value="passport" className="flex flex-col gap-4 mt-4">
-            <FileUpload label="Passport Information Page" onFileChange={(f) => handleFileChange("front", f)} />
+            <FileUpload
+              label="Passport Information Page"
+              initialPreview={idData.frontPreviewUrl}
+              onFileChange={(f) => handleFileChange("front", f)}
+              onRemove={() => handleRemoveExisting("front")}
+            />
           </TabsContent>
 
           <TabsContent value="driving_license" className="flex flex-col gap-4 mt-4">
-            <FileUpload label="License Front Side" onFileChange={(f) => handleFileChange("front", f)} />
-            <FileUpload label="License Back Side" onFileChange={(f) => handleFileChange("back", f)} />
+            <FileUpload
+              label="License Front Side"
+              initialPreview={idData.frontPreviewUrl}
+              onFileChange={(f) => handleFileChange("front", f)}
+              onRemove={() => handleRemoveExisting("front")}
+            />
+            <FileUpload
+              label="License Back Side"
+              initialPreview={idData.backPreviewUrl}
+              onFileChange={(f) => handleFileChange("back", f)}
+              onRemove={() => handleRemoveExisting("back")}
+            />
           </TabsContent>
         </Tabs>
       </div>
