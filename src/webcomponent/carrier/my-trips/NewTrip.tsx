@@ -40,6 +40,13 @@ const getCountryIsoByName = (countryName: string): string | undefined => {
   return match?.isoCode;
 };
 
+// Deduplicate cities array based on city name to eliminate React duplicate key errors
+const getUniqueCities = (isoCode?: string): ICity[] => {
+  if (!isoCode) return [];
+  const rawCities = City.getCitiesOfCountry(isoCode) || [];
+  return Array.from(new Map(rawCities.map((city) => [city.name, city])).values());
+};
+
 // ---------------------------------------------------------------------------
 // Zod Schema Aligned with DRF TripSerializer & React Hook Form Types
 // ---------------------------------------------------------------------------
@@ -199,9 +206,9 @@ export const NewTrip = ({ setOpenDialog, initialData, onSuccess }: NewTripProps)
   const fromIsoCode = getCountryIsoByName(selectedFromCountryName);
   const toIsoCode = getCountryIsoByName(selectedToCountryName);
 
-  // Fetch all cities dynamically based on selected country's ISO code
-  const availableFromCities = fromIsoCode ? City.getCitiesOfCountry(fromIsoCode) || [] : [];
-  const availableToCities = toIsoCode ? City.getCitiesOfCountry(toIsoCode) || [] : [];
+  // Fetch unique cities dynamically based on selected country's ISO code
+  const availableFromCities = getUniqueCities(fromIsoCode);
+  const availableToCities = getUniqueCities(toIsoCode);
 
   useEffect(() => {
     if (initialData) {
@@ -439,7 +446,7 @@ export const NewTrip = ({ setOpenDialog, initialData, onSuccess }: NewTripProps)
                 </FormControl>
                 <SelectContent className="max-h-60">
                   {availableFromCities.map((city: ICity, idx) => (
-                    <SelectItem key={`${city.name}-${idx}`} value={city.name}>
+                    <SelectItem key={`from-${city.name}-${idx}`} value={city.name}>
                       {city.name}
                     </SelectItem>
                   ))}
@@ -509,7 +516,7 @@ export const NewTrip = ({ setOpenDialog, initialData, onSuccess }: NewTripProps)
                 </FormControl>
                 <SelectContent className="max-h-60">
                   {availableToCities.map((city: ICity, idx) => (
-                    <SelectItem key={`${city.name}-${idx}`} value={city.name}>
+                    <SelectItem key={`to-${city.name}-${idx}`} value={city.name}>
                       {city.name}
                     </SelectItem>
                   ))}
