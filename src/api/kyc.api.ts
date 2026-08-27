@@ -22,6 +22,7 @@ export interface KYCData {
   selfie: string;
   status: KYCStatusType; 
   rejection_reason: string | null;
+  verified_by_email?: string | null; // <-- Added property
   verified_at: string | null;
   created_at: string;
   updated_at: string;
