@@ -218,21 +218,24 @@ export const FindTravelers = () => {
   };
 
   return (
-    <div className="w-full min-w-0 flex flex-col gap-8 py-6 sm:py-10 px-0 font-montserrat">
-      <HeadingSection
-        heading="Find Public Trips"
-        subheading="Search available travelers and request luggage carry services."
-      />
+    <div className="w-full min-w-0 flex flex-col gap-8 py-6 sm:py-10 px-0 font-montserrat relative z-20">
 
-      {/* Modern Filter Search Panel */}
-      <div className="w-full border border-slate-200/80 rounded-2xl sm:rounded-3xl shadow-xs hover:shadow-md transition-all duration-300 bg-white p-4 sm:p-6 lg:p-8">
-        <div className="w-full relative flex flex-col lg:flex-row items-center gap-4 lg:gap-3">
 
-          {/* FROM INPUT */}
-          <div className="w-full flex-1 relative">
-            <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">From</Label>
+      {/* Modern Unified Filter Search Panel */}
+      <div className="w-full border border-slate-200/80 rounded-2xl sm:rounded-3xl shadow-sm hover:shadow-md transition-all duration-300 bg-white p-4 sm:p-5 lg:p-4">
+        {/*
+          Mobile (< lg): 4 Rows Stacked (From -> Swap/To -> Date -> Search Button)
+          Laptop & Desktop (lg & xl): Single Unified Line Toolbar
+        */}
+        <div className="w-full flex flex-col lg:flex-row items-stretch lg:items-center gap-3 lg:gap-0 relative">
+
+          {/* ROW 1 (Mobile) / COL 1 (Desktop): FROM INPUT */}
+          <div className="w-full lg:flex-[1.2] relative z-40">
+            <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1 block lg:hidden">
+              From
+            </Label>
             <div className="w-full relative">
-              <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-500 pointer-events-none" />
+              <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-500 pointer-events-none z-10" />
               <Input
                 type="text"
                 value={fromInput}
@@ -243,15 +246,15 @@ export const FindTravelers = () => {
                 }}
                 onFocus={() => setShowFromDropdown(true)}
                 placeholder="Departure city..."
-                className="w-full h-14 sm:h-[64px] rounded-xl sm:rounded-2xl border-slate-200 pl-11 pr-4 text-base sm:text-lg font-bold text-slate-800 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all shadow-2xs"
+                className="w-full h-14 lg:h-[68px] rounded-xl lg:rounded-l-2xl lg:rounded-r-none border-slate-200 pl-11 pr-4 text-base font-bold text-slate-800 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:z-20 transition-all shadow-2xs"
               />
               {fromAirport && (
-                <div className="absolute bottom-2 left-11 text-[11px] text-slate-400 font-medium truncate max-w-[80%]">
+                <div className="absolute bottom-2 left-11 text-[11px] text-slate-400 font-medium truncate max-w-[75%] pointer-events-none z-10">
                   {fromAirport}
                 </div>
               )}
               {showFromDropdown && (
-                <div className="absolute top-full mt-2 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto z-50 divide-y divide-slate-100">
+                <div className="absolute top-full left-0 mt-2 w-full bg-white border border-slate-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto z-50 divide-y divide-slate-100">
                   {getFilteredAirports(fromInput).map((airport) => (
                     <div
                       key={airport.city}
@@ -272,25 +275,27 @@ export const FindTravelers = () => {
             </div>
           </div>
 
-          {/* SWAP BUTTON */}
-          <div className="z-10 my-1 lg:my-0 lg:mt-6 -my-5 lg:-my-0 shrink-0">
+          {/* SWAP BUTTON (Overlaps on desktop, centered between inputs on mobile) */}
+          <div className="relative z-40 flex justify-center -my-2 lg:my-0 lg:-mx-3 shrink-0">
             <Button
               type="button"
               variant="outline"
               size="icon"
-              className="rounded-full h-11 w-11 sm:h-12 sm:w-12 border-2 border-slate-200 bg-white hover:bg-amber-500 hover:text-white hover:border-amber-500 text-slate-600 shadow-md transition-all duration-300"
+              className="rounded-full h-9 w-9 lg:h-10 lg:w-10 border-2 border-slate-200 bg-white hover:bg-amber-500 hover:text-white hover:border-amber-500 text-slate-600 shadow-md transition-all duration-300"
               onClick={handleSwap}
               title="Swap Locations"
             >
-              <ArrowUpDown className="w-4 h-4 sm:w-5 sm:h-5 lg:rotate-90 transition-transform" />
+              <ArrowUpDown className="w-4 h-4 lg:rotate-90 transition-transform" />
             </Button>
           </div>
 
-          {/* TO INPUT */}
-          <div className="w-full flex-1 relative">
-            <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">To</Label>
+          {/* ROW 2 (Mobile) / COL 2 (Desktop): TO INPUT */}
+          <div className="w-full lg:flex-[1.2] relative z-30">
+            <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1 block lg:hidden">
+              To
+            </Label>
             <div className="w-full relative">
-              <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-500 pointer-events-none" />
+              <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-500 pointer-events-none z-10" />
               <Input
                 type="text"
                 value={toInput}
@@ -301,15 +306,15 @@ export const FindTravelers = () => {
                 }}
                 onFocus={() => setShowToDropdown(true)}
                 placeholder="Destination city..."
-                className="w-full h-14 sm:h-[64px] rounded-xl sm:rounded-2xl border-slate-200 pl-11 pr-4 text-base sm:text-lg font-bold text-slate-800 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all shadow-2xs"
+                className="w-full h-14 lg:h-[68px] rounded-xl lg:rounded-none border-slate-200 lg:border-l-0 pl-11 pr-4 text-base font-bold text-slate-800 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:z-20 transition-all shadow-2xs"
               />
               {toAirport && (
-                <div className="absolute bottom-2 left-11 text-[11px] text-slate-400 font-medium truncate max-w-[80%]">
+                <div className="absolute bottom-2 left-11 text-[11px] text-slate-400 font-medium truncate max-w-[75%] pointer-events-none z-10">
                   {toAirport}
                 </div>
               )}
               {showToDropdown && (
-                <div className="absolute top-full mt-2 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto z-50 divide-y divide-slate-100">
+                <div className="absolute top-full left-0 mt-2 w-full bg-white border border-slate-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto z-50 divide-y divide-slate-100">
                   {getFilteredAirports(toInput).map((airport) => (
                     <div
                       key={airport.city}
@@ -330,30 +335,33 @@ export const FindTravelers = () => {
             </div>
           </div>
 
-          {/* DEPARTURE DATE */}
-          <div className="w-full flex-1 relative">
-            <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Departure Date</Label>
+          {/* ROW 3 (Mobile) / COL 3 (Desktop): DEPARTURE DATE */}
+          <div className="w-full lg:flex-1 relative z-20">
+            <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1 block lg:hidden">
+              Departure Date
+            </Label>
             <div className="w-full relative">
-              <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+              <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none z-10" />
               <Input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full h-14 sm:h-[64px] rounded-xl sm:rounded-2xl border-slate-200 pl-11 pr-4 text-sm font-semibold text-slate-800 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all shadow-2xs"
+                className="w-full h-14 lg:h-[68px] rounded-xl lg:rounded-none border-slate-200 lg:border-l-0 pl-11 pr-4 text-sm font-semibold text-slate-800 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:z-20 transition-all shadow-2xs cursor-pointer"
               />
             </div>
           </div>
-        </div>
 
-        {/* SEARCH TRIGGER ACTION */}
-        <div className="flex justify-center mt-6 w-full">
-          <Button
-            className="w-full font-extrabold px-10 sm:px-16 py-6 sm:py-7 text-base sm:text-lg bg-amber-500 hover:bg-amber-600 text-white rounded-xl sm:rounded-2xl cursor-pointer shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
-            onClick={fetchTrips}
-          >
-            <Search className="w-5 h-5" />
-            <span>Search Trips</span>
-          </Button>
+          {/* ROW 4 (Mobile) / COL 4 (Desktop): SEARCH ACTION BUTTON */}
+          <div className="w-full lg:w-auto shrink-0 relative z-10 mt-1 lg:mt-0">
+            <Button
+              className="w-full lg:w-auto h-14 lg:h-[68px] font-extrabold px-8 lg:px-10 xl:px-12 text-base bg-amber-500 hover:bg-amber-600 text-white rounded-xl lg:rounded-r-2xl lg:rounded-l-none cursor-pointer shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
+              onClick={fetchTrips}
+            >
+              <Search className="w-5 h-5 shrink-0" />
+              <span>Search</span>
+            </Button>
+          </div>
+
         </div>
       </div>
 
