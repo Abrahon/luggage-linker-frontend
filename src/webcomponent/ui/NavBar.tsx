@@ -118,6 +118,12 @@ export const PublicNavbar = () => {
     setOpen(false);
   };
 
+
+  const handleAboutClick = () => {
+    router.push("/about-us");
+    setOpen(false);
+  };
+
   const handleTripsClick = () => {
     router.push("/trips");
     setOpen(false);
@@ -274,6 +280,12 @@ export const PublicNavbar = () => {
                   className="text-white hover:text-yellow-300 transition-colors text-left font-medium"
                 >
                   Contact Us
+                </button>
+                  <button
+                  onClick={handleAboutClick}
+                  className="text-white hover:text-yellow-300 transition-colors text-left font-medium"
+                >
+                  About
                 </button>
 
                 {isAuthenticated && (

@@ -35,6 +35,10 @@ export const Navbar = () => {
     router.push("/contact-us");
     setMobileOpen(false);
   };
+  const handleAboutClick = () => {
+    router.push("/about-us");
+    setMobileOpen(false);
+  };
 
   const handleFindTripsClick = () => {
     router.push("/find-travelers");
@@ -88,6 +92,12 @@ export const Navbar = () => {
             className="text-white bg-transparent hover:text-yellow-300 transition-colors font-medium text-sm"
           >
             Contact Us
+          </button>
+                    <button
+            onClick={handleAboutClick}
+            className="text-white bg-transparent hover:text-yellow-300 transition-colors font-medium text-sm"
+          >
+            About Us
           </button>
 
           {!isAuthenticated ? (
