@@ -62,21 +62,11 @@ const checkHasStoredAuth = (): boolean => {
   if (typeof window === "undefined") return false;
 
   const role = getUserRole();
-  const hasLocalStorageToken =
-    !!localStorage.getItem("access_token") ||
-    !!localStorage.getItem("token") ||
-    !!localStorage.getItem("user") ||
-    !!localStorage.getItem("role");
+  const hasLocalStorageToken = !!localStorage.getItem("accessToken");
 
-  const hasCookieToken = document.cookie.split(";").some((c) => {
-    const key = c.trim().split("=")[0];
-    return (
-      key === "access_token" ||
-      key === "token" ||
-      key === "jwt" ||
-      key === "session"
-    );
-  });
+  const hasCookieToken = document.cookie
+    .split(";")
+    .some((c) => c.trim().split("=")[0] === "accessToken");
 
   return !!role || hasLocalStorageToken || hasCookieToken;
 };
@@ -88,16 +78,15 @@ export const PublicNavbar = () => {
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [hasClientToken, setHasClientToken] = useState<boolean>(false);
+  const [hasClientToken, setHasClientToken] = useState<boolean>(() =>
+    checkHasStoredAuth()
+  );
   const { profile } = useProfile();
 
-  // Check stored auth state immediately on client mount and route changes
-  const updateAuth = useCallback(() => {
-    setHasClientToken(checkHasStoredAuth());
-  }, []);
-
   useEffect(() => {
-    updateAuth();
+    const updateAuth = () => {
+      setHasClientToken(checkHasStoredAuth());
+    };
 
     window.addEventListener("storage", updateAuth);
     window.addEventListener("focus", updateAuth);
@@ -106,7 +95,7 @@ export const PublicNavbar = () => {
       window.removeEventListener("storage", updateAuth);
       window.removeEventListener("focus", updateAuth);
     };
-  }, [pathname, updateAuth]);
+  }, [pathname]);
 
   // Derived authentication state: True if user profile exists OR stored token/role exists
   const isAuthenticated = useMemo(() => {

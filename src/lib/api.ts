@@ -1,17 +1,16 @@
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 /**
- * Retrieves authorization headers dynamically from localStorage or cookies.
+ * Retrieves authorization headers dynamically from the canonical accessToken storage.
  */
 export const getAuthHeaders = (): Record<string, string> => {
   let token: string | null = null;
 
   if (typeof window !== "undefined") {
-    token =
-      localStorage.getItem("accessToken") || localStorage.getItem("token");
+    token = localStorage.getItem("accessToken");
 
     if (!token) {
-      const match = document.cookie.match(/(?:^|; )token=([^;]*)/);
+      const match = document.cookie.match(/(?:^|; )accessToken=([^;]*)/);
       if (match) {
         token = decodeURIComponent(match[1]);
       }

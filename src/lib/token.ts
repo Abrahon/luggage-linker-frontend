@@ -7,18 +7,15 @@
 const cookieOptions = (options: Record<string, string | number | boolean> = {}) => {
   const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
 
-  // Default cookie directives
   const opts: Record<string, string | number | boolean> = {
     path: "/",
     SameSite: isHttps ? (options.sameSite as string) || "Lax" : "Lax",
     ...options,
   };
 
-  // Remove duplicate camelCase keys
   delete opts.maxAge;
   delete opts.sameSite;
 
-  // Modern browsers discard Secure cookies on HTTP (localhost)
   if (isHttps) {
     opts.Secure = true;
   } else {
@@ -56,20 +53,57 @@ const deleteCookie = (name: string) => {
   document.cookie = `${name}=; Max-Age=0; path=/; SameSite=Lax;`;
 };
 
+const LEGACY_TOKEN_KEYS = ["token", "access_token"];
+
+const clearLegacyTokenKeys = () => {
+  if (typeof window === "undefined") return;
+
+  LEGACY_TOKEN_KEYS.forEach((key) => {
+    localStorage.removeItem(key);
+    deleteCookie(key);
+  });
+};
+
 // ---------------------------------------------------------------------------
 // Access Token Helpers
 // ---------------------------------------------------------------------------
 export const getAccessToken = (): string | null => {
-  return getCookie("accessToken");
+  if (typeof window === "undefined") return null;
+
+  const storedToken = localStorage.getItem("accessToken");
+  if (storedToken) {
+    return storedToken;
+  }
+
+  const migratedToken =
+    localStorage.getItem("token") || localStorage.getItem("access_token");
+
+  if (migratedToken) {
+    localStorage.setItem("accessToken", migratedToken);
+    clearLegacyTokenKeys();
+    return migratedToken;
+  }
+
+  return getCookie("accessToken") || null;
 };
 
 export const setAccessToken = (token: string): void => {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("accessToken", token);
+    clearLegacyTokenKeys();
+  }
+
   setCookie("accessToken", token, {
-    "Max-Age": 60 * 60 * 24, // 1 Day (Fixed Max-Age)
+    "Max-Age": 60 * 60 * 24,
   });
 };
 
 export const removeAccessToken = (): void => {
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("accessToken");
+    clearLegacyTokenKeys();
+  }
+
   deleteCookie("accessToken");
 };
 
@@ -77,15 +111,27 @@ export const removeAccessToken = (): void => {
 // Refresh Token Helpers
 // ---------------------------------------------------------------------------
 export const getRefreshToken = (): string | null => {
-  return getCookie("refreshToken");
+  if (typeof window === "undefined") return null;
+
+  return localStorage.getItem("refreshToken") || getCookie("refreshToken") || null;
 };
 
 export const setRefreshToken = (token: string): void => {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("refreshToken", token);
+    localStorage.removeItem("refresh_token");
+  }
+
   setCookie("refreshToken", token, {
-    "Max-Age": 60 * 60 * 24 * 30, // 30 Days (Fixed Max-Age)
+    "Max-Age": 60 * 60 * 24 * 30,
   });
 };
 
 export const removeRefreshToken = (): void => {
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("refresh_token");
+  }
+
   deleteCookie("refreshToken");
 };

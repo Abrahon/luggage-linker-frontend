@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { getAccessToken } from "@/lib/token";
 
 export interface ReplyToMessage {
   id: string;
@@ -95,16 +96,34 @@ export const useChatWebSocket = ({
 
     let isMounted = true;
 
+    const closeSocket = (reason = "Cleanup") => {
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+        pingIntervalRef.current = null;
+      }
+
+      if (ws.current) {
+        ws.current.close(1000, reason);
+        ws.current = null;
+      }
+    };
+
     const connect = () => {
-      const token =
-        typeof window !== "undefined"
-          ? localStorage.getItem("accessToken") || localStorage.getItem("token")
-          : null;
+      const token = getAccessToken();
+
+      if (!token) {
+        closeSocket("No auth token");
+        return;
+      }
+
+      if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+        ws.current.close(1000, "Reconnecting with fresh auth token");
+      }
 
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const host = process.env.NEXT_PUBLIC_WS_HOST || "localhost:8000";
       const socketUrl = `${protocol}//${host}/ws/chat/room/${roomId}/?token=${encodeURIComponent(
-        token || ""
+        token
       )}`;
 
       const socket = new WebSocket(socketUrl);
@@ -353,12 +372,12 @@ export const useChatWebSocket = ({
 
     return () => {
       isMounted = false;
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      const typingTimeout = typingTimeoutRef.current;
+      if (typingTimeout) clearTimeout(typingTimeout);
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
-      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
-      if (ws.current) ws.current.close(1000, "Unmounted");
+      closeSocket("Unmounted");
     };
-  }, [roomId]);
+  }, [roomId, currentUserId]);
 
   // Actions
   const sendMessage = useCallback(

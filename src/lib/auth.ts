@@ -1,12 +1,8 @@
 // src/lib/auth.ts
 import { removeAccessToken, removeRefreshToken } from "@/lib/token";
 
-// Strict match with Django backend UserRole TextChoices
 export type UserRole = "ADMIN" | "SENDER" | "TRAVELER";
 
-/**
- * Normalizes input role strings from API or JWT to match backend UserRole choice enum
- */
 const normalizeUserRole = (role?: string | null): UserRole | null => {
   if (!role) return null;
   const normalized = role.toUpperCase();
@@ -18,7 +14,6 @@ const normalizeUserRole = (role?: string | null): UserRole | null => {
   return null;
 };
 
-// Store User Role
 export const setUserRole = (role: string) => {
   if (typeof window !== "undefined") {
     const normalizedRole = normalizeUserRole(role);
@@ -28,7 +23,6 @@ export const setUserRole = (role: string) => {
   }
 };
 
-// Get User Role
 export const getUserRole = (): UserRole | null => {
   if (typeof window !== "undefined") {
     const role = localStorage.getItem("userRole");
@@ -37,14 +31,12 @@ export const getUserRole = (): UserRole | null => {
   return null;
 };
 
-// Remove User Role
 export const removeUserRole = () => {
   if (typeof window !== "undefined") {
     localStorage.removeItem("userRole");
   }
 };
 
-// Store User ID (used by Chat & Profile views)
 export const setUserId = (userId: string) => {
   if (typeof window !== "undefined") {
     localStorage.setItem("userId", userId);
@@ -58,17 +50,28 @@ export const getUserId = (): string | null => {
   return null;
 };
 
-// Complete Auth Storage Cleanup
 export const clearAuthStorage = () => {
   if (typeof window !== "undefined") {
     removeUserRole();
+    localStorage.removeItem("user");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("token");
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("refresh_token");
+
+    document.cookie = "accessToken=; Max-Age=0; path=/; SameSite=Lax";
+    document.cookie = "token=; Max-Age=0; path=/; SameSite=Lax";
+    document.cookie = "access_token=; Max-Age=0; path=/; SameSite=Lax";
+    document.cookie = "refreshToken=; Max-Age=0; path=/; SameSite=Lax";
+    document.cookie = "refresh_token=; Max-Age=0; path=/; SameSite=Lax";
+
     removeAccessToken();
     removeRefreshToken();
-    localStorage.removeItem("userId");
   }
 };
 
-// User Logout Procedure
 export const logout = () => {
   if (typeof window !== "undefined") {
     clearAuthStorage();

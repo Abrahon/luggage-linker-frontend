@@ -1,7 +1,6 @@
 
 "use client";
 
-import { CloudCog } from "lucide-react";
 import {
   createContext,
   useContext,
@@ -9,6 +8,7 @@ import {
   useState,
   ReactNode,
 } from "react";
+import { getAccessToken, setAccessToken } from "@/lib/token";
 
 export interface User {
   id: string;
@@ -29,8 +29,18 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const TOKEN_KEY = "token";
+const TOKEN_KEY = "accessToken";
 const USER_KEY = "user";
+const LEGACY_AUTH_KEYS = ["token", "access_token"];
+
+const clearLegacyAuthKeys = () => {
+  if (typeof window === "undefined") return;
+
+  LEGACY_AUTH_KEYS.forEach((key) => {
+    localStorage.removeItem(key);
+    document.cookie = `${key}=; Max-Age=0; path=/; SameSite=Lax`;
+  });
+};
 
 export const AuthProvider = ({
   children,
@@ -41,30 +51,29 @@ export const AuthProvider = ({
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  /**
-   * Restore authentication when application starts.
-   */
   useEffect(() => {
     const restoreSession = () => {
       try {
-        const storedToken = localStorage.getItem(TOKEN_KEY);
+        const freshToken = getAccessToken();
         const storedUser = localStorage.getItem(USER_KEY);
 
-        if (!storedToken || !storedUser) {
+        if (!freshToken || !storedUser) {
           setUser(null);
           setToken(null);
+          clearLegacyAuthKeys();
           return;
         }
 
         const parsedUser: User = JSON.parse(storedUser);
 
-        setToken(storedToken);
+        setToken(freshToken);
         setUser(parsedUser);
       } catch (error) {
         console.error("Failed to restore authentication:", error);
 
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(USER_KEY);
+        clearLegacyAuthKeys();
 
         setToken(null);
         setUser(null);
@@ -76,36 +85,33 @@ export const AuthProvider = ({
     restoreSession();
   }, []);
 
-  /**
-   * Login
-   */
   const login = (newToken: string, userData: User) => {
+    clearLegacyAuthKeys();
+    localStorage.removeItem(TOKEN_KEY);
     localStorage.setItem(TOKEN_KEY, newToken);
     localStorage.setItem(USER_KEY, JSON.stringify(userData));
+    setAccessToken(newToken);
 
-    // Update React state immediately.
     setToken(newToken);
     setUser(userData);
   };
 
-  /**
-   * Logout
-   */
   const logout = () => {
+    clearLegacyAuthKeys();
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    document.cookie = "accessToken=; Max-Age=0; path=/; SameSite=Lax";
 
     setToken(null);
     setUser(null);
   };
 
-  /**
-   * Keep authentication state synchronized between browser tabs.
-   */
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === TOKEN_KEY || event.key === USER_KEY) {
-        const storedToken = localStorage.getItem(TOKEN_KEY);
+      if (!event.key) return;
+
+      if (event.key === TOKEN_KEY || event.key === USER_KEY || LEGACY_AUTH_KEYS.includes(event.key)) {
+        const storedToken = getAccessToken();
         const storedUser = localStorage.getItem(USER_KEY);
 
         if (!storedToken || !storedUser) {
@@ -153,9 +159,7 @@ export const useAuth = () => {
   const context = useContext(AuthContext);
 
   if (!context) {
-    throw new Error(
-      "useAuth must be used inside AuthProvider"
-    );
+    throw new Error("useAuth must be used inside AuthProvider");
   }
 
   return context;

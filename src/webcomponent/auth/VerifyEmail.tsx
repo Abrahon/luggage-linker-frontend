@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
 import { verifyEmail } from "@/lib/api";
@@ -11,7 +11,6 @@ import { useAuth } from "@/context/AuthContext";
 const OTP_LENGTH = 6;
 
 export const VerifyEmail = () => {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email") ?? "";
   const role = searchParams.get("role") ?? "";
@@ -95,32 +94,41 @@ export const VerifyEmail = () => {
     try {
       const response = (await verifyEmail(email, fullOtp)) as Record<
         string,
-        any
+        unknown
       >;
 
-      // Extract tokens safely across common API schemas
+      const getNestedValue = (key: string): unknown => {
+        const value = response[key];
+        if (value !== undefined) return value;
+
+        const data = response.data;
+        if (data && typeof data === "object") {
+          return (data as Record<string, unknown>)[key];
+        }
+
+        return undefined;
+      };
+
       const accessToken =
-        response?.access ||
-        response?.accessToken ||
-        response?.token ||
-        response?.data?.access ||
-        response?.data?.token;
+        (getNestedValue("access") as string | undefined) ||
+        (getNestedValue("accessToken") as string | undefined) ||
+        (getNestedValue("token") as string | undefined);
 
       const refreshToken =
-        response?.refresh || response?.refreshToken || response?.data?.refresh;
+        (getNestedValue("refresh") as string | undefined) ||
+        (getNestedValue("refreshToken") as string | undefined);
 
-      const userObj = response?.user || response?.data?.user || { email };
+      const userObj =
+        (response.user as Record<string, unknown> | undefined) ||
+        ((response.data as Record<string, unknown> | undefined)?.user as
+          | Record<string, unknown>
+          | undefined) ||
+        { email };
 
       if (accessToken) {
-        // 1. Sync tokens across storage and cookies (for Next.js Middleware)
         setAccessToken(accessToken);
         if (refreshToken) setRefreshToken(refreshToken);
 
-        localStorage.setItem("accessToken", accessToken);
-        localStorage.setItem("token", accessToken);
-        document.cookie = `token=${accessToken}; path=/; max-age=86400; SameSite=Lax`;
-
-        // 2. Hydrate global AuthContext state directly
         if (typeof authLogin === "function") {
           authLogin(accessToken, userObj);
         }
