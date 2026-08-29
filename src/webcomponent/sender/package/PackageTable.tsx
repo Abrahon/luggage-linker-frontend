@@ -73,8 +73,14 @@ export const PackageTable: React.FC<PackageTableProps> = ({
 
   return (
     <div className="w-full bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-visible">
-      <div className="overflow-x-auto min-h-[320px]">
-        <table className="w-full text-left border-collapse">
+      <div
+        className="overflow-x-scroll min-h-[320px] pb-2"
+        style={{
+          WebkitOverflowScrolling: "touch",
+          scrollbarColor: "#cbd5e1 transparent",
+        }}
+      >
+        <table className="w-full min-w-[900px] text-left border-collapse">
           <thead>
             <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 text-[11px] font-bold uppercase tracking-wider">
               <th className="py-3.5 px-4">Package</th>

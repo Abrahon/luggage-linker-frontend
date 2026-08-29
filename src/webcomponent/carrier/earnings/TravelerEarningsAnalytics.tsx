@@ -176,7 +176,7 @@ export default function TravelerEarningsAnalytics() {
   }
 
   return (
-    <div className="flex flex-col gap-8 py-12 md:px-8 px-4 w-full bg-gray-50/30">
+    <div className="flex w-full flex-col gap-4 sm:gap-6 lg:gap-8 bg-transparent">
       
       {/* 📊 Top Dashboard Header */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-gray-100 pb-6">

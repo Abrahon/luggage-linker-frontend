@@ -39,7 +39,7 @@ export const SenderActiveDelivaries = () => {
   }, [fetchActiveDeliveries]);
 
   return (
-    <div className="py-12 flex flex-col gap-6 md:px-6 px-4">
+    <div className="w-full min-h-screen bg-slate-50/50 py-6 sm:py-8 px-3 sm:px-6 lg:px-8 flex flex-col gap-6">
       <HeadingSection
         heading="Active Deliveries"
         subheading="See all active deliveries in a detailed overview"
@@ -73,8 +73,14 @@ export const SenderActiveDelivaries = () => {
 
       {/* Active Deliveries Table */}
       {!isLoading && !error && deliveries.length > 0 && (
-        <div className="w-full overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-          <table className="w-full text-left text-xs border-collapse">
+        <div
+          className="w-full overflow-x-scroll overflow-y-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm pb-2"
+          style={{
+            WebkitOverflowScrolling: "touch",
+            scrollbarColor: "#cbd5e1 transparent",
+          }}
+        >
+          <table className="w-full min-w-[820px] text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200/80 text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
                 <th className="py-3.5 px-4">Package Info</th>
@@ -90,34 +96,36 @@ export const SenderActiveDelivaries = () => {
               {deliveries.map((item) => (
                 <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
                   {/* Package & Tracking */}
-                  <td className="py-4 px-4 font-medium">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-sm font-bold text-slate-900">{item.package_title}</span>
-                      <span className="font-mono text-[10px] font-semibold text-slate-500">
+                  <td className="py-4 px-4 font-medium align-top">
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                      <span className="text-sm font-bold text-slate-900 truncate max-w-[180px]">
+                        {item.package_title}
+                      </span>
+                      <span className="font-mono text-[10px] font-semibold text-slate-500 truncate max-w-[170px]">
                         TRK: {item.tracking_number}
                       </span>
                     </div>
                   </td>
 
                   {/* Route */}
-                  <td className="py-4 px-4">
-                    <div className="flex items-center gap-1.5 text-slate-800 font-medium">
-                      <span>{item.route.from_city}</span>
-                      <ArrowRight className="w-3 h-3 text-slate-400" />
-                      <span>{item.route.to_city}</span>
+                  <td className="py-4 px-4 align-top">
+                    <div className="flex items-center gap-1.5 text-slate-800 font-medium min-w-0">
+                      <span className="truncate max-w-[100px]">{item.route.from_city}</span>
+                      <ArrowRight className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span className="truncate max-w-[100px]">{item.route.to_city}</span>
                     </div>
-                    <span className="text-[10px] text-slate-400 font-normal">
+                    <span className="block text-[10px] text-slate-400 font-normal truncate max-w-[220px]">
                       {item.route.from_country} → {item.route.to_country}
                     </span>
                   </td>
 
                   {/* Weight & Reward */}
-                  <td className="py-4 px-4">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-semibold text-slate-900">
+                  <td className="py-4 px-4 align-top">
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                      <span className="font-semibold text-slate-900 truncate max-w-[120px]">
                         {item.agreed_reward} {item.currency}
                       </span>
-                      <span className="text-slate-500 text-[11px]">
+                      <span className="text-slate-500 text-[11px] truncate max-w-[90px]">
                         {item.agreed_weight_kg} kg
                       </span>
                     </div>
@@ -138,7 +146,7 @@ export const SenderActiveDelivaries = () => {
                   </td>
 
                   {/* Date */}
-                  <td className="py-4 px-4 text-slate-500 whitespace-nowrap">
+                  <td className="py-4 px-4 text-slate-500 whitespace-nowrap align-top">
                     {new Date(item.created_at).toLocaleDateString()}
                   </td>
 

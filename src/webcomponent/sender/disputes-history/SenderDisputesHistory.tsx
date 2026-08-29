@@ -142,7 +142,7 @@ export default function SenderDisputesPage() {
   }, [disputes, activeTab, searchQuery]);
 
   return (
-    <div className="w-full min-h-screen bg-slate-50/50 text-slate-900 p-4 sm:p-6 lg:p-8 space-y-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+    <div className="w-full min-h-screen bg-slate-50/50 text-slate-900 px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8 space-y-4 sm:space-y-6 min-w-0">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
         <div>
@@ -210,8 +210,8 @@ export default function SenderDisputesPage() {
             <p className="text-xs text-slate-400 mt-1">There are no claims matching your filter.</p>
           </div>
         ) : (
-          <div className="w-full overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-            <table className="w-full text-left text-xs sm:text-sm">
+          <div className="w-full overflow-x-auto overflow-y-hidden [scrollbar-width:thin] [-ms-overflow-style:scrollbar] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300">
+            <table className="w-full min-w-[900px] text-left text-xs sm:text-sm">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   <th className="px-5 py-3.5">Tracking No.</th>

@@ -1179,7 +1179,7 @@ export default function DeliveryHistoryPage() {
   // ====================================================================
 
   return (
-    <div className="w-full min-h-screen bg-slate-50/50 text-slate-900 p-4 sm:p-6 lg:p-8 space-y-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+    <div className="w-full min-h-screen bg-slate-50/50 text-slate-900 p-4 sm:p-6 lg:p-8 space-y-6 min-w-0">
 
       {/* ================================================================
           HEADER
@@ -1354,7 +1354,7 @@ export default function DeliveryHistoryPage() {
           TABLE
       ================================================================ */}
 
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden min-w-0">
 
         {loading ? (
           <div className="py-20 text-center">
@@ -1389,9 +1389,14 @@ export default function DeliveryHistoryPage() {
             </p>
           </div>
         ) : (
-          <div className="w-full overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-
-            <table className="w-full text-left text-xs sm:text-sm">
+          <div
+            className="w-full overflow-x-auto overflow-y-hidden pb-2 min-w-0"
+            style={{
+              WebkitOverflowScrolling: "touch",
+              scrollbarColor: "#cbd5e1 transparent",
+            }}
+          >
+            <table className="w-full min-w-[1200px] lg:min-w-[1300px] text-left text-xs sm:text-sm">
 
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">

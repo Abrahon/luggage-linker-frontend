@@ -164,7 +164,7 @@ export const CarrierDashboard = () => {
   const maxAmount = Math.max(...numericEarnings, 1);
 
   return (
-    <div className="flex flex-col gap-6 py-6 text-slate-900">
+    <div className="flex flex-col gap-4 px-3 py-4 text-slate-900 sm:gap-6 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
       <Breadcrumb
         title="Traveler Dashboard"
         subtitle="Your Lifetime earnings from deliveries"

@@ -516,7 +516,7 @@ export default function MyPackagesPage() {
 
   return (
     <div className="w-full min-h-screen bg-slate-50/50 py-4 sm:py-8 px-3 sm:px-6 lg:px-8 antialiased text-slate-800">
-      <div className="w-full space-y-6 px-4 sm:px-6 lg:px-1">
+      <div className="w-full space-y-6">
         {/* Header Section */}
         <div className="w-full flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-5 border-b border-slate-200">
           <div>

@@ -20,11 +20,11 @@ export default function DashboardLayout({
         onClose={() => setSidebarOpen(false)} 
       />
 
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex flex-col flex-1 overflow-hidden min-w-0">
         {/* NavBar receives the toggle handler */}
         <NavBar onToggleSidebar={()=> setSidebarOpen(!sidebarOpen)} />
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <main className="flex-1 overflow-x-auto overflow-y-auto p-4 sm:p-6 min-w-0">
           {children}
         </main>
       </div>

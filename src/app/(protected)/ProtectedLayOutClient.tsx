@@ -20,11 +20,11 @@ export default function ProtectedLayoutClient({ children }: { children: ReactNod
       ) : (
         <SideBaar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       )}
-      <div className="flex flex-col flex-1 h-screen">
+      <div className="flex flex-col flex-1 h-screen min-w-0">
         <header className="shrink-0">
           <NavBar onToggleSidebar={() => setSidebarOpen((open) => !open)} />
         </header>
-        <main className="flex-1 overflow-auto bg-gray-50 max-md:px-4 font-montserrat">
+        <main className="flex-1 overflow-x-auto overflow-y-auto bg-gray-50 max-md:px-4 font-montserrat min-w-0">
           {children}
         </main>
       </div>

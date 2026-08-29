@@ -14,7 +14,14 @@ export const TravelerDisputesDashboard = () => {
     setLoading(true);
     try {
       const res = await getMyDisputes();
-      const fetchedDisputes = res.results || [];
+      
+      // Check if response is an array or a paginated object containing `results`
+      const fetchedDisputes: DisputeItem[] = Array.isArray(res)
+        ? res
+        : "results" in res && Array.isArray(res.results)
+        ? res.results
+        : [];
+
       setDisputes(fetchedDisputes);
 
       if (selectedDispute) {
@@ -33,7 +40,7 @@ export const TravelerDisputesDashboard = () => {
   }, []);
 
   return (
-    <div className="w-full min-h-screen bg-gray-50 p-6 space-y-6">
+    <div className="w-full min-h-screen bg-gray-50 px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8 space-y-4 sm:space-y-6">
       {/* Title Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -54,8 +61,8 @@ export const TravelerDisputesDashboard = () => {
             Loading claims...
           </div>
         ) : (
-          <div className="overflow-x-auto w-full">
-            <table className="w-full text-left text-xs">
+          <div className="overflow-x-auto w-full [scrollbar-width:thin] [-ms-overflow-style:scrollbar] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300">
+            <table className="w-full min-w-[900px] text-left text-xs">
               <thead className="bg-gray-50 border-b border-gray-200 font-semibold text-gray-500 uppercase tracking-wider">
                 <tr>
                   <th className="py-3 px-4">Dispute ID</th>

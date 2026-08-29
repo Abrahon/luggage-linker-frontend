@@ -121,7 +121,7 @@ export const WithdrawalHistory = () => {
   };
 
   return (
-    <div className="w-full space-y-8 mt-6">
+    <div className="w-full space-y-4 px-3 py-4 sm:space-y-6 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
       {/* Stats Cards Section */}
       <div className="space-y-4">
         {/* Section Heading */}
@@ -262,8 +262,8 @@ export const WithdrawalHistory = () => {
           </div>
         ) : (
           /* Requests Table */
-          <div className="overflow-x-auto w-full">
-            <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto w-full [scrollbar-width:thin] [-ms-overflow-style:scrollbar] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300">
+            <table className="w-full min-w-[760px] text-left border-collapse">
               <thead>
                 <tr className="border-b border-gray-100 text-xs font-semibold text-gray-400 uppercase tracking-wider">
                   <th className="py-3 px-4">Amount</th>
