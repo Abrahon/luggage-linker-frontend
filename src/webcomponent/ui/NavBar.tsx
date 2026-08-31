@@ -10,7 +10,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import {
   Bell,
   User,
@@ -28,6 +27,7 @@ import {
   MessageSquare,
   Info,
   Menu,
+  X,
 } from "lucide-react";
 import { getUserRole, logout } from "@/lib/auth";
 import {
@@ -38,6 +38,7 @@ import {
 } from "@/api/notifications.api";
 import { useProfile } from "@/hooks/useProfile";
 import { stringToColor } from "@/lib/stringToColor";
+import { cn } from "@/lib/utils";
 
 /* ==========================================================================
    Helper Functions & Interfaces
@@ -96,6 +97,21 @@ export const PublicNavbar = () => {
       window.removeEventListener("focus", updateAuth);
     };
   }, [pathname]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const previousOverscrollBehavior = document.body.style.overscrollBehavior;
+
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.overscrollBehavior = previousOverscrollBehavior;
+    };
+  }, [open]);
 
   // Derived authentication state: True if user profile exists OR stored token/role exists
   const isAuthenticated = useMemo(() => {
@@ -212,14 +228,38 @@ export const PublicNavbar = () => {
 
         {/* Mobile Menu */}
         <div className="md:hidden">
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <button className="text-black">
-                <Menu className="w-6 h-6 text-white" />
-              </button>
-            </DialogTrigger>
-            <DialogContent className="bg-black/90 text-white border border-white/20 max-w-[90%] rounded-2xl p-6">
-              <div className="flex justify-between items-center mb-4">
+          <button
+            type="button"
+            className="text-black"
+            onClick={() => setOpen(true)}
+            aria-label="Open menu"
+          >
+            <Menu className="w-6 h-6 text-white" />
+          </button>
+
+          <div
+            className={cn(
+              "fixed inset-0 z-[60] transition-opacity duration-300 ease-in-out",
+              open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+            )}
+            aria-hidden={!open}
+          >
+            <div
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px]"
+              onClick={() => setOpen(false)}
+            />
+
+            <aside
+              className="absolute left-0 top-0 h-full w-[82%] max-w-[340px] bg-slate-950/95 text-white border-r border-white/10 shadow-2xl"
+              style={{
+                transform: open ? "translateX(0)" : "translateX(-102%)",
+                transition: "transform 300ms ease-in-out",
+              }}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Navigation menu"
+            >
+              <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
                 <Image
                   src="/logo.svg"
                   alt="Logo"
@@ -227,100 +267,122 @@ export const PublicNavbar = () => {
                   height={40}
                   className="w-auto h-10"
                 />
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="p-2 rounded-full hover:bg-white/5 transition-colors"
+                  aria-label="Close menu"
+                >
+                  <X className="w-5 h-5 text-white" />
+                </button>
               </div>
 
-              {isAuthenticated && (
-                <Link
-                  href="/profile"
-                  onClick={() => setOpen(false)}
-                  className="flex items-center gap-3 text-white hover:text-yellow-300 transition-colors py-2 mb-2 border-b border-white/10"
-                >
-                  <div className="relative overflow-hidden w-10 h-10 rounded-full flex items-center justify-center border border-white/30 shrink-0">
-                    {resolvedPictureUrl ? (
-                      <Image
-                        src={resolvedPictureUrl}
-                        alt={`${displayName}'s profile`}
-                        fill
-                        className="object-cover rounded-full"
-                        unoptimized
-                      />
-                    ) : profile?.first_name ? (
-                      <div
-                        className="w-full h-full flex items-center justify-center text-white text-sm font-semibold rounded-full"
-                        style={{
-                          backgroundColor: stringToColor(profile.first_name),
-                        }}
-                      >
-                        {profile.first_name[0].toUpperCase()}
-                      </div>
-                    ) : (
-                      <User className="w-5 h-5 text-white" />
-                    )}
-                  </div>
-                  <span className="font-medium text-base truncate">
-                    {displayName || "Profile"}
-                  </span>
-                </Link>
-              )}
-
-              <div className="flex flex-col gap-4 text-lg">
-                <button
-                  onClick={handleContactClick}
-                  className="text-white hover:text-yellow-300 transition-colors text-left font-medium"
-                >
-                  Contact Us
-                </button>
-                  <button
-                  onClick={handleAboutClick}
-                  className="text-white hover:text-yellow-300 transition-colors text-left font-medium"
-                >
-                  About
-                </button>
-
+              <div className="p-5">
                 {isAuthenticated && (
+                  <Link
+                    href="/profile"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center gap-3 text-white hover:text-yellow-300 transition-colors py-2 mb-3 border-b border-white/10"
+                  >
+                    <div className="relative overflow-hidden w-10 h-10 rounded-full flex items-center justify-center border border-white/30 shrink-0">
+                      {resolvedPictureUrl ? (
+                        <Image
+                          src={resolvedPictureUrl}
+                          alt={`${displayName}'s profile`}
+                          fill
+                          className="object-cover rounded-full"
+                          unoptimized
+                        />
+                      ) : profile?.first_name ? (
+                        <div
+                          className="w-full h-full flex items-center justify-center text-white text-sm font-semibold rounded-full"
+                          style={{
+                            backgroundColor: stringToColor(profile.first_name),
+                          }}
+                        >
+                          {profile.first_name[0].toUpperCase()}
+                        </div>
+                      ) : (
+                        <User className="w-5 h-5 text-white" />
+                      )}
+                    </div>
+                    <span className="font-medium text-base truncate">
+                      {displayName || "Profile"}
+                    </span>
+                  </Link>
+                )}
+
+                <div className="flex flex-col gap-4 text-lg pt-2">
                   <button
-                    onClick={handleTripsClick}
+                    onClick={() => {
+                      handleContactClick();
+                      setOpen(false);
+                    }}
                     className="text-white hover:text-yellow-300 transition-colors text-left font-medium"
                   >
-                    Trips
+                    Contact Us
                   </button>
-                )}
-
-                {!isAuthenticated ? (
-                  <>
-                    <Button
-                      variant="outline_white"
-                      className="w-full"
-                      onClick={() => {
-                        router.push("/login");
-                        setOpen(false);
-                      }}
-                    >
-                      Login
-                    </Button>
-
-                    <Button
-                      className="w-full"
-                      onClick={() => {
-                        router.push("/choose-user");
-                        setOpen(false);
-                      }}
-                    >
-                      Signup
-                    </Button>
-                  </>
-                ) : (
-                  <Button
-                    variant="destructive"
-                    className="w-full"
-                    onClick={handleLogout}
+                  <button
+                    onClick={() => {
+                      handleAboutClick();
+                      setOpen(false);
+                    }}
+                    className="text-white hover:text-yellow-300 transition-colors text-left font-medium"
                   >
-                    Logout
-                  </Button>
-                )}
+                    About
+                  </button>
+
+                  {isAuthenticated && (
+                    <button
+                      onClick={() => {
+                        handleTripsClick();
+                        setOpen(false);
+                      }}
+                      className="text-white hover:text-yellow-300 transition-colors text-left font-medium"
+                    >
+                      Trips
+                    </button>
+                  )}
+
+                  {!isAuthenticated ? (
+                    <>
+                      <Button
+                        variant="outline_white"
+                        className="w-full"
+                        onClick={() => {
+                          router.push("/login");
+                          setOpen(false);
+                        }}
+                      >
+                        Login
+                      </Button>
+
+                      <Button
+                        className="w-full"
+                        onClick={() => {
+                          router.push("/choose-user");
+                          setOpen(false);
+                        }}
+                      >
+                        Signup
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      variant="destructive"
+                      className="w-full"
+                      onClick={() => {
+                        handleLogout();
+                        setOpen(false);
+                      }}
+                    >
+                      Logout
+                    </Button>
+                  )}
+                </div>
               </div>
-            </DialogContent>
-          </Dialog>
+            </aside>
+          </div>
         </div>
       </div>
     </nav>

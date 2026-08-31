@@ -295,12 +295,11 @@ export default function TravelerEarningsAnalytics() {
 
       {/* 📈 2. VISUAL REFINED LIGHT-CANVAS THIN LINE CHART AREA */}
       <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-6 relative">
-        <div className="flex justify-between items-start">
-          <div>
-            <h3 className="font-bold text-gray-900 text-xs uppercase tracking-wider text-slate-400">Yield Progress Curve</h3>
+        <div className="flex flex-col sm:flex-row justify-between items-start w-full">
+          <div className="w-full">
+            <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400">Yield Progress Curve</h3>
             <p className="text-xs text-gray-400 mt-0.5">Continuous graphical analysis based on real monthly performance.</p>
           </div>
-
           {/* Dynamic HUD Tooltip Panel */}
           <div className={cn(
             "p-3 rounded-xl border bg-slate-950 border-slate-900 text-white flex flex-col gap-0.5 min-w-[180px] shadow-lg transition-all duration-200",

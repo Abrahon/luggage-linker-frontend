@@ -423,79 +423,49 @@ interface AcceptDeliveryDialogProps {
               </div>
             </div>
           </div>
-
-          <DialogFooter className="mt-6 gap-2 flex justify-end">
-            {/* Dynamic Actions based on Delivery Status */}
-            {isConfirmedStatus && (
-              <div className="flex w-full sm:w-auto items-center justify-end gap-3">
-                <Button
-                  variant="destructive"
-                  className="w-full sm:w-auto font-medium"
-                  onClick={() => {
-                    setModalError(null);
-                    setShowRejectModal(true);
-                  }}
-                >
-                  <XCircle className="w-4 h-4 mr-1.5" /> Cancel / Reject
-                </Button>
-
-                <Button
-                  className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
-                  onClick={() => {
-                    setModalError(null);
-                    setShowPickupPinModal(true);
-                  }}
-                >
-                  <CheckCircle2 className="w-4 h-4 mr-1.5" /> Accept & Verify
-                </Button>
-              </div>
-            )}
-
-            {isPickedUpStatus && (
+        <DialogFooter className="mt-6">
+          {isConfirmedStatus && (
+            <div className="flex w-full flex-row gap-2.5 sm:justify-end">
+              {/* Reject */}
               <Button
-                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold"
-                disabled={isSubmitting}
-                onClick={handleStartTransit}
-              >
-                {isSubmitting ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                ) : (
-                  <Truck className="w-4 h-4 mr-2" />
-                )}
-                Start Transit
-              </Button>
-            )}
-
-            {isInTransitStatus && (
-              <Button
-                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                variant="outline"
+                className="
+                  h-11 flex-1
+                  border-red-200 text-red-600
+                  hover:bg-red-50 hover:text-red-700
+                  font-medium
+                  sm:w-auto sm:flex-none
+                "
                 onClick={() => {
                   setModalError(null);
-                  setShowDeliveryPinModal(true);
+                  setShowRejectModal(true);
                 }}
               >
-                <ShieldCheck className="w-4 h-4 mr-2" /> Complete Delivery
+                <XCircle className="mr-1.5 h-4 w-4" />
+                Reject
               </Button>
-            )}
 
-            {!isConfirmedStatus && !isPickedUpStatus && !isInTransitStatus && (
-              <>
-                <Button variant="outline" onClick={() => setOpen(false)}>
-                  Close
-                </Button>
-
-                {canSimpleCancel && (
-                  <Button
-                    variant="destructive"
-                    onClick={handleSimpleCancel}
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? "Cancelling..." : "Cancel Booking"}
-                  </Button>
-                )}
-              </>
-            )}
-          </DialogFooter>
+              {/* Accept & Verify */}
+              <Button
+                className="
+                  h-11 flex-[1.4]
+                  bg-emerald-600 text-white
+                  hover:bg-emerald-700
+                  font-semibold
+                  shadow-sm
+                  sm:w-auto sm:flex-none
+                "
+                onClick={() => {
+                  setModalError(null);
+                  setShowPickupPinModal(true);
+                }}
+              >
+                <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                Accept & Verify
+              </Button>
+            </div>
+          )}
+        </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -561,15 +531,16 @@ interface AcceptDeliveryDialogProps {
             </p>
           </div>
 
-          <DialogFooter className="gap-2 flex justify-end">
+          <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
             <Button
               variant="outline"
+              className="w-full sm:w-auto"
               onClick={() => setShowPickupPinModal(false)}
             >
               Cancel
             </Button>
             <Button
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+              className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
               disabled={isSubmitting}
               onClick={handleConfirmPickup}
             >
@@ -644,15 +615,16 @@ interface AcceptDeliveryDialogProps {
             </p>
           </div>
 
-          <DialogFooter className="gap-2 flex justify-end">
+          <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
             <Button
               variant="outline"
+              className="w-full sm:w-auto"
               onClick={() => setShowDeliveryPinModal(false)}
             >
               Cancel
             </Button>
             <Button
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+              className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
               disabled={isSubmitting}
               onClick={handleConfirmDelivery}
             >
@@ -698,12 +670,17 @@ interface AcceptDeliveryDialogProps {
             />
           </div>
 
-          <DialogFooter className="gap-2 flex justify-end">
-            <Button variant="outline" onClick={() => setShowRejectModal(false)}>
+          <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => setShowRejectModal(false)}
+            >
               Back
             </Button>
             <Button
               variant="destructive"
+              className="w-full sm:w-auto"
               disabled={isSubmitting}
               onClick={handleConfirmReject}
             >
